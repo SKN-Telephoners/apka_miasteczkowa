@@ -1,5 +1,6 @@
 from flask import Flask
 from datetime import datetime
+
 import re
 
 regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b'
@@ -8,10 +9,10 @@ app = Flask(__name__)
 
 class User:
     def __init__(self, username, email, password, major, semester, degree, university, birth_year, picture=None, description=None):
-        self.username = username
-        self.email = email
-        self.password = password
-        self.major = major  
+        self.username = username #dodać sprawdzanie z bazą danych czy jest unikalny
+        self.email = email #dodać sprawdzanie poprawności (więcej struktury do obsługi wyjątku)
+        self.password = password #dodać sprawdzanie czy ma np. odpowiednią długość
+        self.major = major
         self.semester = semester 
         self.degree = degree 
         self.university = university  
@@ -21,7 +22,7 @@ class User:
 
 
     def change_email(self, new_email):
-        if(re.fullmatch(regex, new_email)):
+        if(re.fullmatch(regex, new_email)): 
             self.email=new_email
             return "Changed successfully"
         else:
