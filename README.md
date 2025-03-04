@@ -1,1 +1,0 @@
-# apka_miasteczkowa
