@@ -1,4 +1,4 @@
-from main import db, bcrypt
+from extension import db, bcrypt
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from datetime import datetime
@@ -10,7 +10,7 @@ class User(db.Model):
     username = db.Column(db.String(32), nullable=False, unique=True)
     password_hash = db.Column(db.String(128), nullable=False)
     email = db.Column(db.String(128), nullable=False, unique=True)
-    created_at = db.Column(db.DateTime, default=datetime.now(datetime.timezone.utc), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     
     def __init__(self, username, password, email):
         self.username = username
