@@ -1,7 +1,8 @@
-from extension import db, bcrypt
+from backend.extensions import db, bcrypt
+from sqlalchemy import CheckConstraint
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 class User(db.Model):
     __tablename__ = "app_user"
@@ -10,7 +11,11 @@ class User(db.Model):
     username = db.Column(db.String(32), nullable=False, unique=True)
     password_hash = db.Column(db.String(128), nullable=False)
     email = db.Column(db.String(128), nullable=False, unique=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+    
+    __table_args__ = (
+        CheckConstraint("email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'", name="email_format"),
+    )
     
     def __init__(self, username, password, email):
         self.username = username
