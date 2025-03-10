@@ -3,7 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 
 DB_URI = "postgresql://postgres:postgres@localhost/apka_miasteczkowa?sslmode=require"
-
+print("działa main")
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = DB_URI
 

@@ -3,6 +3,8 @@ from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from datetime import datetime
 
+print("działa models")
+
 class User(db.Model):
     __tablename__ = "app_user"
     

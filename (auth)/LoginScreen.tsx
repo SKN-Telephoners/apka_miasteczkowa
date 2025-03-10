@@ -8,19 +8,70 @@ import {
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import axios from 'axios';// dodana biblioteka
+
+const DEFAULT_URL = "http://192.168.0.101:5000";  //do łączenia trzeba zmieniać za każdym razem
+
 
 const LoginScreen = ({ navigation }: { navigation: any }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [secureText, setSecureText] = useState(true);
+  const [apiUrl, setApiUrl] = useState(DEFAULT_URL);//zmienna url
+  const [message, setMessage] = useState("");//zmienna pobranej wiadmości
 
-  const handleLogin = () => {
+  const fetchApiUrl = async () => { //wsysyła żądanie do serwera by potwierdzić połączenie
+    try {
+      const res = await axios.get(`${DEFAULT_URL}/get-url`);
+      setApiUrl(res.data.url);
+      console.log("Połączono z backendem:" ,res.data.url);
+    } catch (error) {
+      console.error("Nie udało się pobrać URL API", error);
+    }
+  };
+  fetchApiUrl();//wywołanie funkcji
+
+  const fetchData = async () => {//pobieranie wiadmości z serwera i wypisywanie na ekran
+    try {
+      const response = await axios.get(`${DEFAULT_URL}/message`);
+      setMessage(response.data.message);
+    } catch (error) {
+      setMessage("Błąd pobierania danych");
+    }
+  };
+
+  const sendData = async()=>{ //przykładowe wysyłanie danych
+    try{
+
+      const requestBody = {
+        name: username,
+        password: password
+    };
+
+      const responde = await fetch(
+        `${DEFAULT_URL}/send_data`,
+        {method: "POST",
+          headers:{"Content-Type": "application/json"},
+          body:JSON.stringify({name:username,password:password})
+        });
+        const data = await responde.json();
+        console.log("Response:", data);
+    }
+    catch (error) {
+      console.error("Error sending data:", error);
+  }
+  };
+
+  const handleLogin = () => { //funkcja przycisku
     if (!username || !password) {
       Alert.alert("Błąd", "Uzupełnij proszę wszystkie pola");
       return;
     }
     console.log("Logowanie:", username, password);
     // miejsce na logike
+    fetchData(); //wywołanie funkcji
+    sendData(); //wywołanie funkcji
+    
   };
 
   return (
@@ -74,6 +125,9 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
         onPress={() => navigation.navigate("Register")}
       >
         <Text style={styles.buttonText}>Załóż konto</Text>
+
+      <Text style={{ marginTop: 20, fontSize: 18 }}>{message}</Text>/*miejsce testowe */
+
       </TouchableOpacity>
     </View>
   );
