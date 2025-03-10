@@ -34,3 +34,6 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+apka_miasteczkowa/
+backend/__pycache__/

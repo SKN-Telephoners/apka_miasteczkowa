@@ -1,5 +1,7 @@
-from main import app
+from flask import Blueprint
 
-@app.route('/')
+main = Blueprint("main", __name__)
+
+@main.route('/')
 def home():
     return 'Hello World!'
