@@ -35,5 +35,8 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# ignore local venv called "apka_miasteczkowa"
+# change this to the name of your venv
 apka_miasteczkowa/
+
 backend/__pycache__/
