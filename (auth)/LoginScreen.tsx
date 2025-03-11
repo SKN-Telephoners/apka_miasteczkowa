@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,11 +8,61 @@ import {
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import axios from "axios";
+
+const BACKEND_URL = "http://10.0.2.2:5000";
 
 const LoginScreen = ({ navigation }: { navigation: any }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [secureText, setSecureText] = useState(true);
+  const [apiUrl, setApiUrl] = useState(BACKEND_URL);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    const fetchApiUrl = async () => {
+      try {
+        const res = await axios.get(`${BACKEND_URL}/get-url`);
+        setApiUrl(res.data.url);
+        console.log("Połączono z backendem:", res.data.url);
+      } catch (error) {
+        console.error("Nie udało się pobrać URL API", error);
+      }
+    };
+
+    fetchApiUrl();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/message`);
+      setMessage(response.data.message);
+    } catch (error) {
+      setMessage("Błąd pobierania danych");
+    }
+  };
+
+  const sendData = async()=>{
+    try {
+
+      const requestBody = {
+        name: username,
+        password: password
+    };
+
+      const responde = await fetch(
+        `${BACKEND_URL}/send_data`,
+        {method: "POST",
+          headers:{"Content-Type": "application/json"},
+          body:JSON.stringify({name:username,password:password})
+        });
+        const data = await responde.json();
+        console.log("Response:", data);
+    }
+    catch (error) {
+      console.error("Error sending data:", error);
+    }
+  };
 
   const handleLogin = () => {
     if (!username || !password) {
