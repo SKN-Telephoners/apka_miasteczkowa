@@ -19,6 +19,39 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
   const [apiUrl, setApiUrl] = useState(BACKEND_URL);
   const [message, setMessage] = useState("");
 
+  const handleLogin = () => {
+    if (!username || !password) {
+      Alert.alert("Błąd", "Uzupełnij proszę wszystkie pola");
+      return;
+    }
+    console.log("Logowanie:", username, password);
+    //wywołanie funkcji login po sprawdzeniu pól
+    logIn(username, password);
+  };
+
+//funkcja login 
+async function logIn(username: string, password: string): Promise<void> {
+  try {
+    const response = await axios.post('http://10.0.2.2:5000/api/login', {
+      username: username,
+      password: password,
+    });
+
+    if (response.status === 200) {
+      console.log("Logowanie powiodło się!");
+      navigation.navigate('Home');
+    } else {
+      console.log("Logowanie nie powiodło się. Kod:", response.status);
+    }
+  } catch (error: any) {
+    if (error.response) {
+      console.log("Logowanie nie powiodło się. Kod:", error.response.status);
+    } else {
+      console.error("Błąd:", error.message);
+    }
+  }
+}
+
   useEffect(() => {
     const fetchApiUrl = async () => {
       try {
@@ -64,23 +97,10 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
     }
   };
 
-  const handleLogin = () => {
-    if (!username || !password) {
-      Alert.alert("Błąd", "Uzupełnij proszę wszystkie pola");
-      return;
-    }
-    console.log("Logowanie:", username, password);
-    // miejsce na logike
-  };
-
   return (
     <View style={styles.container}>
       <View style={styles.titleContainer}>
         <Text style={styles.title}>Aplikacja Miasteczkowa</Text>
-      </View>
-
-      <View style={styles.wifi}>
-        <Ionicons name="wifi-outline" size={65} color="#ff914d" />
       </View>
 
       <View style={styles.inputContainer}>
