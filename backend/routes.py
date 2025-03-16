@@ -1,8 +1,33 @@
 from flask import Blueprint, request, jsonify
+from backend.models import User
+from backend.extensions import db
 
 main = Blueprint("main", __name__)
+auth = Blueprint("auth", __name__)
 
 public_url = "example address"
+
+@auth.route("/api/login", methods=["POST"])
+def login_user():
+    user_data = request.get_json()
+    required_keys = {"username", "password"}
+    
+    if not user_data or not required_keys.issubset(user_data.keys()):
+        return jsonify({"message": "Bad request"}), 400
+    
+    username = user_data["username"]
+    password = user_data["password"]
+    
+    user = db.session.query(User).filter_by(username=username).first()
+    if not user or not user.validate_password(password):
+        return jsonify({"message": "Invalid username or password"}), 401
+    
+    return {
+        "message": "Login successful",
+        "user": {
+            "username": user.username
+        }
+    }, 200
 
 @main.route("/get-url", methods=["GET"])
 def get_url():
