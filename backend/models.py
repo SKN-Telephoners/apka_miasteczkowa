@@ -22,6 +22,9 @@ class User(db.Model):
         self.email = email # TODO! Add function that checks email using regex
         pass_hash = bcrypt.generate_password_hash(password)
         self.password_hash = pass_hash
+        
+    def validate_password(self, password):
+        return bcrypt.check_password_hash(self.password_hash, password)
 
     def __repr__(self):
         return f"User {self.username}"
