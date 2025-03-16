@@ -40,3 +40,4 @@ yarn-error.*
 apka_miasteczkowa/
 
 backend/__pycache__/
+tests/__pycache__/
