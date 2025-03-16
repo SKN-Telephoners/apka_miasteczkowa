@@ -13,7 +13,7 @@ def login_user():
     required_keys = {"username", "password"}
     
     if not user_data or not required_keys.issubset(user_data.keys()):
-        return jsonify({"message": "Bad request"}), 401
+        return jsonify({"message": "Bad request"}), 400
     
     username = user_data["username"]
     password = user_data["password"]
