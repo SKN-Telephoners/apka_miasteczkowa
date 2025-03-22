@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from backend.models import User
-from backend.extensions import db
+from backend.extensions import db, jwt
 
 main = Blueprint("main", __name__)
 auth = Blueprint("auth", __name__)
@@ -15,6 +15,7 @@ def login_user():
     if not user_data or not required_keys.issubset(user_data.keys()):
         return jsonify({"message": "Bad request"}), 400
     
+
     username = user_data["username"]
     password = user_data["password"]
     
@@ -22,12 +23,32 @@ def login_user():
     if not user or not user.validate_password(password):
         return jsonify({"message": "Invalid username or password"}), 401
     
+    access_token = jwt.create_access_token(identity=user.user_id)
+
     return {
         "message": "Login successful",
         "user": {
             "username": user.username
-        }
+        },
+        "access_token": access_token
     }, 200
+
+@main.route('/user', methods=['GET'])
+@jwt.jwt_required()
+def get_user_data():
+
+    current_user_id = jwt.get_jwt_identity()
+
+    user = db.get(current_user_id)
+    if user:
+        return jsonify({
+            "user": {
+                "username": user.username,
+                "email": user.email
+            }
+        }), 200
+    else:
+        return jsonify({"message": "User not found"}), 404
 
 @main.route("/get-url", methods=["GET"])
 def get_url():
