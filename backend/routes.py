@@ -1,11 +1,41 @@
 from flask import Blueprint, request, jsonify
 from backend.models import User
 from backend.extensions import db
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+from backend.config import Config
+
+
 
 main = Blueprint("main", __name__)
 auth = Blueprint("auth", __name__)
 
 public_url = "example address"
+
+@auth.route("/api/register",methods=["POST"])
+def register_user():
+    
+    db = SQLAlchemy()
+
+    app = Flask(__name__)
+    app.config.from_object(Config)  # Załadowanie konfiguracji
+    db.init_app(app)
+    
+    user_register_data = request.get_json()
+    print(user_register_data)
+    username = user_register_data["username"]
+    password = user_register_data["password"]
+    email = user_register_data["email"]
+    
+    with app.app_context():
+        new_user = User(username=username, password=password, email=email)
+        db.session.add(new_user)
+        db.session.commit()
+        print("Dodano użytkownika do bazy!")
+    
+    return {
+        "message": "register successful",
+    }, 200
 
 @auth.route("/api/login", methods=["POST"])
 def login_user():
