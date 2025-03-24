@@ -1,0 +1,8 @@
+rejestracja działa
+
+dodaje urzytkownika do bazy, ale nie spradza czy już istnieje, by zapobiec dublowaniu
+
+zmodyfikowałm pliki
+routes.py -- głowna funkcja
+config.py -- zmieniłem u siebie na własne hasło
+registerScreen.tsx -- zmieniłem na lokalny adres ip

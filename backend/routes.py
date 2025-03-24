@@ -12,7 +12,7 @@ auth = Blueprint("auth", __name__)
 
 public_url = "example address"
 
-@auth.route("/api/register",methods=["POST"])
+@auth.route("/api/register",methods=["POST"]) #rejestracja
 def register_user():
     
     db = SQLAlchemy()
