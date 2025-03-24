@@ -41,7 +41,7 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
   // funkcja rejestracji (ta co wysyła api)
   async function registerUser(username: string, email: string, password: string, confirmPassword: string): Promise<void> {
     try {
-      const response = await axios.post('http://192.168.0.101:5000/api/register', {//zmieniłem adres ip
+      const response = await axios.post('http://10.0.2.2:5000/api/register', {
         username: username,
         email: email,
         password: password,

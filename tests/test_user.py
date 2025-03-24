@@ -165,3 +165,164 @@ def test_login_invalid_credentials(client, app):
         db.session.rollback()
         db.session.query(User).delete()
         db.session.commit()
+
+# =============================================================================
+# Tests for user registration
+# =============================================================================
+
+def test_register_successful(client, app):
+    with app.app_context():
+        username = "user1"
+        password = "secret"
+        email = "user1@gmail.com"
+        
+        payload = {
+            "username": username,
+            "password": password,
+            "email": email
+        }
+        
+        response = client.post("/api/register", json=payload)
+        
+        assert response.status_code == 200
+        assert response.get_json() == {
+            "message": "Registration successful"
+        }
+        assert User.query.filter_by(username=username).first() is not None
+        
+        db.session.rollback()
+        db.session.query(User).delete()
+        db.session.commit()
+
+def test_register_missing_key(client, app):
+    with app.app_context():
+        username = "user1"
+        email = "user1@gmail.com"
+        
+        payload = {
+            "username": username,
+            "email": email
+        }
+        
+        response = client.post("/api/register", json=payload)
+        
+        assert response.status_code == 400
+        assert response.get_json() == {
+            "message": "Bad request"
+        }
+        assert User.query.filter_by(username=username).first() is None
+        
+        db.session.rollback()
+        db.session.query(User).delete()
+        db.session.commit()
+
+def test_register_invalid_credentials(client, app):
+    with app.app_context():
+        username = "a"
+        password = "secret"
+        email = "user1@gmail.com"
+        
+        payload = {
+            "username": username,
+            "password": password,
+            "email": email
+        }
+        
+        response1 = client.post("/api/register", json=payload)
+        
+        assert response1.status_code == 400
+        assert response1.get_json() == {
+            "message": "Invalid username or email"
+        }
+        assert User.query.filter_by(username=username).first() is None
+        
+        username = "goodusername"
+        password = "secret"
+        email = "@gmail[]'user1@gmail.com"
+        
+        payload = {
+            "username": username,
+            "password": password,
+            "email": email
+        }
+        
+        response2 = client.post("api/register", json=payload)
+        
+        assert response1.status_code == 400
+        assert response1.get_json() == {
+            "message": "Invalid username or email"
+        }
+        assert User.query.filter_by(username=username).first() is None
+        
+        db.session.rollback()
+        db.session.query(User).delete()
+        db.session.commit()
+        
+def test_register_username_taken(client, app):
+    with app.app_context():
+        username1 = "user1"
+        password1 = "secret"
+        email1 = "user1@gmail.com"
+        
+        user1 = User(username1, password1, email1)
+        db.session.add(user1)
+        db.session.commit()
+        
+        assert User.query.filter_by(username=username1).first() is not None
+
+        username2 = username1
+        password2 = "secret"
+        email2 = "user2@gmail.com"
+        
+        payload = {
+            "username": username2,
+            "password": password2,
+            "email": email2
+        }
+        
+        response = client.post("/api/register", json=payload)
+        
+        assert response.status_code == 409
+        assert response.get_json() == {
+            "message": "Username already taken"
+        }
+        assert len(User.query.filter_by(username=username2).all()) == 1
+        
+        db.session.rollback()
+        db.session.query(User).delete()
+        db.session.commit()
+
+def test_register_email_exists(client, app):
+    with app.app_context():
+        username1 = "user1"
+        password1 = "secret"
+        email1 = "user1@gmail.com"
+        
+        user1 = User(username1, password1, email1)
+        db.session.add(user1)
+        db.session.commit()
+        
+        assert User.query.filter_by(username=username1).first() is not None
+
+        username2 = "user2"
+        password2 = "secret"
+        email2 = email1
+        
+        payload = {
+            "username": username2,
+            "password": password2,
+            "email": email2
+        }
+        
+        response = client.post("/api/register", json=payload)
+        
+        assert response.status_code == 409
+        assert response.get_json() == {
+            "message": "Account with this email already exists"
+        }
+        assert len(User.query.filter_by(email=email2).all()) == 1
+        
+        db.session.rollback()
+        db.session.query(User).delete()
+        db.session.commit()
+        
