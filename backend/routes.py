@@ -10,9 +10,6 @@ MIN_USERNAME_LEN = 3
 main = Blueprint("main", __name__)
 auth = Blueprint("auth", __name__)
 
-
-public_url = "example address"
-
 @auth.route("/api/register",methods=["POST"])
 def register_user():    
     user_data = request.get_json()
@@ -35,9 +32,9 @@ def register_user():
         return jsonify({"message": "Invalid username or email"}), 400
     
     new_user = User(username=username, password=password, email=email)
-    if db.session.query(User).filter_by(username=username).first() is not None:
+    if User.query.filter_by(username=username).first() is not None:
         return jsonify({"message": "Username already taken"}), 409
-    if db.session.query(User).filter_by(email=email).first() is not None:
+    if User.query.filter_by(email=email).first() is not None:
         return jsonify({"message": "Account with this email already exists"}), 409
     
     db.session.add(new_user)
@@ -59,7 +56,7 @@ def login_user():
     username = user_data["username"]
     password = user_data["password"]
     
-    user = db.session.query(User).filter_by(username=username).first()
+    user = User.query.filter_by(username=username).first()
     if not user or not user.validate_password(password):
         return jsonify({"message": "Invalid username or password"}), 401
     
@@ -69,20 +66,3 @@ def login_user():
             "username": user.username
         }
     }, 200
-
-@main.route("/get-url", methods=["GET"])
-def get_url():
-    return jsonify({"url": public_url})
-
-@main.route("/message", methods=["GET"])
-def get_message():
-    return jsonify({"message": "Welcome in Flask API!"})
-
-@main.route("/send_data", methods=["POST"])
-def receive_data():
-    data = request.get_json()
-    if not data:
-        return jsonify({"message": "Error: No data received."}), 400
-    
-    print(f"Received Data: {data}")
-    return jsonify({"message": "Server has received data."}), 200
