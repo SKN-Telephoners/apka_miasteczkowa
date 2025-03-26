@@ -5,6 +5,7 @@ import WelcomeScreen from './(auth)/WelcomeScreen';
 import LoginScreen from './(auth)/LoginScreen';
 import RegisterScreen from './(auth)/RegisterScreen';
 import ResetPasswordScreen from './(auth)/ResetPasswordScreen';
+import HomeScreen from './(home)/HomeScreen';
 
 const Stack = createStackNavigator();
 
@@ -32,9 +33,15 @@ const App = () => {
           component={ResetPasswordScreen} 
           options={{ headerShown: false }}
         />
+        <Stack.Screen 
+          name="Home" 
+          component={HomeScreen} 
+          options={{ headerShown: false }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
 };
 
 export default App;
+

@@ -9,6 +9,7 @@ import {
   Modal
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import axios from "axios";
 
 const RegisterScreen = ({ navigation }: { navigation: any }) => {
   const [username, setUsername] = useState("");
@@ -20,6 +21,7 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
   const [infoModalVisible, setInfoModalVisible] = useState(false);
 
   const handleRegister = () => {
+    // sprawdzanie czy nie zostawiono pustych pól
     if (!username || !email || !password || !confirmPassword) {
       Alert.alert("Błąd", "Proszę uzupełnić wszystkie pola");
       setInfoModalVisible(true);
@@ -31,8 +33,35 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
       return;
     }
     console.log("Rejestracja:", username, email, password);
-    // miejsce na logikę rejestracji
+    
+    // wywołanie funkcji rejestracji
+    registerUser(username, email, password, confirmPassword);
   };
+
+  // funkcja rejestracji (ta co wysyła api)
+  async function registerUser(username: string, email: string, password: string, confirmPassword: string): Promise<void> {
+    try {
+      const response = await axios.post('http://10.0.2.2:5000/api/register', {
+        username: username,
+        email: email,
+        password: password,
+        confirmPassword: confirmPassword,
+      });
+  
+      if (response.status === 200) {
+        console.log("Rejestracja powiodło się!");
+        navigation.navigate('Login');
+      } else {
+        console.log("Rejestracja nie powiodło się. Kod:", response.status);
+      }
+    } catch (error: any) {
+      if (error.response) {
+        console.log("Rejestracja nie powiodło się. Kod:", error.response.status);
+      } else {
+        console.error("Błąd:", error.message);
+      }
+    }
+  }
 
   // Funkcja wyświetlająca modal z wymaganiami
   const handleInfoPress = () => {
@@ -40,17 +69,16 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
   };
 
   return (
-  
     <View style={styles.container}>    
       
-      {/*infoButton*/}
+      {/* Info button */}
       <TouchableOpacity style={styles.infoButton} onPress={handleInfoPress}>
         <Ionicons name="information-circle-outline" size={36} color="#004aad" />
       </TouchableOpacity>
       
       <Text style={styles.title}>Rejestracja</Text>
 
-      {/*username*/}
+      {/* Username */}
       <View style={styles.inputContainer}> 
         <Ionicons name="person-outline" size={20} color="#ff914d" />
         <TextInput
@@ -61,7 +89,7 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
         />
       </View>
       
-      {/*email*/}
+      {/* Email */}
       <View style={styles.inputContainer}>
         <Ionicons name="mail-outline" size={20} color="#ff914d" />
         <TextInput
@@ -73,7 +101,7 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
         />
       </View>
 
-      {/*password*/}
+      {/* Password */}
       <View style={styles.inputContainer}> 
         <Ionicons name="lock-closed-outline" size={20} color="#ff914d" />
         <TextInput
@@ -92,7 +120,7 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
         </TouchableOpacity>
       </View>
 
-      {/*repeatPassword*/}
+      {/* Confirm Password */}
       <View style={styles.inputContainer}>
         <Ionicons name="lock-closed-outline" size={20} color="#ff914d" />
         <TextInput
@@ -119,7 +147,7 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
         <Text style={styles.backText}>Wróć do strony głównej</Text>
       </TouchableOpacity>
 
-      {/* modal z wymaganiami */}
+      {/* Modal z wymaganiami */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -129,7 +157,6 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
         }}
       >
         <View style={styles.modalOverlay}>
-
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Wymagania</Text>
             <Text style={styles.modalText}>
@@ -145,7 +172,7 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
             <TouchableOpacity
               style={styles.closeButton}
               onPress={() => setInfoModalVisible(false)}
-              >
+            >
               <Text style={styles.closeButtonText}>Zamknij</Text>
             </TouchableOpacity>
           </View>
