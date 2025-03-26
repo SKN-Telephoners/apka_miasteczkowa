@@ -24,15 +24,15 @@ def login_user():
         return jsonify({"message": "Invalid username or password"}), 401
     
     access_token = create_access_token(identity=user.username)
-    refresh_token = create_refresh_token(identity="example_user")
+    refresh_token = create_refresh_token(identity=user.username)
 
     return {
         "message": "Login successful",
         "user": {
-            "username": user.username
-        },
-        "access_token": access_token,
-        "refresh_token": refresh_token
+            "username": user.username,
+            "access_token": access_token,
+            "refresh_token": refresh_token
+        }
     }, 200
 
 # if an expired token attempts to access a protected endpoint, you will get a JSON response back like
