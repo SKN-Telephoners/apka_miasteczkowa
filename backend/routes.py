@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from backend.models import User
 from backend.extensions import db
+from flask_jwt_extended import jwt_required, create_access_token, create_refresh_token, get_jwt_identity
 import re
 
 MAX_EMAIL_LEN = 320
@@ -60,9 +61,35 @@ def login_user():
     if not user or not user.validate_password(password):
         return jsonify({"message": "Invalid username or password"}), 401
     
+    access_token = create_access_token(identity=user.user_id)
+    refresh_token = create_refresh_token(identity=user.user_id)
+
     return {
         "message": "Login successful",
         "user": {
-            "username": user.username
-        }
+            "username": user.username,
+        },
+        "access_token": access_token,
+        "refresh_token": refresh_token
+    }, 200
+
+@auth.route("/refresh", methods=["POST"])
+@jwt_required(refresh=True)
+def refresh():
+    identity = get_jwt_identity()
+    access_token = create_access_token(identity=identity)
+    return jsonify(access_token=access_token)
+
+@main.route("/user", methods=["GET"])
+@jwt_required()
+def get_user_info():
+    user_id = get_jwt_identity()
+    
+    user = User.query.filter_by(user_id=user_id).first()
+
+    return {
+        "user": {
+            "username": user.username,
+            "email": user.email
+        },
     }, 200

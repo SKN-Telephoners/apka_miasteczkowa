@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BACKEND_URL = "http://10.0.2.2:5000";
 
@@ -39,6 +40,11 @@ async function logIn(username: string, password: string): Promise<void> {
 
     if (response.status === 200) {
       console.log("Logowanie powiodło się!");
+
+      const { access_token, refresh_token } = response.data; // assuming the token is returned as 'token'
+      await AsyncStorage.setItem('access_token', access_token);
+      await AsyncStorage.setItem('refresh_token', refresh_token);
+
       navigation.navigate('Home');
     } else {
       console.log("Logowanie nie powiodło się. Kod:", response.status);
