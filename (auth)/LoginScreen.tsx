@@ -41,9 +41,9 @@ async function logIn(username: string, password: string): Promise<void> {
     if (response.status === 200) {
       console.log("Logowanie powiodło się!");
 
-      const { access_token, refresh_tocken } = response.data; // assuming the token is returned as 'token'
+      const { access_token, refresh_token } = response.data; // assuming the token is returned as 'token'
       await AsyncStorage.setItem('access_token', access_token);
-      await AsyncStorage.setItem('refresh_tocken', refresh_tocken);
+      await AsyncStorage.setItem('refresh_token', refresh_token);
 
       navigation.navigate('Home');
     } else {

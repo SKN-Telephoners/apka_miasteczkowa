@@ -3,6 +3,7 @@ from backend.app import create_app
 from backend.extensions import db
 from sqlalchemy.exc import IntegrityError
 from backend.models import User
+import json
 
 @pytest.fixture
 def app():
@@ -325,4 +326,38 @@ def test_register_email_exists(client, app):
         db.session.rollback()
         db.session.query(User).delete()
         db.session.commit()
+
+# =============================================================================
+# Tests for jwt authorization
+# =============================================================================
+
+def test_jwt_login(client, app):
+    with app.app_context():
+        username1 = "user1"
+        password1 = "secret"
+        email1 = "user1@gmail.com"
         
+        user1 = User(username1, password1, email1)
+        db.session.add(user1)
+        db.session.commit()
+
+        assert User.query.filter_by(username=username1).first() is not None
+
+        payload = {
+            "username": username1,
+            "password": password1,
+        }
+        response = client.post("/api/login", json=payload)
+        
+        assert response.status_code == 200
+
+        data = json.loads(response.data)
+        assert "access_token" in data
+        assert "refresh_token" in data
+
+        token = data["access_token"]
+        protected_response = client.get("/user", headers={
+            "Authorization": f"Bearer {token}"
+        })
+
+        assert protected_response.status_code == 200

@@ -3,7 +3,7 @@ from backend.extensions import db, bcrypt, jwt, CORS
 from backend.config import Config, TestConfig
 from backend.routes import main, auth
 
-def create_app(test_mode=True):
+def create_app(test_mode=False):
     app = Flask(__name__)
     CORS(app)
     

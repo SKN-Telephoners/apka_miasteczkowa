@@ -61,16 +61,16 @@ def login_user():
     if not user or not user.validate_password(password):
         return jsonify({"message": "Invalid username or password"}), 401
     
-    access_token = create_access_token(identity=user.username)
-    refresh_token = create_refresh_token(identity=user.username)
+    access_token = create_access_token(identity=user.user_id)
+    refresh_token = create_refresh_token(identity=user.user_id)
 
     return {
         "message": "Login successful",
         "user": {
             "username": user.username,
-            "access_token": access_token,
-            "refresh_token": refresh_token
-        }
+        },
+        "access_token": access_token,
+        "refresh_token": refresh_token
     }, 200
 
 @auth.route("/refresh", methods=["POST"])
@@ -81,10 +81,12 @@ def refresh():
     return jsonify(access_token=access_token)
 
 @main.route("/user", methods=["GET"])
-@jwt_required
+@jwt_required()
 def get_user_info():
-    user = get_jwt_identity()
-    print(user)
+    user_id = get_jwt_identity()
+    
+    user = User.query.filter_by(user_id=user_id).first()
+
     return {
         "user": {
             "username": user.username,
