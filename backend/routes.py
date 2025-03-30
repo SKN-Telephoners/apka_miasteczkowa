@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from backend.models import User
-from backend.extensions import db
+from backend.extensions import db, jwt
 from flask_jwt_extended import jwt_required, create_access_token, create_refresh_token, get_jwt_identity
 import re
 
@@ -93,3 +93,18 @@ def get_user_info():
             "email": user.email
         },
     }, 200
+
+@jwt.unauthorized_loader
+def unauthorized_callback(error):
+    return jsonify(message="Missing or invalid token"), 401
+
+@jwt.invalid_token_loader
+def invalid_token_callback(error):
+    return jsonify(message="Incorrect token"), 401
+
+"""
+unused yet
+@jwt.expired_token_loader
+def expired_token_callback(expired_token):
+    return jsonify(message="Token expired"), 401
+"""

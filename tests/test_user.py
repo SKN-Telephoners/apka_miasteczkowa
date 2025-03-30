@@ -361,3 +361,24 @@ def test_jwt_login(client, app):
         })
 
         assert protected_response.status_code == 200
+
+def test_jwt_invalid_token(client, app):
+    with app.app_context():
+        invalid_token = "invalid_token"
+        protected_response = client.get("/user", headers={
+            "Authorization": f"Bearer {invalid_token}"
+        })
+
+        assert protected_response.get_json() == {
+            "message": "Incorrect token"
+        }
+        assert protected_response.status_code == 401
+
+def test_jwt_no_token(client, app):
+    with app.app_context():
+        protected_response = client.get("/user")
+
+        assert protected_response.get_json() == {
+            "message": "Missing or invalid token"
+        }
+        assert protected_response.status_code == 401
