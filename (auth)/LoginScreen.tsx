@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import InputField from "./components/InputField";
 
 const BACKEND_URL = "http://10.0.2.2:5000";
 
@@ -64,45 +65,35 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
         <Text style={styles.title}>Aplikacja Miasteczkowa</Text>
       </View>
 
-      <View>
+      <View style={styles.inputContainer}>
         <View style={styles.inputContainer}>
-          <View style={styles.inputBox}>
-            <Ionicons name="person-outline" size={20} color="#ff914d" />
-            <TextInput
-              placeholder="Username"
-              value={username}
-              onChangeText={setUsername}
-              style={styles.input}
-            />
-          </View>
+          <InputField
+            icon="person-outline"
+            placeholder="Nazwa użytkownika"
+            value={username}
+            onChangeText={setUsername}
+            secureTextEntry={false}
+            keyboardType="default"
+          />
           <Text
             style={[
               styles.errorMessage,
               { display: message ? "flex" : "none" },
             ]}
           >
-            {}
+            {"Proszę podać nazwę użytkownika"}
           </Text>
         </View>
 
         <View style={styles.inputContainer}>
-          <View style={styles.inputBox}>
-            <Ionicons name="lock-closed-outline" size={20} color="#ff914d" />
-            <TextInput
-              placeholder="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={secureText}
-              style={styles.input}
-            />
-            <TouchableOpacity onPress={() => setSecureText(!secureText)}>
-              <Ionicons
-                name={secureText ? "eye-off-outline" : "eye-outline"}
-                size={20}
-                color="#ff914d"
-              />
-            </TouchableOpacity>
-          </View>
+          <InputField
+            icon="lock-closed-outline"
+            placeholder="Hasło"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={secureText}
+            toggleSecure={() => setSecureText(!secureText)}
+          />
           <Text
             style={[
               styles.errorMessage,
@@ -152,7 +143,8 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     marginBottom: 15,
-    // width: "80%",
+    width: "80%",
+    alignItems: "center",
   },
   inputBox: {
     flexDirection: "row",
@@ -171,7 +163,8 @@ const styles = StyleSheet.create({
   errorMessage: {
     color: "red",
     marginTop: 5,
-    // display: "none"
+    marginLeft: 10,
+    alignSelf: "flex-start",
   },
   loginButton: {
     backgroundColor: "#4a90e2",
