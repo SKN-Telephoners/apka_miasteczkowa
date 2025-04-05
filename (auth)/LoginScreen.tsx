@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BACKEND_URL = "http://10.0.2.2:5000";
 
@@ -39,6 +40,11 @@ async function logIn(username: string, password: string): Promise<void> {
 
     if (response.status === 200) {
       console.log("Logowanie powiodło się!");
+
+      const { access_token, refresh_token } = response.data; // assuming the token is returned as 'token'
+      await AsyncStorage.setItem('access_token', access_token);
+      await AsyncStorage.setItem('refresh_token', refresh_token);
+
       navigation.navigate('Home');
     } else {
       console.log("Logowanie nie powiodło się. Kod:", response.status);
@@ -51,51 +57,6 @@ async function logIn(username: string, password: string): Promise<void> {
     }
   }
 }
-
-  useEffect(() => {
-    const fetchApiUrl = async () => {
-      try {
-        const res = await axios.get(`${BACKEND_URL}/get-url`);
-        setApiUrl(res.data.url);
-        console.log("Połączono z backendem:", res.data.url);
-      } catch (error) {
-        console.error("Nie udało się pobrać URL API", error);
-      }
-    };
-
-    fetchApiUrl();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      const response = await axios.get(`${BACKEND_URL}/message`);
-      setMessage(response.data.message);
-    } catch (error) {
-      setMessage("Błąd pobierania danych");
-    }
-  };
-
-  const sendData = async()=>{
-    try {
-
-      const requestBody = {
-        name: username,
-        password: password
-    };
-
-      const responde = await fetch(
-        `${BACKEND_URL}/send_data`,
-        {method: "POST",
-          headers:{"Content-Type": "application/json"},
-          body:JSON.stringify({name:username,password:password})
-        });
-        const data = await responde.json();
-        console.log("Response:", data);
-    }
-    catch (error) {
-      console.error("Error sending data:", error);
-    }
-  };
 
   return (
     <View style={styles.container}>
