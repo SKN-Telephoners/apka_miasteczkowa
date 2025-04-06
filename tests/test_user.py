@@ -1,6 +1,6 @@
 import pytest
 from backend.app import create_app
-from backend.extensions import db
+from backend.extensions import db, mail
 from sqlalchemy.exc import IntegrityError
 from backend.models import User
 import json
@@ -361,3 +361,49 @@ def test_jwt_login(client, app):
         })
 
         assert protected_response.status_code == 200
+
+        db.session.rollback()
+        db.session.query(User).delete()
+        db.session.commit()
+
+# =============================================================================
+# Tests for password resetting
+# =============================================================================
+
+def test_password_reset(client, app):
+    with app.app_context():
+        username = "test_user"
+        password = "123456flask"
+        email = "test_user@gmail.com"
+        user = User(username, password, email)
+        
+        db.session.add(user)
+        db.session.commit()
+
+        email_payload = {
+            "email": email
+        }
+
+        with mail.record_messages() as outbox:
+            response = client.post("/reset_password_request", json=email_payload)
+
+            assert response.status_code == 200
+
+            assert len(outbox) == 1
+            assert outbox[0].subject == 'Reset password'
+            
+            reset_token = outbox[0].body
+
+            password_payload = {
+                "new_password": "dupa123"
+            }
+
+            response = client.post(f"/reset_password/{reset_token}", json=password_payload)
+            assert response.status_code == 200
+
+        response = client.post("/api/login", json={"username": user.username, "password": "dupa123"})
+        assert response.status_code == 200
+
+        db.session.rollback()
+        db.session.query(User).delete()
+        db.session.commit()

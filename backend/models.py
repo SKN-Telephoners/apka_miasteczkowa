@@ -25,6 +25,10 @@ class User(db.Model):
         
     def validate_password(self, password):
         return bcrypt.check_password_hash(self.password_hash, password)
+    
+    def update_password(self, password):
+        pass_hash = bcrypt.generate_password_hash(password).decode("utf-8")
+        self.password_hash = pass_hash
 
     def __repr__(self):
         return f"User {self.username}"
