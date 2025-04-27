@@ -112,13 +112,12 @@ def reset_password_request():
     #now there will be multiple active tokens for password resetting (we don't want that) - to be fixed
     reset_token = create_access_token(identity=user.email)
 
-    reset_url = url_for("main.reset_password", token=reset_token)
+    reset_url = url_for("main.reset_password", token=reset_token, _external=True)
 
-    #now for testing body=reset_token, it should be reset_url
     msg = Message(
         'Reset password',
         recipients=[email],
-        body=reset_token
+        body=f"Hello! Click the link to reset your password: {reset_url}"
     )
     
     mail.send(msg)
