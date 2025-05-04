@@ -61,6 +61,63 @@ ALTER TABLE ONLY public.app_user
 
 
 --
+-- Name: friends; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE friends (
+    friend_id SERIAL NOT NULL PRIMARY KEY,
+    user_id UUID NOT NULL,
+    status VARCHAR(20) DEFAULT 'unraleted',  
+    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    accepted_at TIMESTAMP,
+    CONSTRAINT unique_friendship UNIQUE (user_id, friend_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+);
+
+--
+-- Name: events; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE events ( 
+    event_id UUID PRIMARY KEY, 
+    event_title VARCHAR(255), 
+    desciption TEXT, 
+    location_name VARCHAR(255), 
+    width DECIMAL(9,6), 
+    height DECIMAL (9,6), 
+    start_time TIMESTAMP, 
+    end_time TIMESTAMP, 
+    created_by UUID visiblity VARCHAR(30), 
+    category VARCHAR(100) DEFAULT 'uncategorized', 
+    created_at TIMESTAMP DEFAULT now(), 
+    updated_at TIMESTAMP DEFAULT now() 
+);
+
+--
+-- Name: events_participants; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE events_participants ( 
+    event_id UUID REFERENCES, 
+    events(event_id) ON DELETE CASCADE, 
+    user_id UUID REFERENCES, 
+    app_user(user_id) ON DELETE CASCADE status VARCHAR(30) DEFAULT 'no_starting', 
+    PRIMARY KEY (event_id, user_id) 
+);
+
+--
+-- Name: events_comments; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE events_comments ( 
+    events_comments_id SERIAL PRIMARY KEY, 
+    event_id UUID REFERENCES, 
+    events(event_id) ON DELETE CASCADE, 
+    user_id UUID REFERENCES app_user(user_id) ON DELETE SET NULL, 
+    content TEXT NOT NULL, 
+    created_at TIMESTAMP DEFAULT now() 
+);
+--
 -- PostgreSQL database dump complete
 --
 
