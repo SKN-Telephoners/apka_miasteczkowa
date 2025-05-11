@@ -100,7 +100,7 @@ def refresh():
     
     return jsonify(access_token=access_token)
 
-@auth.route("/revoke_access", methods=["GET", "DELETE"]) #change it to just delete!!
+@auth.route("/revoke_access", methods=["GET", "DELETE"])
 @jwt_required()
 def revoke_access_token():
     jti = get_jwt()["jti"]
@@ -108,7 +108,7 @@ def revoke_access_token():
     revoke_token(jti, user_id)
     return jsonify(message="access token revoked")
 
-@auth.route("/revoke_refresh", methods=["GET", "DELETE"]) #change it to just delete!!
+@auth.route("/revoke_refresh", methods=["GET", "DELETE"])
 @jwt_required(refresh=True)
 def revoke_refresh_token():
     jti = get_jwt()["jti"]

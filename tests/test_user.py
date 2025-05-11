@@ -456,4 +456,5 @@ def test_jwt_revoke_refresh_token(client, app):
             "message": "refresh token revoked"
         }
 
-        #TODO: test if you can create a new access token with the revoked refresh token
+        refresh_response = client.post("/refresh")
+        assert refresh_response.status_code == 401
