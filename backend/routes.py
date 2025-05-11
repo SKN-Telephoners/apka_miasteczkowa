@@ -64,7 +64,7 @@ def login_user():
     
     access_token = create_access_token(identity=user.user_id)
     refresh_token = create_refresh_token(identity=user.user_id)
-
+    
     add_token_to_db(access_token)
     add_token_to_db(refresh_token)
 
@@ -139,3 +139,4 @@ def expired_token_callback(expired_token):
 def load_user(jwt_header, jwt_payload):
     user_id = jwt_payload["sub"]
     return User.query.get(user_id)
+    return jsonify(access_token=access_token)
