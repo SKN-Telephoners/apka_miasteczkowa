@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from backend.models import User
-from backend.extensions import db
+from backend.extensions import db, limiter
 from flask_jwt_extended import jwt_required, create_access_token, create_refresh_token, get_jwt_identity
 import re
 
@@ -12,6 +12,7 @@ main = Blueprint("main", __name__)
 auth = Blueprint("auth", __name__)
 
 @auth.route("/api/register",methods=["POST"])
+@limiter.limit("5 per hour")   # maks. 5 rejestracji na IP na godzinę
 def register_user():    
     user_data = request.get_json()
     required_keys = {"username", "password", "email"}
@@ -47,6 +48,7 @@ def register_user():
     }, 200
 
 @auth.route("/api/login", methods=["POST"])
+@limiter.limit("5 per 15 minutes")  # maks. 5 prób logowania na IP w ciągu 15 minut
 def login_user():
     user_data = request.get_json()
     required_keys = {"username", "password"}
@@ -61,6 +63,9 @@ def login_user():
     if not user or not user.validate_password(password):
         return jsonify({"message": "Invalid username or password"}), 401
     
+    limiter.reset()
+
+
     access_token = create_access_token(identity=user.user_id)
     refresh_token = create_refresh_token(identity=user.user_id)
 
