@@ -22,8 +22,10 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
   const [message, setMessage] = useState("");
 
   const handleLogin = () => {
-    if (!username || !password) {
-      Alert.alert("Błąd", "Uzupełnij proszę wszystkie pola");
+    if (!username) {
+      return;
+    }
+    if (!password) {
       return;
     }
     console.log("Logowanie:", username, password);
@@ -66,43 +68,24 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
       </View>
 
       <View style={styles.inputContainer}>
-        <View style={styles.inputContainer}>
-          <InputField
-            icon="person-outline"
-            placeholder="Nazwa użytkownika"
-            value={username}
-            onChangeText={setUsername}
-            secureTextEntry={false}
-            keyboardType="default"
-          />
-          <Text
-            style={[
-              styles.errorMessage,
-              { display: message ? "flex" : "none" },
-            ]}
-          >
-            {"Proszę podać nazwę użytkownika"}
-          </Text>
-        </View>
+        <InputField
+          icon="person-outline"
+          placeholder="Nazwa użytkownika"
+          value={username}
+          onChangeText={setUsername}
+          secureTextEntry={false}
+          keyboardType="default"
+          errorMessage={""}
+        />
 
-        <View style={styles.inputContainer}>
-          <InputField
-            icon="lock-closed-outline"
-            placeholder="Hasło"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={secureText}
-            toggleSecure={() => setSecureText(!secureText)}
-          />
-          <Text
-            style={[
-              styles.errorMessage,
-              { display: message ? "flex" : "none" },
-            ]}
-          >
-            {}
-          </Text>
-        </View>
+        <InputField
+          icon="lock-closed-outline"
+          placeholder="Hasło"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry={secureText}
+          toggleSecure={() => setSecureText(!secureText)}
+        />
       </View>
 
       <TouchableOpacity onPress={() => navigation.navigate("ResetPassword")}>
@@ -145,6 +128,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     width: "80%",
     alignItems: "center",
+    gap: 30,
   },
   inputBox: {
     flexDirection: "row",

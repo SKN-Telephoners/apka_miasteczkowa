@@ -1,9 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
-import { StyleSheet, TextInput, View, TouchableOpacity } from "react-native";
+import React, { useEffect, useState } from "react";
+import {
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 interface InputField {
-  icon: string;
+  icon: React.ComponentProps<typeof Ionicons>["name"];
   placeholder: string;
   value: string;
   onChangeText: (text: string) => void;
@@ -15,6 +21,7 @@ interface InputField {
     | "numeric"
     | "phone-pad"
     | "number-pad";
+  errorMessage?: string;
 }
 
 const InputField: React.FC<InputField> = ({
@@ -25,19 +32,39 @@ const InputField: React.FC<InputField> = ({
   secureTextEntry,
   toggleSecure,
   keyboardType = "default",
+  errorMessage,
 }) => {
+  const [showLegend, setShowLegend] = useState(true);
+  const [showError, setShowError] = useState(false);
+
+  useEffect(() => {
+    setShowLegend(value === "");
+  }, [value]);
+
+  const handleTextChange = (text: string) => {
+    setShowLegend(text === "");
+    console.log(text);
+
+    if (keyboardType === "email-address") {
+      text = text.toLowerCase();
+    }
+
+    onChangeText(text);
+  };
+
   return (
     <View style={styles.inputBox}>
-      <Ionicons name="person-outline" size={20} color="#ff914d" />
+      {!showLegend && <Text style={styles.legend}>{placeholder}</Text>}
+      {<Ionicons name={icon} size={20} color="#ff914d" />}
       <TextInput
+        style={styles.input}
         placeholder={placeholder}
         value={value}
-        onChangeText={onChangeText}
+        onChangeText={handleTextChange}
         secureTextEntry={secureTextEntry}
-        style={styles.input}
         keyboardType={keyboardType}
       />
-     {toggleSecure && (
+      {toggleSecure && (
         <TouchableOpacity onPress={toggleSecure}>
           <Ionicons
             name={secureTextEntry ? "eye-off-outline" : "eye-outline"}
@@ -46,6 +73,8 @@ const InputField: React.FC<InputField> = ({
           />
         </TouchableOpacity>
       )}
+
+      {showError && <Text style={styles.errorMessage}>{errorMessage}</Text>}
     </View>
   );
 };
@@ -54,16 +83,22 @@ const styles = StyleSheet.create({
   inputBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
     borderRadius: 10,
     paddingHorizontal: 10,
     height: 50,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: "#ccc",
   },
   input: {
     flex: 1,
-    marginLeft: 10,
+  },
+  legend: {
+    position: "absolute",
+    top: -10,
+    left: 26,
+    backgroundColor: "#f5f5f5",
+    color: "#aaa",
+    paddingHorizontal: 5,
   },
   errorMessage: {
     color: "red",
