@@ -61,6 +61,46 @@ ALTER TABLE ONLY public.app_user
 
 
 --
+-- Name: token_blocklist; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.token_blocklist (
+    token_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    jti character varying(36) NOT NULL,
+    token_type character varying(18) NOT NULL,
+    user_id uuid NOT NULL,
+    revoked_at timestamp without time zone,
+    expires timestamp without time zone NOT NULL
+);
+
+
+ALTER TABLE public.token_blocklist OWNER TO postgres;
+
+--
+-- Name: token_blocklist token_blocklist_jti_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.token_blocklist
+    ADD CONSTRAINT token_blocklist_jti_key UNIQUE (jti);
+
+
+--
+-- Name: token_blocklist token_blocklist_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.token_blocklist
+    ADD CONSTRAINT token_blocklist_pkey PRIMARY KEY (token_id);
+
+
+--
+-- Name: token_blocklist fk_user; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.token_blocklist
+    ADD CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES public.app_user(user_id) ON DELETE CASCADE;
+
+
+--
 -- PostgreSQL database dump complete
 --
 

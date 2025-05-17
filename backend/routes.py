@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify, url_for
-from backend.models import User
-from backend.extensions import db, mail
-from flask_jwt_extended import jwt_required, create_access_token, create_refresh_token, get_jwt_identity, decode_token
+from backend.models import User, TokenBlocklist
+from backend.extensions import db, jwt, mail
+from flask_jwt_extended import jwt_required, create_access_token, create_refresh_token, get_jwt, get_jwt_identity, get_current_user, decode_token
+from backend.helpers import add_token_to_db, revoke_token, is_token_revoked
 from datetime import timedelta
 import re
 from flask_mail import Message
@@ -65,6 +66,9 @@ def login_user():
     
     access_token = create_access_token(identity=user.user_id)
     refresh_token = create_refresh_token(identity=user.user_id)
+    
+    add_token_to_db(access_token)
+    add_token_to_db(refresh_token)
 
     return {
         "message": "Login successful",
@@ -75,19 +79,10 @@ def login_user():
         "refresh_token": refresh_token
     }, 200
 
-@auth.route("/refresh", methods=["POST"])
-@jwt_required(refresh=True)
-def refresh():
-    identity = get_jwt_identity()
-    access_token = create_access_token(identity=identity)
-    return jsonify(access_token=access_token)
-
 @main.route("/user", methods=["GET"])
 @jwt_required()
 def get_user_info():
-    user_id = get_jwt_identity()
-    
-    user = User.query.filter_by(user_id=user_id).first()
+    user = get_current_user()
 
     return {
         "user": {
@@ -96,6 +91,58 @@ def get_user_info():
         },
     }, 200
 
+@auth.route("/refresh", methods=["POST"])
+@jwt_required(refresh=True)
+def refresh():
+    identity = get_jwt_identity()
+    access_token = create_access_token(identity=identity)
+
+    db.session.add(TokenBlocklist(access_token))
+    db.session.commit()
+    
+    return jsonify(access_token=access_token)
+
+@auth.route("/revoke_access", methods=["GET", "DELETE"])
+@jwt_required()
+def revoke_access_token():
+    jti = get_jwt()["jti"]
+    user_id = get_jwt_identity()
+    revoke_token(jti, user_id)
+    return jsonify(message="access token revoked")
+
+@auth.route("/revoke_refresh", methods=["GET", "DELETE"])
+@jwt_required(refresh=True)
+def revoke_refresh_token():
+    jti = get_jwt()["jti"]
+    user_id = get_jwt_identity()
+    revoke_token(jti, user_id)
+    return jsonify(message="refresh token revoked")
+
+@jwt.token_in_blocklist_loader
+def check_if_token_revoked(jwt_header, jwt_payload):
+    try:
+        return is_token_revoked(jwt_payload)
+    except Exception:
+        return True
+
+@jwt.unauthorized_loader
+def unauthorized_callback(error):
+    return jsonify(message="Missing or invalid token"), 401
+
+@jwt.invalid_token_loader
+def invalid_token_callback(error):
+    return jsonify(message="Incorrect token"), 401
+
+@jwt.expired_token_loader
+def expired_token_callback(expired_token):
+    return jsonify(message="Token expired"), 401
+
+@jwt.user_lookup_loader
+def load_user(jwt_header, jwt_payload):
+    user_id = jwt_payload["sub"]
+    return User.query.get(user_id)
+    return jsonify(access_token=access_token)
+  
 @main.route("/reset_password_request", methods=["POST"])
 def reset_password_request():
     user_data = request.get_json()

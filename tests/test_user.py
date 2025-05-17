@@ -359,6 +359,103 @@ def test_jwt_login(client, app):
 
         assert protected_response.status_code == 200
 
+def test_jwt_invalid_token(client, app):
+    with app.app_context():
+        invalid_token = "invalid_token"
+        protected_response = client.get("/user", headers={
+            "Authorization": f"Bearer {invalid_token}"
+        })
+
+        assert protected_response.get_json() == {
+            "message": "Incorrect token"
+        }
+        assert protected_response.status_code == 401
+
+def test_jwt_no_token(client, app):
+    with app.app_context():
+        protected_response = client.get("/user")
+
+        assert protected_response.get_json() == {
+            "message": "Missing or invalid token"
+        }
+        assert protected_response.status_code == 401
+
+def test_jwt_revoke_token(client, app):
+    with app.app_context():
+        username1 = "user1"
+        password1 = "secret"
+        email1 = "user1@gmail.com"
+        
+        user1 = User(username1, password1, email1)
+        db.session.add(user1)
+        db.session.commit()
+
+        assert User.query.filter_by(username=username1).first() is not None
+
+        payload = {
+            "username": username1,
+            "password": password1,
+        }
+        response = client.post("/api/login", json=payload)
+        assert response.status_code == 200
+
+        data = json.loads(response.data)
+        token = data["access_token"]
+
+        protected_response1 = client.get("/user", headers={
+            "Authorization": f"Bearer {token}"
+        })
+        assert protected_response1.status_code == 200
+
+        revoke_response = client.get("/revoke_access", headers={
+            "Authorization": f"Bearer {token}"
+        })
+        assert revoke_response.status_code == 200
+        assert revoke_response.get_json() == {
+            "message": "access token revoked"
+        }
+
+        protected_response2 = client.get("/user", headers={
+            "Authorization": f"Bearer {token}"
+        })
+        assert protected_response2.status_code == 401
+        assert protected_response2.get_json() == {
+            "msg": "Token has been revoked"
+        }
+
+def test_jwt_revoke_refresh_token(client, app):
+    with app.app_context():
+        username1 = "user1"
+        password1 = "secret"
+        email1 = "user1@gmail.com"
+        
+        user1 = User(username1, password1, email1)
+        db.session.add(user1)
+        db.session.commit()
+
+        assert User.query.filter_by(username=username1).first() is not None
+
+        payload = {
+            "username": username1,
+            "password": password1,
+        }
+        response = client.post("/api/login", json=payload)
+        assert response.status_code == 200
+
+        data = json.loads(response.data)
+        refresh_token = data["refresh_token"]
+
+        revoke_response = client.get("/revoke_refresh", headers={
+            "Authorization": f"Bearer {refresh_token}"
+        })
+        assert revoke_response.status_code == 200
+        assert revoke_response.get_json() == {
+            "message": "refresh token revoked"
+        }
+
+        refresh_response = client.post("/refresh")
+        assert refresh_response.status_code == 401
+        
         db.session.rollback()
         db.session.query(User).delete()
         db.session.commit()
