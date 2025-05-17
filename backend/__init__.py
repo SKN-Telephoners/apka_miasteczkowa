@@ -1,5 +1,5 @@
 from flask import Flask
-from backend.extensions import db, bcrypt, jwt, CORS
+from backend.extensions import db, bcrypt, jwt, mail, CORS
 from backend.config import Config, TestConfig
 from backend.routes import main, auth
 
@@ -15,6 +15,7 @@ def create_app(test_mode=False):
     db.init_app(app)
     bcrypt.init_app(app)
     jwt.init_app(app)
+    mail.init_app(app)
     
     app.register_blueprint(main)
     app.register_blueprint(auth)

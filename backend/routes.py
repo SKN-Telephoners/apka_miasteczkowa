@@ -1,9 +1,11 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, url_for
 from backend.models import User, TokenBlocklist
-from backend.extensions import db, jwt
-from flask_jwt_extended import jwt_required, create_access_token, create_refresh_token, get_jwt, get_jwt_identity, get_current_user
+from backend.extensions import db, jwt, mail
+from flask_jwt_extended import jwt_required, create_access_token, create_refresh_token, get_jwt, get_jwt_identity, get_current_user, decode_token
 from backend.helpers import add_token_to_db, revoke_token, is_token_revoked
+from datetime import timedelta
 import re
+from flask_mail import Message
 
 MAX_EMAIL_LEN = 320
 MAX_USERNAME_LEN = 32
@@ -57,7 +59,7 @@ def login_user():
     
     username = user_data["username"]
     password = user_data["password"]
-    
+
     user = User.query.filter_by(username=username).first()
     if not user or not user.validate_password(password):
         return jsonify({"message": "Invalid username or password"}), 401
@@ -140,3 +142,48 @@ def load_user(jwt_header, jwt_payload):
     user_id = jwt_payload["sub"]
     return User.query.get(user_id)
     return jsonify(access_token=access_token)
+  
+@main.route("/reset_password_request", methods=["POST"])
+def reset_password_request():
+    user_data = request.get_json()
+    
+    if not user_data or not "email" in user_data.keys():
+        return jsonify({"message": "Bad request"}), 400
+    
+    email = user_data["email"]
+    
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({"message": "There is no user with such email"}), 401
+    
+    #now there will be multiple active tokens for password resetting (we don't want that) - to be fixed
+    reset_token = create_access_token(identity=user.email)
+
+    reset_url = url_for("main.reset_password", token=reset_token, _external=True)
+
+    msg = Message(
+        'Reset password',
+        recipients=[email],
+        body=f"Hello! Click the link to reset your password: {reset_url}"
+    )
+    
+    mail.send(msg)
+
+    return {
+        "message": "Email sent successfully"
+    }, 200
+
+@main.route("/reset_password/<token>", methods=["POST"])
+def reset_password(token):
+    decoded = decode_token(token)
+    user_email = decoded["sub"]
+
+    user = User.query.filter_by(email=user_email).first()
+    data = request.get_json()
+    new_password = data["new_password"]
+    user.update_password(new_password)
+    db.session.commit()
+
+    return {
+        "message": "Password changed successfully"
+    }, 200
