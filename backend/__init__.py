@@ -1,5 +1,5 @@
 from flask import Flask, jsonify, make_response
-from backend.extensions import db, bcrypt, jwt, limiter, CORS
+from backend.extensions import db, bcrypt, jwt, mail, limiter, CORS
 from backend.config import Config, TestConfig
 from backend.routes import main, auth
 from werkzeug.exceptions import HTTPException
@@ -19,6 +19,7 @@ def create_app(test_mode=False):
     db.init_app(app)
     bcrypt.init_app(app)
     jwt.init_app(app)
+    mail.init_app(app)
     
     app.register_blueprint(main)
     app.register_blueprint(auth)
