@@ -39,6 +39,7 @@ yarn-error.*
 # change this to the name of your venv
 apka_miasteczkowa/
 
+venv/
 backend/.venv
 
 backend/__pycache__/
