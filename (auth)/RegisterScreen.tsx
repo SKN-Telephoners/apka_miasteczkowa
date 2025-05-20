@@ -1,14 +1,15 @@
 import React, { useState } from "react";
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
   Alert,
   Modal
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import InputField from "./components/InputField";
 import axios from "axios";
 
 const RegisterScreen = ({ navigation }: { navigation: any }) => {
@@ -20,25 +21,74 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
   const [secureTextConfirm, setSecureTextConfirm] = useState(true);
   const [infoModalVisible, setInfoModalVisible] = useState(false);
 
+  const [usernameError, setUsernameError] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [confirmPasswordError, setConfirmPasswordError] = useState("");
+
+  const validateInputs = () => {
+    let isValid = true;
+
+    if (!username) {
+      setUsernameError("Pole jest wymagane");
+      isValid = false;
+    } else if (username.length < 3) {
+      setUsernameError("Nazwa użytkownika musi mieć co najmniej 3 znaki");
+      isValid = false;
+    } else {
+      setUsernameError("");
+    }
+
+    const email_pattern = new RegExp(
+      /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+    );
+    if (!email) {
+      setEmailError("Pole jest wymagane");
+      isValid = false;
+    } else if (!email_pattern.test(email)) {
+      setEmailError("Nieprawidłowy adres e-mail");
+      isValid = false;
+    } else {
+      setEmailError("");
+    }
+
+    const password_pattern = new RegExp(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/);
+    if (!password) {
+      setPasswordError("Pole jest wymagane");
+      isValid = false;
+    } else if (password.length < 8) {
+      setPasswordError("Hasło musi mieć co najmniej 8 znaków");
+      isValid = false;
+    } else if (!password_pattern.test(password)) {
+      setPasswordError(
+        "Hasło musi zawierać co najmniej jedną wielką literę, jedną małą literę i jedną cyfrę"
+      );
+      isValid = false;
+    } else {
+      setPasswordError("");
+    }
+
+    if (!confirmPassword) {
+      setConfirmPasswordError("Pole jest wymagane");
+      isValid = false;
+    } else if (confirmPassword !== password) {
+      setConfirmPasswordError("Hasła nie pasują do siebie");
+      isValid = false;
+    } else {
+      setConfirmPasswordError("");
+    }
+
+    return isValid;
+  }
+
+
   const handleRegister = () => {
-    // sprawdzanie czy nie zostawiono pustych pól
-    if (!username || !email || !password || !confirmPassword) {
-      Alert.alert("Błąd", "Proszę uzupełnić wszystkie pola");
-      setInfoModalVisible(true);
-      return;
+    if (validateInputs()) {
+      console.log("Rejestracja:", username, email, password);
+      registerUser(username, email, password, confirmPassword);
     }
-    if (password !== confirmPassword) {
-      Alert.alert("Błąd", "Hasła nie są takie same");
-      setInfoModalVisible(true);
-      return;
-    }
-    console.log("Rejestracja:", username, email, password);
-    
-    // wywołanie funkcji rejestracji
-    registerUser(username, email, password, confirmPassword);
   };
 
-  // funkcja rejestracji (ta co wysyła api)
   async function registerUser(username: string, email: string, password: string, confirmPassword: string): Promise<void> {
     try {
       const response = await axios.post('http://10.0.2.2:5000/api/register', {
@@ -47,96 +97,75 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
         password: password,
         confirmPassword: confirmPassword,
       });
-  
+
       if (response.status === 200) {
         console.log("Rejestracja powiodło się!");
         navigation.navigate('Login');
       } else {
-        console.log("Rejestracja nie powiodło się. Kod:", response.status);
+        console.log("Rejestracja nie powiodło się. Kod:", response.data);
       }
     } catch (error: any) {
       if (error.response) {
-        console.log("Rejestracja nie powiodło się. Kod:", error.response.status);
+        console.log("Rejestracja nie powiodło się. Kod:", error.response.data.message);
       } else {
         console.error("Błąd:", error.message);
       }
     }
   }
 
-  // Funkcja wyświetlająca modal z wymaganiami
   const handleInfoPress = () => {
     setInfoModalVisible(true);
   };
 
   return (
-    <View style={styles.container}>    
-      
-      {/* Info button */}
+    <View style={styles.container}>
+
       <TouchableOpacity style={styles.infoButton} onPress={handleInfoPress}>
         <Ionicons name="information-circle-outline" size={36} color="#004aad" />
       </TouchableOpacity>
-      
+
       <Text style={styles.title}>Rejestracja</Text>
 
-      {/* Username */}
-      <View style={styles.inputContainer}> 
-        <Ionicons name="person-outline" size={20} color="#ff914d" />
-        <TextInput
+      <View style={styles.inputContainer}>
+        <InputField
+          icon="person-outline"
           placeholder="Nazwa użytkownika"
           value={username}
           onChangeText={setUsername}
-          style={styles.input}
+          secureTextEntry={false}
+          keyboardType="default"
+          errorMessage={usernameError}
         />
-      </View>
-      
-      {/* Email */}
-      <View style={styles.inputContainer}>
-        <Ionicons name="mail-outline" size={20} color="#ff914d" />
-        <TextInput
+
+        <InputField
+          icon="mail-outline"
           placeholder="Email"
           value={email}
           onChangeText={setEmail}
-          style={styles.input}
+          secureTextEntry={false}
           keyboardType="email-address"
+          errorMessage={emailError}
         />
-      </View>
 
-      {/* Password */}
-      <View style={styles.inputContainer}> 
-        <Ionicons name="lock-closed-outline" size={20} color="#ff914d" />
-        <TextInput
+        <InputField
+          icon="lock-closed-outline"
           placeholder="Hasło"
           value={password}
           onChangeText={setPassword}
           secureTextEntry={secureText}
-          style={styles.input}
+          toggleSecure={() => setSecureText(!secureText)}
+          errorMessage={passwordError}
         />
-        <TouchableOpacity onPress={() => setSecureText(!secureText)}>
-          <Ionicons
-            name={secureText ? "eye-off-outline" : "eye-outline"}
-            size={20}
-            color="#ff914d"
-          />
-        </TouchableOpacity>
-      </View>
 
-      {/* Confirm Password */}
-      <View style={styles.inputContainer}>
-        <Ionicons name="lock-closed-outline" size={20} color="#ff914d" />
-        <TextInput
+        <InputField
+          icon="lock-closed-outline"
           placeholder="Powtórz hasło"
           value={confirmPassword}
           onChangeText={setConfirmPassword}
           secureTextEntry={secureTextConfirm}
-          style={styles.input}
+          toggleSecure={() => setSecureText(!secureTextConfirm)}
+          errorMessage={confirmPasswordError}
         />
-        <TouchableOpacity onPress={() => setSecureTextConfirm(!secureTextConfirm)}>
-          <Ionicons
-            name={secureTextConfirm ? "eye-off-outline" : "eye-outline"}
-            size={20}
-            color="#ff914d"
-          />
-        </TouchableOpacity>
       </View>
 
       <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
@@ -203,16 +232,10 @@ const styles = StyleSheet.create({
     textAlign: "center"
   },
   inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    paddingHorizontal: 10,
     marginBottom: 15,
     width: "80%",
-    height: 50,
-    borderWidth: 1,
-    borderColor: "#ccc"
+    alignItems: "center",
+    gap: 30,
   },
   input: {
     flex: 1,

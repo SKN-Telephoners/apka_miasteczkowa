@@ -9,6 +9,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  KeyboardAvoidingView,
 } from "react-native";
 import InputField from "./components/InputField";
 
@@ -75,7 +76,6 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
           onChangeText={setUsername}
           secureTextEntry={false}
           keyboardType="default"
-          errorMessage={""}
         />
 
         <InputField
@@ -129,16 +129,6 @@ const styles = StyleSheet.create({
     width: "80%",
     alignItems: "center",
     gap: 30,
-  },
-  inputBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    height: 50,
-    borderWidth: 1,
-    borderColor: "#ccc",
   },
   input: {
     flex: 1,
