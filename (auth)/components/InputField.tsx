@@ -62,7 +62,6 @@ const InputField: React.FC<InputField> = ({
   const handleBlur = () => {
     setIsTouched(true);
 
-    // Run validation on blur if a validation function was provided
     if (validate) {
       const validationError = validate(value);
       setLocalErrorMessage(validationError);
@@ -72,11 +71,10 @@ const InputField: React.FC<InputField> = ({
   };
 
   const handleFocus = () => {
-    // Optionally hide error when focusing on the input again
-    // setLocalErrorMessage(null);
+    // hide error when focusing on the input again
+    setLocalErrorMessage(null);
   };
 
-  // Show error from either local validation or parent component
   const displayErrorMessage = isTouched && (localErrorMessage || errorMessage);
 
   return (

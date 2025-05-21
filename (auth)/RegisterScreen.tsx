@@ -71,7 +71,6 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
   };
 
   const validateInputs = () => {
-    // We still need this to validate all inputs when the register button is clicked
     const usernameValidation = validateUsername(username);
     const emailValidation = validateEmail(email);
     const passwordValidation = validatePassword(password);
