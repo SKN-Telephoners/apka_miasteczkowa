@@ -27,7 +27,8 @@ def register_user():
     username = user_data["username"]
     password = user_data["password"]
     email = user_data["email"]
-    
+
+    # this check has been moved to frontend
     email_pattern = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
     if (
         not re.match(email_pattern, email)

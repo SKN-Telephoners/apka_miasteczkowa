@@ -4,12 +4,12 @@ import axios from "axios";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  KeyboardAvoidingView,
 } from "react-native";
 import InputField from "./components/InputField";
 
@@ -20,21 +20,43 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
   const [password, setPassword] = useState("");
   const [secureText, setSecureText] = useState(true);
   const [apiUrl, setApiUrl] = useState(BACKEND_URL);
-  const [message, setMessage] = useState("");
+
+  const [usernameError, setUsernameError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+
+  // Field-specific validation functions
+  const validateUsername = (text: string): string | null => {
+    if (!text) {
+      return "Pole jest wymagane";
+    }
+    return null;
+  };
+
+  const validatePassword = (text: string): string | null => {
+    if (!text) {
+      return "Pole jest wymagane";
+    }
+    return null;
+  };
+
+  const validateInputs = () => {
+    const usernameValidation = validateUsername(username);
+    const passwordValidation = validatePassword(password);
+
+    setUsernameError(usernameValidation || "");
+    setPasswordError(passwordValidation || "");
+
+    return !usernameValidation && !passwordValidation;
+  };
 
   const handleLogin = () => {
-    if (!username) {
-      return;
-    }
-    if (!password) {
+    if (!validateInputs()) {
       return;
     }
     console.log("Logowanie:", username, password);
-    //wywołanie funkcji login po sprawdzeniu pól
     logIn(username, password);
   };
 
-  //funkcja login
   async function logIn(username: string, password: string): Promise<void> {
     try {
       const response = await axios.post("http://10.0.2.2:5000/api/login", {
@@ -52,6 +74,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
         navigation.navigate("Home");
       } else {
         console.log("Logowanie nie powiodło się. Kod:", response.status);
+        Alert.alert("Logowanie nie powiodło się", response.data.message);
       }
     } catch (error: any) {
       if (error.response) {
@@ -76,6 +99,8 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
           onChangeText={setUsername}
           secureTextEntry={false}
           keyboardType="default"
+          errorMessage={usernameError}
+          validate={validateUsername}
         />
 
         <InputField
@@ -85,6 +110,8 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
           onChangeText={setPassword}
           secureTextEntry={secureText}
           toggleSecure={() => setSecureText(!secureText)}
+          errorMessage={passwordError}
+          validate={validatePassword}
         />
       </View>
 

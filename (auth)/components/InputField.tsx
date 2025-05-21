@@ -22,6 +22,7 @@ interface InputField {
     | "phone-pad"
     | "number-pad";
   errorMessage?: string;
+  validate?: (text: string) => string | null; // Optional validation function
 }
 
 const InputField: React.FC<InputField> = ({
@@ -33,25 +34,70 @@ const InputField: React.FC<InputField> = ({
   toggleSecure,
   keyboardType = "default",
   errorMessage,
+  validate,
 }) => {
+  const [showLegend, setShowLegend] = useState(true);
+  const [showIcon, setShowIcon] = useState(true);
+  const [localErrorMessage, setLocalErrorMessage] = useState<
+    string | null | undefined
+  >(null);
+  const [isTouched, setIsTouched] = useState(false);
+
+  useEffect(() => {
+    setShowLegend(value === "");
+    setShowIcon(value === "");
+  }, [value]);
+
   const handleTextChange = (text: string) => {
+    setShowLegend(text === "");
+    setShowIcon(text === "");
+
     if (keyboardType === "email-address") {
       text = text.toLowerCase();
     }
+
     onChangeText(text);
   };
 
+  const handleBlur = () => {
+    setIsTouched(true);
+
+    // Run validation on blur if a validation function was provided
+    if (validate) {
+      const validationError = validate(value);
+      setLocalErrorMessage(validationError);
+    } else if (errorMessage) {
+      setLocalErrorMessage(errorMessage);
+    }
+  };
+
+  const handleFocus = () => {
+    // Optionally hide error when focusing on the input again
+    // setLocalErrorMessage(null);
+  };
+
+  // Show error from either local validation or parent component
+  const displayErrorMessage = isTouched && (localErrorMessage || errorMessage);
+
   return (
-    <View style={styles.inputContainer}>
-      <View style={styles.inputBox}>
-        {<Ionicons name={icon} size={20} color="#ff914d" />}
+    <View style={styles.container}>
+      <View
+        style={[
+          styles.inputBox,
+          displayErrorMessage ? styles.inputBoxError : null,
+        ]}
+      >
+        {!showLegend && <Text style={styles.legend}>{placeholder}</Text>}
+        {showIcon && <Ionicons name={icon} size={20} color="#ff914d" />}
         <TextInput
           style={styles.input}
           placeholder={placeholder}
           value={value}
           onChangeText={handleTextChange}
+          onBlur={handleBlur}
+          onFocus={handleFocus}
           secureTextEntry={secureTextEntry}
-          keyboardType={keyboardType} 
+          keyboardType={keyboardType}
         />
         {toggleSecure && (
           <TouchableOpacity onPress={toggleSecure}>
@@ -63,16 +109,18 @@ const InputField: React.FC<InputField> = ({
           </TouchableOpacity>
         )}
       </View>
-      
-      {errorMessage ? <Text style={styles.errorMessage}>{errorMessage}</Text> : null}
+      {displayErrorMessage && (
+        <Text style={styles.errorMessage}>
+          {localErrorMessage || errorMessage}
+        </Text>
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  inputContainer: {
-    marginBottom: 30,
-    position: 'relative',
+  container: {
+    marginBottom: 15,
   },
   inputBox: {
     flexDirection: "row",
@@ -83,15 +131,25 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#ccc",
   },
+  inputBoxError: {
+    borderColor: "red",
+  },
   input: {
     flex: 1,
+    marginLeft: 10,
+  },
+  legend: {
+    position: "absolute",
+    top: -10,
+    left: 26,
+    backgroundColor: "#f5f5f5",
+    color: "#aaa",
+    paddingHorizontal: 5,
   },
   errorMessage: {
-    position: "absolute",
-    bottom: -25,
-    left: 10,
-    color: "#f00",
-    fontSize: 12,
+    color: "red",
+    marginTop: 5,
+    marginLeft: 10,
   },
 });
 
