@@ -3,8 +3,9 @@ from re import search
 from backend.app import create_app
 from backend.extensions import db, mail
 from sqlalchemy.exc import IntegrityError
-from backend.models import User
+from backend.models import User, TokenBlocklist, FriendRequest, Friendship
 import json
+import uuid
 
 @pytest.fixture
 def app():
@@ -423,6 +424,11 @@ def test_jwt_revoke_token(client, app):
             "msg": "Token has been revoked"
         }
 
+        db.session.rollback()
+        db.session.query(User).delete()
+        db.session.query(TokenBlocklist).delete()
+        db.session.commit()
+
 def test_jwt_revoke_refresh_token(client, app):
     with app.app_context():
         username1 = "user1"
@@ -458,6 +464,7 @@ def test_jwt_revoke_refresh_token(client, app):
         
         db.session.rollback()
         db.session.query(User).delete()
+        db.session.query(TokenBlocklist).delete()
         db.session.commit()
 
 # =============================================================================
@@ -518,3 +525,375 @@ def test_password_reset_invalid_email(client, app):
 
             assert response.status_code == 401
             assert len(outbox) == 0
+
+# =============================================================================
+# Tests for handling friend requests
+# =============================================================================
+def test_accept_friend_request(client, app):
+    with app.app_context():
+        username1 = "user1"
+        password1 = "root"
+        email1 = "example1@gmail.com"
+        user = User(username1, password1, email1)
+        
+        username2 = "user2"
+        password2 = "toor"
+        email2 = "example2@gmail.com"
+        friend = User(username2, password2, email2)
+
+        db.session.add(user)
+        db.session.add(friend)
+        db.session.commit()
+
+        #user logs in
+        response_login = client.post("/api/login", json={"username": username1, "password": password1})
+        assert response_login.status_code == 200
+
+        data = json.loads(response_login.data)
+        token = data["access_token"]
+
+        #create friend request
+        response_create_request = client.post(f"/create_friend_request/{friend.user_id}", headers={
+            "Authorization": f"Bearer {token}"
+        })
+
+        assert response_create_request.status_code == 200
+        assert response_create_request.get_json() == {
+            "message": "Friend request created"
+        }
+
+        assert FriendRequest.query.filter_by(sender_id=user.user_id, receiver_id=friend.user_id).first() is not None
+        
+        #friend logs in
+        response_friend_login = client.post("/api/login", json={"username": username2, "password": password2})
+        assert response_friend_login.status_code == 200
+
+        friend_data = json.loads(response_friend_login.data)
+        friend_token = friend_data["access_token"]
+
+        #accept friend request
+        response_accept_request = client.post(f"/accept_friend_request/{user.user_id}", headers={
+            "Authorization": f"Bearer {friend_token}"
+        })
+
+        assert response_accept_request.status_code == 200
+        assert response_accept_request.get_json() == {
+            "message": "Friend request accepted"
+        }
+
+        assert (Friendship.query.filter_by(user_id=user.user_id, friend_id=friend.user_id).first() or
+                Friendship.query.filter_by(user_id=friend.user_id, friend_id=user.user_id).first()) is not None
+        
+        assert FriendRequest.query.filter_by(sender_id=user.user_id, receiver_id=friend.user_id).first() is None
+
+        db.session.rollback()
+        db.session.query(User).delete()
+        db.session.query(FriendRequest).delete()
+        db.session.query(Friendship).delete()
+        db.session.commit()
+
+def test_decline_friend_request(client, app):
+    with app.app_context():
+        username1 = "user1"
+        password1 = "root"
+        email1 = "example1@gmail.com"
+        user = User(username1, password1, email1)
+        
+        username2 = "user2"
+        password2 = "toor"
+        email2 = "example2@gmail.com"
+        friend = User(username2, password2, email2)
+
+        db.session.add(user)
+        db.session.add(friend)
+        db.session.commit()
+
+        #user logs in
+        response_login = client.post("/api/login", json={"username": username1, "password": password1})
+        assert response_login.status_code == 200
+
+        data = json.loads(response_login.data)
+        token = data["access_token"]
+
+        #create friend request
+        response_create_request = client.post(f"/create_friend_request/{friend.user_id}", headers={
+            "Authorization": f"Bearer {token}"
+        })
+
+        assert response_create_request.status_code == 200
+        assert response_create_request.get_json() == {
+            "message": "Friend request created"
+        }
+
+        assert FriendRequest.query.filter_by(sender_id=user.user_id, receiver_id=friend.user_id).first() is not None
+        
+        #friend logs in
+        response_friend_login = client.post("/api/login", json={"username": username2, "password": password2})
+        assert response_friend_login.status_code == 200
+
+        friend_data = json.loads(response_friend_login.data)
+        friend_token = friend_data["access_token"]
+
+        #declne friend request
+        response_decline_request = client.post(f"/decline_friend_request/{user.user_id}", headers={
+            "Authorization": f"Bearer {friend_token}"
+        })
+
+        assert response_decline_request.status_code == 200
+        assert response_decline_request.get_json() == {
+            "message": "Friend request declined"
+        }
+
+        assert (Friendship.query.filter_by(user_id=user.user_id, friend_id=friend.user_id).first() and
+                Friendship.query.filter_by(user_id=friend.user_id, friend_id=user.user_id).first()) is None
+        
+        assert FriendRequest.query.filter_by(sender_id=user.user_id, receiver_id=friend.user_id).first() is None
+
+        db.session.rollback()
+        db.session.query(User).delete()
+        db.session.query(FriendRequest).delete()
+        db.session.query(Friendship).delete()
+        db.session.commit()
+
+def test_friend_not_exist(client, app):
+    with app.app_context():
+        #create user
+        username1 = "user1"
+        password1 = "root"
+        email1 = "example1@gmail.com"
+        user = User(username1, password1, email1)
+
+        db.session.add(user)
+        db.session.commit()
+
+        #user logs in
+        response_login = client.post("/api/login", json={"username": username1, "password": password1})
+        assert response_login.status_code == 200
+
+        data = json.loads(response_login.data)
+        token = data["access_token"]
+
+        #create friend request
+        friend_id = uuid.uuid4()
+        response_create_request = client.post(f"/create_friend_request/{friend_id}", headers={
+            "Authorization": f"Bearer {token}"
+        })
+
+        assert response_create_request.status_code == 400
+        assert FriendRequest.query.filter_by(sender_id=user.user_id, receiver_id=friend_id).first() is None
+
+        db.session.rollback()
+        db.session.query(User).delete()
+        db.session.query(FriendRequest).delete()
+        db.session.query(Friendship).delete()
+        db.session.commit()
+
+def test_befriend_yourself(client, app):
+    with app.app_context():
+        #create user
+        username1 = "user1"
+        password1 = "root"
+        email1 = "example1@gmail.com"
+        user = User(username1, password1, email1)
+
+        db.session.add(user)
+        db.session.commit()
+
+        #user logs in
+        response_login = client.post("/api/login", json={"username": username1, "password": password1})
+        assert response_login.status_code == 200
+
+        data = json.loads(response_login.data)
+        token = data["access_token"]
+
+        #create friend request
+        response_create_request = client.post(f"/create_friend_request/{user.user_id}", headers={
+            "Authorization": f"Bearer {token}"
+        })
+
+        assert response_create_request.status_code == 400
+        assert FriendRequest.query.filter_by(sender_id=user.user_id, receiver_id=user.user_id).first() is None
+
+        db.session.rollback()
+        db.session.query(User).delete()
+        db.session.query(FriendRequest).delete()
+        db.session.query(Friendship).delete()
+        db.session.commit()
+
+def test_request_exists(client, app):
+    with app.app_context():
+        username1 = "user1"
+        password1 = "root"
+        email1 = "example1@gmail.com"
+        user = User(username1, password1, email1)
+        
+        username2 = "user2"
+        password2 = "toor"
+        email2 = "example2@gmail.com"
+        friend = User(username2, password2, email2)
+
+        db.session.add(user)
+        db.session.add(friend)
+        db.session.commit()
+
+        new_request = FriendRequest(sender_id=user.user_id, receiver_id=friend.user_id)
+        db.session.add(new_request)
+        db.session.commit()
+
+        #user logs in
+        response_login = client.post("/api/login", json={"username": username1, "password": password1})
+        assert response_login.status_code == 200
+
+        data = json.loads(response_login.data)
+        token = data["access_token"]
+
+        #create friend request
+        response_create_request = client.post(f"/create_friend_request/{friend.user_id}", headers={
+            "Authorization": f"Bearer {token}"
+        })
+
+        assert response_create_request.status_code == 400
+        assert response_create_request.get_json() == {
+            "message": "Request already exists"
+        }
+
+        assert len(FriendRequest.query.filter_by(sender_id=user.user_id, receiver_id=friend.user_id).all()) == 1
+
+        db.session.rollback()
+        db.session.query(User).delete()
+        db.session.query(FriendRequest).delete()
+        db.session.query(Friendship).delete()
+        db.session.commit()
+
+def test_friendship_exists(client, app):
+    with app.app_context():
+        username1 = "user1"
+        password1 = "root"
+        email1 = "example1@gmail.com"
+        user = User(username1, password1, email1)
+        
+        username2 = "user2"
+        password2 = "toor"
+        email2 = "example2@gmail.com"
+        friend = User(username2, password2, email2)
+
+        db.session.add(user)
+        db.session.add(friend)
+        db.session.commit()
+
+        if user.user_id < friend.user_id:
+            new_friendship = Friendship(user_id=user.user_id, friend_id=friend.user_id)
+        else:
+            new_friendship = Friendship(user_id=friend.user_id, friend_id=user.user_id)
+
+        db.session.add(new_friendship)
+        db.session.commit()
+
+        #user logs in
+        response_login = client.post("/api/login", json={"username": username1, "password": password1})
+        assert response_login.status_code == 200
+
+        data = json.loads(response_login.data)
+        token = data["access_token"]
+
+        #create friend request
+        response_create_request = client.post(f"/create_friend_request/{friend.user_id}", headers={
+            "Authorization": f"Bearer {token}"
+        })
+
+        assert response_create_request.status_code == 400
+        assert response_create_request.get_json() == {
+            "message": "Friendship already exists"
+        }
+
+        assert FriendRequest.query.filter_by(sender_id=user.user_id, receiver_id=friend.user_id).first() is None
+
+        db.session.rollback()
+        db.session.query(User).delete()
+        db.session.query(FriendRequest).delete()
+        db.session.query(Friendship).delete()
+        db.session.commit()
+
+def test_accept_request_not_exist(client, app):
+    with app.app_context():
+        username1 = "user1"
+        password1 = "root"
+        email1 = "example1@gmail.com"
+        user = User(username1, password1, email1)
+        
+        username2 = "user2"
+        password2 = "toor"
+        email2 = "example2@gmail.com"
+        friend = User(username2, password2, email2)
+
+        db.session.add(user)
+        db.session.add(friend)
+        db.session.commit()
+        
+        #friend logs in
+        response_friend_login = client.post("/api/login", json={"username": username2, "password": password2})
+        assert response_friend_login.status_code == 200
+
+        friend_data = json.loads(response_friend_login.data)
+        friend_token = friend_data["access_token"]
+
+        #accept friend request
+        response_accept_request = client.post(f"/accept_friend_request/{user.user_id}", headers={
+            "Authorization": f"Bearer {friend_token}"
+        })
+
+        assert response_accept_request.status_code == 400
+        assert response_accept_request.get_json() == {
+            "message": "Such request doesn't exist"
+        }
+
+        assert (Friendship.query.filter_by(user_id=user.user_id, friend_id=friend.user_id).first() and
+                Friendship.query.filter_by(user_id=friend.user_id, friend_id=user.user_id).first()) is None
+
+        db.session.rollback()
+        db.session.query(User).delete()
+        db.session.query(FriendRequest).delete()
+        db.session.query(Friendship).delete()
+        db.session.commit()
+
+def test_decline_request_not_exist(client, app):
+    with app.app_context():
+        username1 = "user1"
+        password1 = "root"
+        email1 = "example1@gmail.com"
+        user = User(username1, password1, email1)
+        
+        username2 = "user2"
+        password2 = "toor"
+        email2 = "example2@gmail.com"
+        friend = User(username2, password2, email2)
+
+        db.session.add(user)
+        db.session.add(friend)
+        db.session.commit()
+        
+        #friend logs in
+        response_friend_login = client.post("/api/login", json={"username": username2, "password": password2})
+        assert response_friend_login.status_code == 200
+
+        friend_data = json.loads(response_friend_login.data)
+        friend_token = friend_data["access_token"]
+
+        #decline friend request
+        response_decline_request = client.post(f"/decline_friend_request/{user.user_id}", headers={
+            "Authorization": f"Bearer {friend_token}"
+        })
+
+        assert response_decline_request.status_code == 400
+        assert response_decline_request.get_json() == {
+            "message": "Such request doesn't exist"
+        }
+
+        assert (Friendship.query.filter_by(user_id=user.user_id, friend_id=friend.user_id).first() and
+                Friendship.query.filter_by(user_id=friend.user_id, friend_id=user.user_id).first()) is None
+
+        db.session.rollback()
+        db.session.query(User).delete()
+        db.session.query(FriendRequest).delete()
+        db.session.query(Friendship).delete()
+        db.session.commit()
