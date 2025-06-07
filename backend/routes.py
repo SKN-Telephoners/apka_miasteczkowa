@@ -15,7 +15,7 @@ main = Blueprint("main", __name__)
 auth = Blueprint("auth", __name__)
 
 @auth.route("/api/register",methods=["POST"])
-@limiter.limit("5 per hour")   # maks. 5 rejestracji na IP na godzinę
+@limiter.limit("50 per hour")   # maks. 5 rejestracji na IP na godzinę
 def register_user():    
     user_data = request.get_json()
     required_keys = {"username", "password", "email"}

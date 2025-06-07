@@ -19,7 +19,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [secureText, setSecureText] = useState(true);
-  const [apiUrl, setApiUrl] = useState(BACKEND_URL);
+  // const [apiUrl, setApiUrl] = useState(BACKEND_URL);
 
   const [usernameError, setUsernameError] = useState("");
   const [passwordError, setPasswordError] = useState("");
@@ -74,11 +74,11 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
         navigation.navigate("Home");
       } else {
         console.log("Logowanie nie powiodło się. Kod:", response.status);
-        Alert.alert("Logowanie nie powiodło się", response.data.message);
       }
     } catch (error: any) {
       if (error.response) {
         console.log("Logowanie nie powiodło się. Kod:", error.response.status);
+        Alert.alert("Logowanie nie powiodło się", error.response.data.message);
       } else {
         console.error("Błąd:", error.message);
       }
@@ -154,12 +154,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     marginBottom: 15,
     width: "80%",
-    alignItems: "center",
     gap: 30,
-  },
-  input: {
-    flex: 1,
-    marginLeft: 10,
   },
   errorMessage: {
     color: "red",

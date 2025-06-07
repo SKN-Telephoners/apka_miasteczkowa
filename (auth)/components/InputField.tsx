@@ -16,14 +16,15 @@ interface InputField {
   secureTextEntry?: boolean;
   toggleSecure?: () => void;
   keyboardType?:
-    | "default"
-    | "email-address"
-    | "numeric"
-    | "phone-pad"
-    | "number-pad";
+  | "default"
+  | "email-address"
+  | "numeric"
+  | "phone-pad"
+  | "number-pad";
   errorMessage?: string;
   validate?: (text: string) => string | null; // Optional validation function
 }
+
 
 const InputField: React.FC<InputField> = ({
   icon,
@@ -73,6 +74,7 @@ const InputField: React.FC<InputField> = ({
   const handleFocus = () => {
     // hide error when focusing on the input again
     setLocalErrorMessage(null);
+    setIsTouched(false);
   };
 
   const displayErrorMessage = isTouched && (localErrorMessage || errorMessage);

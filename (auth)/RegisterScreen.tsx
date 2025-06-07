@@ -114,7 +114,6 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
         navigation.navigate("Welcome");
       } else {
         console.log("Rejestracja nie powiodło się. Kod:", response.status);
-        Alert.alert("Rejestracja nie powiodło się", response.data.message);
       }
     } catch (error: any) {
       if (error.response) {
@@ -122,6 +121,7 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
           "Rejestracja nie powiodło się. Kod:",
           error.response.data.message
         );
+        Alert.alert("Rejestracja nie powiodła się", error.response.data.message);
       } else {
         console.error("Błąd:", error.message);
       }
@@ -241,7 +241,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#f5f5f5",
-    paddingTop: 50,
   },
   infoButton: {
     position: "absolute",
@@ -253,17 +252,11 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#004aad",
     marginBottom: 50,
-    textAlign: "center",
   },
   inputContainer: {
     marginBottom: 15,
     width: "80%",
-    alignItems: "center",
     gap: 30,
-  },
-  input: {
-    flex: 1,
-    marginLeft: 10,
   },
   registerButton: {
     backgroundColor: "#4a90e2",
