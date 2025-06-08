@@ -1,9 +1,9 @@
 from flask import Blueprint, request, jsonify, url_for
-from backend.models import User, TokenBlocklist
+from backend.models import User, TokenBlocklist, Event
 from backend.extensions import db, jwt, mail, limiter
 from flask_jwt_extended import jwt_required, create_access_token, create_refresh_token, get_jwt, get_jwt_identity, get_current_user, decode_token
 from backend.helpers import add_token_to_db, revoke_token, is_token_revoked
-from datetime import timedelta
+from datetime import timedelta, datetime
 import re
 from flask_mail import Message
 
@@ -13,6 +13,82 @@ MIN_USERNAME_LEN = 3
 
 main = Blueprint("main", __name__)
 auth = Blueprint("auth", __name__)
+events = Blueprint("events", __name__)
+
+@events.route("/events", methods=["GET"])
+def get_events():
+    """
+    Zwraca listę wszystkich eventów w bazie.
+    """
+
+    events = Event.query.order_by(Event.date).all()
+    result =  [event.to_dict() for event in events]
+    return jsonify(result), 200
+
+@events.route("/events", methods=["POST"])
+def create_event():
+    """
+    Tworzy nowy event. Oczekujemy JSON w ciele żądania:
+    {
+        "title": "Tytuł wydarzenia",
+        "description": "Opis (opcjonalnie)",
+        "date": "YYYY-MM-DDTHH:MM:SS"  # ISO 8601
+    }
+    """
+    data = request.get_json()
+    if not data or 'title' not in data or 'date' not in data:
+        return jsonify({'error': 'Please fill in the required fields: Title and Date.'}), 400
+
+    title = data['title']
+    description = data.get('description')
+
+    try:
+        date = datetime.fromisoformat(data['date'])
+    except ValueError:
+        return jsonify({'error': 'Invalid date format. Please use ISO 8601. (YYYY-MM-DDTHH:MM:SS).'}), 400
+
+    new_event = Event(title=title, description=description, date=date)
+    db.session.add(new_event)
+    db.session.commit()
+
+    return jsonify(new_event.to_dict()), 201
+
+@events.route('/events/<int:event_id>', methods=['DELETE'])
+def delete_event(event_id):
+    """
+    Usuwa event o podanym ID.
+    """
+    event = Event.query.get(event_id)
+    if not event:
+        return jsonify({'error': f'Event with ID {event_id} does not exist.'}), 404
+
+    db.session.delete(event)
+    db.session.commit()
+    return jsonify({'message': f'Event with ID {event_id} has been deleted.'}), 200
+
+@events.route('/events/<int:event_id>', methods=['PUT'])
+def update_event(event_id):
+    event = Event.query.get(event_id)
+    if not event:
+        return jsonify({'error': 'Event does not exist.'}), 404
+
+    data = request.get_json()
+    title = data.get('title')
+    description = data.get('description')
+    date_str = data.get('date')
+
+    if title:
+        event.title = title
+    if description is not None:
+        event.description = description
+    if date_str:
+        try:
+            event.date = datetime.fromisoformat(date_str)
+        except ValueError:
+            return jsonify({'error': 'Invalid date format.'}), 400
+
+    db.session.commit()
+    return jsonify(event.to_dict()), 200
 
 @auth.route("/api/register",methods=["POST"])
 @limiter.limit("5 per hour")   # maks. 5 rejestracji na IP na godzinę

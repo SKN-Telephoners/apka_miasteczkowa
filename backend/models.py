@@ -1,6 +1,8 @@
 from backend.extensions import db, bcrypt
 from sqlalchemy import CheckConstraint
 from sqlalchemy.dialects.postgresql import UUID
+from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime 
 import uuid
 from datetime import datetime, timezone
 
@@ -44,3 +46,21 @@ class TokenBlocklist(db.Model):
     expires = db.Column(db.DateTime, nullable=False)
 
     user = db.relationship("User")
+
+# Event Class
+
+class Event(db.Model):
+    __tablename__ = "events"
+
+    id = db.Column(db.Integer, primary_key = True)
+    title = db.Column(db.String(120), nullable = False)
+    description = db.Column(db.Text, nullable = True)
+    date = db.Column(db.DateTime, nullable = False, default = datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'title': self.title,
+            'description': self.description,
+            'date': self.date.isoformat()
+        }
