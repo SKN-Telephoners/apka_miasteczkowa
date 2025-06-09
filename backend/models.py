@@ -1,6 +1,8 @@
 from backend.extensions import db, bcrypt
 from sqlalchemy import CheckConstraint, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
+from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime 
 import uuid
 from datetime import datetime, timezone
 
@@ -77,3 +79,21 @@ class FriendRequest(db.Model):
 
     sender = db.relationship('User', foreign_keys=[sender_id])
     receiver = db.relationship('User', foreign_keys=[receiver_id])
+
+# Event Class
+
+class Event(db.Model):
+    __tablename__ = "events"
+
+    id = db.Column(db.Integer, primary_key = True)
+    title = db.Column(db.String(120), nullable = False)
+    description = db.Column(db.Text, nullable = True)
+    date = db.Column(db.DateTime, nullable = False, default = datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'title': self.title,
+            'description': self.description,
+            'date': self.date.isoformat()
+        }
