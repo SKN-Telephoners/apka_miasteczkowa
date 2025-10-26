@@ -1,4 +1,4 @@
-import React, { useEffect, useInsertionEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { StatusBar, ActivityIndicator, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "./contexts/AuthContext";
