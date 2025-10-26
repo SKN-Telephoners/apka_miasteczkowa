@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
   Alert,
-  Modal
+  Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
@@ -33,30 +33,38 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
       return;
     }
     console.log("Rejestracja:", username, email, password);
-    
+
     // wywołanie funkcji rejestracji
     registerUser(username, email, password, confirmPassword);
   };
 
   // funkcja rejestracji (ta co wysyła api)
-  async function registerUser(username: string, email: string, password: string, confirmPassword: string): Promise<void> {
+  async function registerUser(
+    username: string,
+    email: string,
+    password: string,
+    confirmPassword: string
+  ): Promise<void> {
     try {
-      const response = await axios.post('http://10.0.2.2:5000/api/register', {
+      const response = await axios.post("http://10.0.2.2:5000/api/register", {
         username: username,
         email: email,
         password: password,
         confirmPassword: confirmPassword,
       });
-  
+
       if (response.status === 200) {
         console.log("Rejestracja powiodło się!");
-        navigation.navigate('Login');
+        navigation.navigate("Login");
       } else {
         console.log("Rejestracja nie powiodło się. Kod:", response.status);
       }
     } catch (error: any) {
       if (error.response) {
-        console.log("Rejestracja nie powiodło się. Kod:", error.response.status);
+        console.log(
+          "Rejestracja nie powiodło się. Kod:",
+          error.response.status
+        );
       } else {
         console.error("Błąd:", error.message);
       }
@@ -69,17 +77,16 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
   };
 
   return (
-    <View style={styles.container}>    
-      
+    <View style={styles.container}>
       {/* Info button */}
       <TouchableOpacity style={styles.infoButton} onPress={handleInfoPress}>
         <Ionicons name="information-circle-outline" size={36} color="#004aad" />
       </TouchableOpacity>
-      
+
       <Text style={styles.title}>Rejestracja</Text>
 
       {/* Username */}
-      <View style={styles.inputContainer}> 
+      <View style={styles.inputContainer}>
         <Ionicons name="person-outline" size={20} color="#ff914d" />
         <TextInput
           placeholder="Nazwa użytkownika"
@@ -88,7 +95,7 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
           style={styles.input}
         />
       </View>
-      
+
       {/* Email */}
       <View style={styles.inputContainer}>
         <Ionicons name="mail-outline" size={20} color="#ff914d" />
@@ -102,7 +109,7 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
       </View>
 
       {/* Password */}
-      <View style={styles.inputContainer}> 
+      <View style={styles.inputContainer}>
         <Ionicons name="lock-closed-outline" size={20} color="#ff914d" />
         <TextInput
           placeholder="Hasło"
@@ -130,7 +137,9 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
           secureTextEntry={secureTextConfirm}
           style={styles.input}
         />
-        <TouchableOpacity onPress={() => setSecureTextConfirm(!secureTextConfirm)}>
+        <TouchableOpacity
+          onPress={() => setSecureTextConfirm(!secureTextConfirm)}
+        >
           <Ionicons
             name={secureTextConfirm ? "eye-off-outline" : "eye-outline"}
             size={20}
@@ -162,13 +171,19 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
             <Text style={styles.modalText}>
               Nazwa użytkownika musi zawierać co najmniej 3 znaki.
             </Text>
-            <Text style={styles.modalText}>
-              Hasło musi zawierać:
+            <Text style={styles.modalText}>Hasło musi zawierać:</Text>
+            <Text style={[styles.modalText, styles.modalBullet]}>
+              - Co najmniej 8 znaków
             </Text>
-            <Text style={[styles.modalText, styles.modalBullet]}>- Co najmniej 8 znaków</Text>
-            <Text style={[styles.modalText, styles.modalBullet]}>- Jedną wielką literę</Text>
-            <Text style={[styles.modalText, styles.modalBullet]}>- Jedną małą literę</Text>
-            <Text style={[styles.modalText, styles.modalBullet]}>- Jedną cyfrę</Text>
+            <Text style={[styles.modalText, styles.modalBullet]}>
+              - Jedną wielką literę
+            </Text>
+            <Text style={[styles.modalText, styles.modalBullet]}>
+              - Jedną małą literę
+            </Text>
+            <Text style={[styles.modalText, styles.modalBullet]}>
+              - Jedną cyfrę
+            </Text>
             <TouchableOpacity
               style={styles.closeButton}
               onPress={() => setInfoModalVisible(false)}
@@ -200,7 +215,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#004aad",
     marginBottom: 50,
-    textAlign: "center"
+    textAlign: "center",
   },
   inputContainer: {
     flexDirection: "row",
@@ -212,11 +227,11 @@ const styles = StyleSheet.create({
     width: "80%",
     height: 50,
     borderWidth: 1,
-    borderColor: "#ccc"
+    borderColor: "#ccc",
   },
   input: {
     flex: 1,
-    marginLeft: 10
+    marginLeft: 10,
   },
   registerButton: {
     backgroundColor: "#4a90e2",
@@ -225,53 +240,53 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
     marginTop: 30,
-    marginBottom: 10
+    marginBottom: 10,
   },
   buttonText: {
     color: "#fff",
-    fontSize: 18
+    fontSize: 18,
   },
   backText: {
     color: "#4a90e2",
-    marginTop: 10
+    marginTop: 10,
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
-    alignItems: "center"
+    alignItems: "center",
   },
   modalContent: {
     backgroundColor: "#fff",
     borderRadius: 10,
     padding: 20,
-    width: "80%"
+    width: "80%",
   },
   modalTitle: {
     fontSize: 24,
     fontWeight: "bold",
     marginBottom: 10,
-    textAlign: "center"
+    textAlign: "center",
   },
   modalText: {
     fontSize: 16,
     marginBottom: 5,
-    textAlign: "left"
+    textAlign: "left",
   },
   modalBullet: {
-    marginLeft: 10
+    marginLeft: 10,
   },
   closeButton: {
     marginTop: 20,
     backgroundColor: "#4a90e2",
     paddingVertical: 10,
     borderRadius: 10,
-    alignItems: "center"
+    alignItems: "center",
   },
   closeButtonText: {
     color: "#fff",
-    fontSize: 18
-  }
+    fontSize: 18,
+  },
 });
 
 export default RegisterScreen;

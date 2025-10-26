@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -6,57 +6,63 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import axios from "axios";
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const BACKEND_URL = "http://10.0.2.2:5000";
+import { useAuth } from "../../contexts/AuthContext";
+import { authService } from "../../services/api";
 
 const LoginScreen = ({ navigation }: { navigation: any }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [secureText, setSecureText] = useState(true);
-  const [apiUrl, setApiUrl] = useState(BACKEND_URL);
-  const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = () => {
+  const { login } = useAuth();
+
+  const handleLogin = async () => {
     if (!username || !password) {
       Alert.alert("Błąd", "Uzupełnij proszę wszystkie pola");
       return;
     }
-    console.log("Logowanie:", username, password);
-    //wywołanie funkcji login po sprawdzeniu pól
-    logIn(username, password);
+
+    setIsLoading(true);
+    try {
+      const response = await authService.login(username, password);
+
+      // save tokens
+      await login(response.access_token, response.refresh_token);
+
+      console.log("login success");
+    } catch (error: any) {
+      Alert.alert("Błąd", "Nieprawidłowa nazwa użytkownika lub hasło");
+
+      let errorMessage;
+
+      if (error.response) {
+        switch (error.response.status) {
+          case 401:
+            errorMessage = "Nieprawidłowe dane logowania.";
+            break;
+          case 404:
+            errorMessage =
+              "Nieautoryzowany dostęp. Sprawdź swoje dane logowania.";
+            break;
+          case 500:
+            errorMessage = "Błąd serwera. Spróbuj ponownie później.";
+            break;
+          default:
+            errorMessage = "Wystąpił nieznany błąd. Spróbuj ponownie.";
+        }
+      } else if (error.request) {
+        errorMessage = "Brak połączenia z serwerem.";
+      }
+
+      Alert.alert("Błąd logowania", errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
-
-//funkcja login 
-async function logIn(username: string, password: string): Promise<void> {
-  try {
-    const response = await axios.post('http://10.0.2.2:5000/api/login', {
-      username: username,
-      password: password,
-    });
-
-    if (response.status === 200) {
-      console.log("Logowanie powiodło się!");
-
-      const { access_token, refresh_token } = response.data; // assuming the token is returned as 'token'
-      await AsyncStorage.setItem('access_token', access_token);
-      await AsyncStorage.setItem('refresh_token', refresh_token);
-
-      navigation.navigate('Home');
-    } else {
-      console.log("Logowanie nie powiodło się. Kod:", response.status);
-    }
-  } catch (error: any) {
-    if (error.response) {
-      console.log("Logowanie nie powiodło się. Kod:", error.response.status);
-    } else {
-      console.error("Błąd:", error.message);
-    }
-  }
-}
 
   return (
     <View style={styles.container}>
@@ -96,8 +102,16 @@ async function logIn(username: string, password: string): Promise<void> {
         <Text style={styles.forgotPassword}>Zapomniałeś hasła?</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-        <Text style={styles.buttonText}>Zaloguj się</Text>
+      <TouchableOpacity
+        style={[styles.loginButton, isLoading && styles.buttonDisabled]}
+        onPress={handleLogin}
+        disabled={isLoading}
+      >
+        {isLoading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.buttonText}>Zaloguj się</Text>
+        )}
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -115,18 +129,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f5f5"
+    backgroundColor: "#f5f5f5",
   },
   titleContainer: {
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 50
+    marginBottom: 50,
   },
   title: {
     fontSize: 48,
     fontWeight: "bold",
     color: "#004aad",
-    textAlign: "center"
+    textAlign: "center",
   },
   inputContainer: {
     flexDirection: "row",
@@ -138,11 +152,11 @@ const styles = StyleSheet.create({
     width: "80%",
     height: 50,
     borderWidth: 1,
-    borderColor: "#ccc"
+    borderColor: "#ccc",
   },
   input: {
     flex: 1,
-    marginLeft: 10
+    marginLeft: 10,
   },
   loginButton: {
     backgroundColor: "#4a90e2",
@@ -151,7 +165,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
     marginTop: 50,
-    marginBottom: 10
+    marginBottom: 10,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   signUpButton: {
     backgroundColor: "#ff914d",
@@ -159,22 +176,22 @@ const styles = StyleSheet.create({
     width: "80%",
     borderRadius: 10,
     alignItems: "center",
-    marginTop: 10
+    marginTop: 10,
   },
   buttonText: {
     color: "#fff",
-    fontSize: 18
+    fontSize: 18,
   },
   forgotPassword: {
     marginTop: 10,
-    color: "#4a90e2"
+    color: "#4a90e2",
   },
   wifi: {
     position: "absolute",
     top: 150,
     right: 95,
-    color: "#4a90e2"
-  }
+    color: "#4a90e2",
+  },
 });
 
 export default LoginScreen;
