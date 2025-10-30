@@ -1,7 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -9,81 +6,65 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
-import InputField from "./components/InputField";
-
-const BACKEND_URL = "http://10.0.2.2:5000";
+import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "../../contexts/AuthContext";
+import { authService } from "../../services/api";
 
 const LoginScreen = ({ navigation }: { navigation: any }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [secureText, setSecureText] = useState(true);
-  // const [apiUrl, setApiUrl] = useState(BACKEND_URL);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const [usernameError, setUsernameError] = useState("");
-  const [passwordError, setPasswordError] = useState("");
+  const { login } = useAuth();
 
-  // Field-specific validation functions
-  const validateUsername = (text: string): string | null => {
-    if (!text) {
-      return "Pole jest wymagane";
-    }
-    return null;
-  };
-
-  const validatePassword = (text: string): string | null => {
-    if (!text) {
-      return "Pole jest wymagane";
-    }
-    return null;
-  };
-
-  const validateInputs = () => {
-    const usernameValidation = validateUsername(username);
-    const passwordValidation = validatePassword(password);
-
-    setUsernameError(usernameValidation || "");
-    setPasswordError(passwordValidation || "");
-
-    return !usernameValidation && !passwordValidation;
-  };
-
-  const handleLogin = () => {
-    if (!validateInputs()) {
+  const handleLogin = async () => {
+    if (!username || !password) {
+      Alert.alert("Błąd", "Uzupełnij proszę wszystkie pola");
       return;
     }
-    console.log("Logowanie:", username, password);
-    logIn(username, password);
-  };
 
-  async function logIn(username: string, password: string): Promise<void> {
+    setIsLoading(true);
     try {
-      const response = await axios.post("http://10.0.2.2:5000/api/login", {
-        username: username,
-        password: password,
-      });
+      const response = await authService.login(username, password);
 
-      if (response.status === 200) {
-        console.log("Logowanie powiodło się!");
+      // save tokens
+      await login(response.access_token, response.refresh_token);
 
-        const { access_token, refresh_token } = response.data; // assuming the token is returned as 'token'
-        await AsyncStorage.setItem("access_token", access_token);
-        await AsyncStorage.setItem("refresh_token", refresh_token);
-
-        navigation.navigate("Home");
-      } else {
-        console.log("Logowanie nie powiodło się. Kod:", response.status);
-      }
+      console.log("login success");
     } catch (error: any) {
+      Alert.alert("Błąd", "Nieprawidłowa nazwa użytkownika lub hasło");
+
+      let errorMessage;
+
       if (error.response) {
-        console.log("Logowanie nie powiodło się. Kod:", error.response.status);
-        Alert.alert("Logowanie nie powiodło się", error.response.data.message);
-      } else {
-        console.error("Błąd:", error.message);
+        switch (error.response.status) {
+          case 401:
+            errorMessage = "Nieprawidłowe dane logowania.";
+            break;
+          case 404:
+            errorMessage =
+              "Nieautoryzowany dostęp. Sprawdź swoje dane logowania.";
+            break;
+          case 500:
+            errorMessage = "Błąd serwera. Spróbuj ponownie później.";
+            break;
+          default:
+            errorMessage = "Wystąpił nieznany błąd. Spróbuj ponownie.";
+        }
+      } else if (error.request) {
+        errorMessage = "Brak połączenia z serwerem.";
       }
+
+      Alert.alert("Błąd logowania", errorMessage);
+    } finally {
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <View style={styles.mainContainer}>
@@ -119,8 +100,16 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
         <Text style={styles.forgotPassword}>Zapomniałeś hasła?</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-        <Text style={styles.buttonText}>Zaloguj się</Text>
+      <TouchableOpacity
+        style={[styles.loginButton, isLoading && styles.buttonDisabled]}
+        onPress={handleLogin}
+        disabled={isLoading}
+      >
+        {isLoading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.buttonText}>Zaloguj się</Text>
+        )}
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -161,6 +150,13 @@ const styles = StyleSheet.create({
     marginTop: 5,
     marginLeft: 10,
     alignSelf: "flex-start",
+    height: 50,
+    borderWidth: 1,
+    borderColor: "#ccc",
+  },
+  input: {
+    flex: 1,
+    marginLeft: 10,
   },
   loginButton: {
     backgroundColor: "#4a90e2",
@@ -170,6 +166,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 50,
     marginBottom: 10,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   signUpButton: {
     backgroundColor: "#ff914d",

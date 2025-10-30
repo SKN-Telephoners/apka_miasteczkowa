@@ -1,3 +1,13 @@
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  Modal,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import React, { useState } from "react";
@@ -94,13 +104,17 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
       return;
     }
     console.log("Rejestracja:", username, email, password);
-    registerUser(username, email, password);
+
+    // wywołanie funkcji rejestracji
+    registerUser(username, email, password, confirmPassword);
   };
 
+  // funkcja rejestracji (ta co wysyła api)
   async function registerUser(
     username: string,
     email: string,
-    password: string
+    password: string,
+    confirmPassword: string
   ): Promise<void> {
     try {
       const response = await axios.post("http://10.0.2.2:5000/api/register", {
@@ -252,11 +266,19 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#004aad",
     marginBottom: 50,
+    textAlign: "center",
   },
   inputContainer: {
     marginBottom: 15,
     width: "80%",
     gap: 30,
+    height: 50,
+    borderWidth: 1,
+    borderColor: "#ccc",
+  },
+  input: {
+    flex: 1,
+    marginLeft: 10,
   },
   registerButton: {
     backgroundColor: "#4a90e2",
