@@ -1,18 +1,17 @@
 import React, { useState } from "react";
 import {
+  View,
   Alert,
   KeyboardAvoidingView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
-  StyleSheet,
-  Alert,
   ActivityIndicator,
+  TextInput,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../contexts/AuthContext";
 import { authService } from "../../services/api";
+import { Ionicons } from "@expo/vector-icons";
 
 const LoginScreen = ({ navigation }: { navigation: any }) => {
   const [username, setUsername] = useState("");
