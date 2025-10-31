@@ -12,6 +12,7 @@ import {
 import { useAuth } from "../../contexts/AuthContext";
 import { authService } from "../../services/api";
 import { Ionicons } from "@expo/vector-icons";
+import InputField from "../../components/InputField";
 
 const LoginScreen = ({ navigation }: { navigation: any }) => {
   const [username, setUsername] = useState("");
@@ -79,8 +80,8 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
           onChangeText={setUsername}
           secureTextEntry={false}
           keyboardType="default"
-          errorMessage={usernameError}
-          validate={validateUsername}
+          // errorMessage={usernameError}
+          // validate={validateUsername}
         />
 
         <InputField
@@ -90,8 +91,8 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
           onChangeText={setPassword}
           secureTextEntry={secureText}
           toggleSecure={() => setSecureText(!secureText)}
-          errorMessage={passwordError}
-          validate={validatePassword}
+          // errorMessage={passwordError}
+          // validate={validatePassword}
         />
       </View>
 
