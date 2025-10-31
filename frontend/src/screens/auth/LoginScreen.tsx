@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   View,
   Alert,
+  KeyboardAvoidingView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -65,37 +66,33 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.mainContainer}>
       <View style={styles.titleContainer}>
         <Text style={styles.title}>Aplikacja Miasteczkowa</Text>
       </View>
 
       <View style={styles.inputContainer}>
-        <Ionicons name="person-outline" size={20} color="#ff914d" />
-        <TextInput
-          placeholder="Username"
+        <InputField
+          icon="person-outline"
+          placeholder="Nazwa użytkownika"
           value={username}
           onChangeText={setUsername}
-          style={styles.input}
+          secureTextEntry={false}
+          keyboardType="default"
+          errorMessage={usernameError}
+          validate={validateUsername}
         />
-      </View>
 
-      <View style={styles.inputContainer}>
-        <Ionicons name="lock-closed-outline" size={20} color="#ff914d" />
-        <TextInput
-          placeholder="Password"
+        <InputField
+          icon="lock-closed-outline"
+          placeholder="Hasło"
           value={password}
           onChangeText={setPassword}
           secureTextEntry={secureText}
-          style={styles.input}
+          toggleSecure={() => setSecureText(!secureText)}
+          errorMessage={passwordError}
+          validate={validatePassword}
         />
-        <TouchableOpacity onPress={() => setSecureText(!secureText)}>
-          <Ionicons
-            name={secureText ? "eye-off-outline" : "eye-outline"}
-            size={20}
-            color="#ff914d"
-          />
-        </TouchableOpacity>
       </View>
 
       <TouchableOpacity onPress={() => navigation.navigate("ResetPassword")}>
@@ -125,7 +122,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+  mainContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
@@ -143,13 +140,15 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    paddingHorizontal: 10,
     marginBottom: 15,
     width: "80%",
+    gap: 30,
+  },
+  errorMessage: {
+    color: "red",
+    marginTop: 5,
+    marginLeft: 10,
+    alignSelf: "flex-start",
     height: 50,
     borderWidth: 1,
     borderColor: "#ccc",

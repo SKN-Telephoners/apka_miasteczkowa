@@ -15,7 +15,7 @@ main = Blueprint("main", __name__)
 auth = Blueprint("auth", __name__)
 
 @auth.route("/api/register",methods=["POST"])
-@limiter.limit("5 per hour")   # maks. 5 rejestracji na IP na godzinę
+@limiter.limit("50 per hour")   # maks. 5 rejestracji na IP na godzinę
 def register_user():    
     user_data = request.get_json()
     required_keys = {"username", "password", "email"}
@@ -27,7 +27,8 @@ def register_user():
     username = user_data["username"]
     password = user_data["password"]
     email = user_data["email"]
-    
+
+    # this check has been moved to frontend
     email_pattern = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
     if (
         not re.match(email_pattern, email)
