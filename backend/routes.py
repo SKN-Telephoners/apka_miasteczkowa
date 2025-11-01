@@ -1,10 +1,10 @@
 from flask import Blueprint, request, jsonify, url_for
-from backend.models import User, TokenBlocklist
+from backend.models import User, TokenBlocklist, FriendRequest, Friendship
 from backend.extensions import db, jwt, mail, limiter
 from flask_jwt_extended import jwt_required, create_access_token, create_refresh_token, get_jwt, get_jwt_identity, get_current_user, decode_token
 from backend.helpers import add_token_to_db, revoke_token, is_token_revoked
-from datetime import timedelta
 import re
+import uuid
 from flask_mail import Message
 
 MAX_EMAIL_LEN = 320
@@ -14,6 +14,7 @@ MIN_USERNAME_LEN = 3
 main = Blueprint("main", __name__)
 auth = Blueprint("auth", __name__)
 
+public_url = "example address"
 @auth.route("/api/register",methods=["POST"])
 @limiter.limit("50 per hour")   # maks. 5 rejestracji na IP na godzinę
 def register_user():    
@@ -147,7 +148,6 @@ def expired_token_callback(expired_token):
 def load_user(jwt_header, jwt_payload):
     user_id = jwt_payload["sub"]
     return User.query.get(user_id)
-    return jsonify(access_token=access_token)
   
 @main.route("/reset_password_request", methods=["POST"])
 def reset_password_request():
@@ -192,4 +192,88 @@ def reset_password(token):
 
     return {
         "message": "Password changed successfully"
+    }, 200
+
+@main.route("/create_friend_request/<friend_id>", methods=["POST"])
+@jwt_required()
+def create_friend_request(friend_id):
+    user = get_current_user()
+
+    friend_id = uuid.UUID(friend_id)
+
+    if User.query.filter_by(user_id=friend_id).first() is None:
+        return {
+            "message": "Friend does not exist",
+        }, 400
+    
+    if user.user_id == friend_id:
+        return {
+            "message": "You can't befriend yourself",
+        }, 400
+    
+    if (FriendRequest.query.filter_by(sender_id=user.user_id, receiver_id=friend_id).first() is not None
+        or FriendRequest.query.filter_by(sender_id=friend_id, receiver_id=user.user_id).first()):
+        return {
+            "message": "Request already exists",
+        }, 400
+    
+    if (Friendship.query.filter_by(user_id=user.user_id, friend_id=friend_id).first() is not None
+        or Friendship.query.filter_by(user_id=friend_id, friend_id=user.user_id).first() is not None):
+        return {
+            "message": "Friendship already exists",
+        }, 400
+
+    new_request = FriendRequest(sender_id=user.user_id, receiver_id=friend_id)
+
+    db.session.add(new_request)
+    db.session.commit()
+    
+    return {
+        "message": "Friend request created",
+    }, 200
+
+@main.route("/accept_friend_request/<friend_id>", methods=["POST"])
+@jwt_required()
+def accept_friend_request(friend_id):
+    user = get_current_user()
+    friend_id = uuid.UUID(friend_id)
+
+    request = FriendRequest.query.filter_by(sender_id=friend_id, receiver_id=user.user_id).first()
+
+    if request is None:
+        return {
+            "message": "Such request doesn't exist",
+        }, 400
+    
+    db.session.delete(request)
+
+    if user.user_id < friend_id:
+        new_friendship = Friendship(user_id=user.user_id, friend_id=friend_id)
+    else:
+        new_friendship = Friendship(user_id=friend_id, friend_id=user.user_id)
+
+    db.session.add(new_friendship)
+    db.session.commit()
+        
+    return {
+        "message": "Friend request accepted",
+    }, 200
+
+@main.route("/decline_friend_request/<friend_id>", methods=["POST"])
+@jwt_required()
+def decline_friend_request(friend_id):
+    user = get_current_user()
+    friend_id = uuid.UUID(friend_id)
+    request = FriendRequest.query.filter_by(sender_id=friend_id, receiver_id=user.user_id).first()
+
+    if request is None:
+        return {
+            "message": "Such request doesn't exist",
+        }, 400
+    
+    db.session.delete(request)
+    db.session.commit()
+        
+    return {
+        "message": "Friend request declined",
     }, 200
