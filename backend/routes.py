@@ -46,6 +46,20 @@ def register_user():
     db.session.add(new_user)
     db.session.commit()
     print("Dodano użytkownika do bazy!")
+
+    #send auth email
+
+    auth_token = create_access_token(identity=email)
+
+    auth_url=url_for("main.mail_auth", token=auth_token, _external=True)
+
+    msg = Message(
+            'Auth account',
+            recipients=[email],
+            body=f"Hello! Click the link to authorize your account: {auth_url}"
+        )
+
+    mail.send(msg)
     
     return {
         "message": "Registration successful",
@@ -66,6 +80,9 @@ def login_user():
     user = User.query.filter_by(username=username).first()
     if not user or not user.validate_password(password):
         return jsonify({"message": "Invalid username or password"}), 401
+    
+    if not user.is_confirmed:
+        return jsonify({"message":"At first, verify your account"})
     
     limiter.reset()
 
@@ -195,7 +212,62 @@ def reset_password(token):
     }, 200
 
 
+@main.route("/mail_auth_request",method=["POST"])
+def mail_auth_request():
+    user_data = request.get_json()
+    
+
+    if not user_data or not "email" in user_data.keys():
+        return jsonify({"message":"Bad request"}),400
+    
+    email=user_data["email"]
+
+    user = User.query.filter_by(email=email).first()
+
+    if not user:
+        return jsonify({"message": "There is no user with such email"}), 401
+
+    if user.is_confirmed:
+        return jsonify({"message": "User already confirmed"}), 400
+
+    if User.query.filter_by(email=email).first():
+        return jsonify({"message": "User already exists"}), 409
+
+    auth_token = create_access_token(identity=user.email)
+
+    auth_url=url_for("main.reset_password", token=auth_token, _external=True)
+
+        
+    msg = Message(
+            'Auth account',
+            recipients=[email],
+            body=f"Hello! Click the link to authorize your account: {auth_url}"
+        )
+
+    mail.send(msg)
+
+    return{
+        "message": "Email sent successfully"
+    },200
+
 
 @main.route("/mail_auth/<token>",methods=["POST"])
 def mail_auth(token):
-    pass
+    decoded = decode_token(token)
+    user_email = decoded["sub"]
+
+    user = User.query.filter_by(email=user_email).first()
+
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+
+    if user.is_confirmed:
+        return jsonify({"message": "User already confirmed"}), 400
+    
+    user.is_confirmed=True
+    db.session.commit()
+
+    return {
+        "message": "Verification succesful"
+    }, 200
+

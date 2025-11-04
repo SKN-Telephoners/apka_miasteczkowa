@@ -30,6 +30,7 @@ CREATE TABLE public.app_user (
     password_hash character varying(128) NOT NULL,
     email character varying(320) NOT NULL,
     created_at timestamp without time zone DEFAULT now(),
+    is_confirmed BOOLEAN DEFAULT FALSE NOT NULL,
     CONSTRAINT email_format CHECK (((email)::text ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'::text))
 );
 
