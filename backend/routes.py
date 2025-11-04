@@ -193,3 +193,9 @@ def reset_password(token):
     return {
         "message": "Password changed successfully"
     }, 200
+
+
+
+@main.route("/mail_auth/<token>",methods=["POST"])
+def mail_auth(token):
+    pass
