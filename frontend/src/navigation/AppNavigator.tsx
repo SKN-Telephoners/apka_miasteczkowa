@@ -6,8 +6,12 @@ import LoginScreen from "../screens/auth/LoginScreen";
 import RegisterScreen from "../screens/auth/RegisterScreen";
 import ResetPasswordScreen from "../screens/auth/ResetPasswordScreen";
 import HomeScreen from "../screens/home/HomeScreen";
+import MapScreen from "../screens/home/MapScreen";
+import EventScreen from "../screens/home/EventScreen";
+import ProfileScreen from "../screens/home/ProfileScreen";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../contexts/AuthContext";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, View, TouchableOpacity } from "react-native";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -27,9 +31,44 @@ const AuthStack = () => {
 // for authenticated users
 const MainTabs = () => {
   return (
-    <Tab.Navigator screenOptions={{ headerShown: false }}>
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerStyle: { height: "28%" },
+        headerTitleAlign: 'center',
+        tabBarStyle: { height: "8%" },
+        tabBarItemStyle: { margin: "2%", borderRadius: 10, },
+
+        headerRight: () => (
+          <View style={{ flexDirection: 'row' }}>
+            <TouchableOpacity style={{ marginHorizontal: "8%" }}>
+              <Ionicons name={'search'} size={28} />
+            </TouchableOpacity>
+            <TouchableOpacity style={{ marginHorizontal: "8%" }}>
+              <Ionicons name={'notifications'} size={28} />
+            </TouchableOpacity>
+          </View>
+        ),
+
+        tabBarIcon: ({ color }) => {
+          let iconName;
+
+          if (route.name === 'Home') {
+            iconName = 'home';
+          } else if (route.name === 'Mapa') {
+            iconName = 'map';
+          } else if (route.name === 'Wydarzenia') {
+            iconName = 'locate'
+          } else if (route.name === 'Profil') {
+            iconName = 'person'
+          }
+          return <Ionicons name={iconName} size={28} color={color} />;
+        },
+      })}
+    >
       <Tab.Screen name="Home" component={HomeScreen} />
-      {/* more tabs */}
+      <Tab.Screen name="Mapa" component={MapScreen} />
+      <Tab.Screen name="Wydarzenia" component={EventScreen} />
+      <Tab.Screen name="Profil" component={ProfileScreen} />
     </Tab.Navigator>
   );
 };
@@ -60,3 +99,5 @@ const AppNavigator = () => {
 };
 
 export default AppNavigator;
+
+
