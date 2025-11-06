@@ -33,17 +33,17 @@ const MainTabs = () => {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        headerStyle: { height: "28%" },
-        headerTitleAlign: 'center',
-        tabBarStyle: { height: "8%" },
-        tabBarItemStyle: { margin: "2%", borderRadius: 10, },
+        headerStyle: { height: 70 },
+        headerTitleAlign: "center",
+        tabBarStyle: { height: 70 },
+        tabBarItemStyle: { margin: 8, borderRadius: 10 },
 
         headerRight: () => (
           <View style={{ flexDirection: 'row' }}>
-            <TouchableOpacity style={{ marginHorizontal: "8%" }}>
+            <TouchableOpacity style={{ marginHorizontal: 20 }}>
               <Ionicons name={'search'} size={28} />
             </TouchableOpacity>
-            <TouchableOpacity style={{ marginHorizontal: "8%" }}>
+            <TouchableOpacity style={{ marginHorizontal: 20 }}>
               <Ionicons name={'notifications'} size={28} />
             </TouchableOpacity>
           </View>
