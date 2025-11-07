@@ -1,8 +1,15 @@
 from flask import Flask, jsonify, make_response
 from backend.extensions import db, bcrypt, jwt, mail, limiter, CORS
 from backend.config import Config, TestConfig
-from backend.routes import main, auth
+from backend.routes.auth_routes import auth_bp
+from backend.routes.user_routes import user_bp
+from backend.routes.mail_routes import mail_bp
 from werkzeug.exceptions import HTTPException
+
+def register_blueprints(app):
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(user_bp)
+    app.register_blueprint(mail_bp)
 
 def create_app(test_mode=False):
     app = Flask(__name__)
