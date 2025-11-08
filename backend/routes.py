@@ -6,7 +6,7 @@ from backend.helpers import add_token_to_db, revoke_token, is_token_revoked
 import re
 import uuid
 from flask_mail import Message
-from datetime import datetime
+from datetime import datetime, timezone
 
 MAX_EMAIL_LEN = 320
 MAX_USERNAME_LEN = 32
@@ -148,7 +148,7 @@ def expired_token_callback(expired_token):
 @jwt.user_lookup_loader
 def load_user(jwt_header, jwt_payload):
     user_id = jwt_payload["sub"]
-    return User.query.get(user_id)
+    return db.session.get(User, user_id)
   
 @main.route("/reset_password_request", methods=["POST"])
 def reset_password_request():
@@ -293,9 +293,10 @@ def create_event():
     name = event_data["name"]
     description = event_data["description"]
     date_and_time = datetime.strptime(event_data["date"] + " " + event_data["time"], "%d.%m.%Y %H:%M")
+    date_and_time = date_and_time.replace(tzinfo=timezone.utc)
     location = event_data["location"]
 
-    if date_and_time <= datetime.utcnow():
+    if date_and_time <= datetime.now(timezone.utc):
             return {"message": "Event date must be in the future"}, 400
     
     new_event = Event(name=name, description=description, date_and_time=date_and_time, location=location, creator_id=user.user_id)
