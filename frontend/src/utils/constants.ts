@@ -2,9 +2,9 @@ import { Platform } from "react-native";
 
 export const API_BASE_URL = __DEV__
   ? Platform.select({
-      android: "http://localhost:5000",
-      ios: "http://localhost:5000",
-      default: "http://localhost:5000",
+      android: "http://10.0.2.2:5000",
+      ios: "http://10.0.2.2:5000",
+      default: "http://10.0.2.2:5000",
     })
   : "https://production-api.com";
 
@@ -18,7 +18,6 @@ export const TIMEOUTS = {
   REQUEST_TIMEOUT: 10000,
   RETRY_DELAY: 1000,
 } as const;
-
 
 export const COLORS = {
   primary: "#",

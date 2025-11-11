@@ -137,10 +137,6 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
     }
   }
 
-  const handleInfoPress = () => {
-    setInfoModalVisible(true);
-  };
-
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -150,7 +146,7 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>Rejestracja</Text>
+        <Text style={styles.title}>{MESSAGES.APP.REGISTER_TITLE}</Text>
 
         <View style={styles.inputContainer}>
           <InputField
