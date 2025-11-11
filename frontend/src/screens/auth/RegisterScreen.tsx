@@ -7,11 +7,12 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from "react-native";
-import axios from "axios";
+import { ScrollView } from "react-native-gesture-handler";
+import { authService } from "../../services/api";
 import InputField from "../../components/InputField";
 import { MESSAGES } from "../../utils/constants";
-import { ScrollView } from "react-native-gesture-handler";
 
 const RegisterScreen = ({ navigation }: { navigation: any }) => {
   const [username, setUsername] = useState("");
@@ -20,7 +21,7 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [secureText, setSecureText] = useState(true);
   const [secureTextConfirm, setSecureTextConfirm] = useState(true);
-  const [infoModalVisible, setInfoModalVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const [usernameError, setUsernameError] = useState("");
   const [emailError, setEmailError] = useState("");
@@ -91,51 +92,32 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
     );
   };
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!validateInputs()) {
       return;
     }
-    console.log("Rejestracja:", username, email, password);
-
-    // wywołanie funkcji rejestracji
-    registerUser(username, email, password, confirmPassword);
-  };
-
-  // funkcja rejestracji (ta co wysyła api)
-  async function registerUser(
-    username: string,
-    email: string,
-    password: string,
-    confirmPassword: string
-  ): Promise<void> {
+    setIsLoading(true);
     try {
-      const response = await axios.post("http://10.0.2.2:5000/api/register", {
-        username: username,
-        email: email,
-        password: password,
-      });
-
-      if (response.status === 200) {
-        console.log("Rejestracja powiodło się!");
-        navigation.navigate("Welcome");
-      } else {
-        console.log("Rejestracja nie powiodło się. Kod:", response.status);
-      }
+      await authService.register(username, email, password);
+      Alert.alert("Rejestracja powiodła się!", "Możesz się teraz zalogować.", [
+        { text: "OK", onPress: () => navigation.navigate("Login") },
+      ]);
     } catch (error: any) {
       if (error.response) {
-        console.log(
-          "Rejestracja nie powiodło się. Kod:",
-          error.response.data.message
-        );
         Alert.alert(
           "Rejestracja nie powiodła się",
           error.response.data.message
         );
       } else {
-        console.error("Błąd:", error.message);
+        Alert.alert(
+          "Błąd rejestracji",
+          "Wystąpił nieoczekiwany błąd. Spróbuj ponownie."
+        );
       }
+    } finally {
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -190,17 +172,24 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity
-            style={styles.registerButton}
+            style={[styles.registerButton, isLoading && styles.buttonDisabled]}
             onPress={handleRegister}
+            disabled={isLoading}
           >
-            <Text style={styles.buttonText}>{MESSAGES.BUTTONS.REGISTER}</Text>
+            {isLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>{MESSAGES.BUTTONS.REGISTER}</Text>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.registerButton}
             onPress={() => navigation.navigate("Login")}
           >
-            <Text style={styles.buttonText}>{MESSAGES.BUTTONS.BACK_TO_LOGIN}</Text>
+            <Text style={styles.buttonText}>
+              {MESSAGES.BUTTONS.BACK_TO_LOGIN}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -235,6 +224,9 @@ const styles = StyleSheet.create({
     width: "80%",
     borderRadius: 10,
     alignItems: "center",
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   buttonText: {
     color: "#fff",

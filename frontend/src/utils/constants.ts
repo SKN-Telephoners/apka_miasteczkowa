@@ -85,6 +85,8 @@ export const MESSAGES = {
     MIN_LENGTH: (min: number) => `Minimum ${min} znaków`,
     MAX_LENGTH: (max: number) => `Maksimum ${max} znaków`,
     PASSWORDS_MATCH: "Hasła muszą być identyczne",
+    CHECK_USERNAME: "Sprawdź czy nazwa użytkownika jest poprawna",
+    CHECK_PASSWORD: "Sprawdź czy hasło jest poprawne",
   },
 
   // UI Messages

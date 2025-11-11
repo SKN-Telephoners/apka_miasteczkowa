@@ -7,7 +7,6 @@ import {
   Text,
   TouchableOpacity,
   ActivityIndicator,
-  TextInput,
   ScrollView,
   Platform,
 } from "react-native";
@@ -21,50 +20,47 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
   const [password, setPassword] = useState("");
   const [secureText, setSecureText] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+
   const [usernameError, setUsernameError] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
   const { login } = useAuth();
 
+  const validateUsername = (text: string): string | null => {
+    if (!text) {
+      return "Nazwa użytkownika jest wymagana.";
+    }
+    return null;
+  };
+
+  const validatePassword = (text: string): string | null => {
+    if (!text) {
+      return "Hasło jest wymagane.";
+    }
+    return null;
+  };
+
   const handleLogin = async () => {
-    if (!username || !password) {
-      Alert.alert("Błąd", "Uzupełnij proszę wszystkie pola");
+    setUsernameError("");
+    setPasswordError("");
+
+    const usernameValidation = validateUsername(username);
+    const passwordValidation = validatePassword(password);
+
+    if (usernameValidation || passwordValidation) {
+      setUsernameError(usernameValidation || "");
+      setPasswordError(passwordValidation || "");
       return;
     }
 
     setIsLoading(true);
     try {
       const response = await authService.login(username, password);
-
-      // save tokens
       await login(response.access_token, response.refresh_token);
-
       console.log("login success");
     } catch (error: any) {
-      Alert.alert("Błąd", "Nieprawidłowa nazwa użytkownika lub hasło");
-
-      let errorMessage;
-
-      if (error.response) {
-        switch (error.response.status) {
-          case 401:
-            errorMessage = "Nieprawidłowe dane logowania.";
-            break;
-          case 404:
-            errorMessage =
-              "Nieautoryzowany dostęp. Sprawdź swoje dane logowania.";
-            break;
-          case 500:
-            errorMessage = "Błąd serwera. Spróbuj ponownie później.";
-            break;
-          default:
-            errorMessage = "Wystąpił nieznany błąd. Spróbuj ponownie.";
-        }
-      } else if (error.request) {
-        errorMessage = "Brak połączenia z serwerem.";
-      }
-
-      Alert.alert("Błąd logowania", errorMessage);
+      setUsernameError(MESSAGES.VALIDATION.CHECK_USERNAME);
+      setPasswordError(MESSAGES.VALIDATION.CHECK_PASSWORD);
     } finally {
       setIsLoading(false);
     }
@@ -88,6 +84,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
             onChangeText={setUsername}
             secureTextEntry={false}
             errorMessage={usernameError}
+            validate={validateUsername}
           />
 
           <InputField
@@ -97,6 +94,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
             secureTextEntry={secureText}
             toggleSecure={() => setSecureText(!secureText)}
             errorMessage={passwordError}
+            validate={validatePassword}
           />
 
           <TouchableOpacity
