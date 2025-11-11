@@ -19,6 +19,7 @@ export const TIMEOUTS = {
   RETRY_DELAY: 1000,
 } as const;
 
+
 export const COLORS = {
   primary: "#",
   primaryLight: "#",
