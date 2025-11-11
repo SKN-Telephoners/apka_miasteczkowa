@@ -41,6 +41,7 @@ apka_miasteczkowa/
 
 venv/
 backend/.venv
+.venv/
 
 backend/__pycache__/
 tests/__pycache__/
