@@ -65,6 +65,7 @@ api.interceptors.response.use(
   }
 );
 
+// Auth-related API calls
 export const authService = {
   login: async (username: string, password: string) => {
     const response = await api.post("/api/login", { username, password });
@@ -78,16 +79,19 @@ export const authService = {
     });
     return response.data;
   },
+
   resetPassword: async (email: string) => {
     const response = await api.post("/api/reset-password", { email });
     return response.data;
   },
+  
   logout: async () => {
     const response = await api.post("/api/logout");
     return response.data;
   },
 };
 
+// User-related API calls
 export const userService = {
   getProfile: async () => {
     const response = await api.get("/api/user/profile");
