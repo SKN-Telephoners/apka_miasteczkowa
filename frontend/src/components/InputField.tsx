@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -8,56 +8,42 @@ import {
   View,
 } from "react-native";
 
-interface InputField {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
+interface InputFieldProps {
   placeholder: string;
   value: string;
   onChangeText: (text: string) => void;
   secureTextEntry?: boolean;
   toggleSecure?: () => void;
-  keyboardType?:
-  | "default"
-  | "email-address"
-  | "numeric"
-  | "phone-pad"
-  | "number-pad";
   errorMessage?: string;
-  validate?: (text: string) => string | null; // Optional validation function
+  validate?: (text: string) => string | null;
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
 }
 
-
-const InputField: React.FC<InputField> = ({
-  icon,
+const InputField: React.FC<InputFieldProps> = ({
   placeholder,
   value,
   onChangeText,
   secureTextEntry,
   toggleSecure,
-  keyboardType = "default",
   errorMessage,
   validate,
+  autoCapitalize = "none",
 }) => {
-  const [showLegend, setShowLegend] = useState(true);
-  const [showIcon, setShowIcon] = useState(true);
-  const [localErrorMessage, setLocalErrorMessage] = useState<
-    string | null | undefined
-  >(null);
+  const [localErrorMessage, setLocalErrorMessage] = useState<string | null>(
+    null
+  );
   const [isTouched, setIsTouched] = useState(false);
 
-  useEffect(() => {
-    setShowLegend(value === "");
-    setShowIcon(value === "");
-  }, [value]);
+  const isEmpty = value === "";
 
   const handleTextChange = (text: string) => {
-    setShowLegend(text === "");
-    setShowIcon(text === "");
-
-    if (keyboardType === "email-address") {
-      text = text.toLowerCase();
-    }
-
     onChangeText(text);
+
+    // Validate while typing if already touched
+    if (isTouched && validate) {
+      const validationError = validate(text);
+      setLocalErrorMessage(validationError);
+    }
   };
 
   const handleBlur = () => {
@@ -66,18 +52,18 @@ const InputField: React.FC<InputField> = ({
     if (validate) {
       const validationError = validate(value);
       setLocalErrorMessage(validationError);
-    } else if (errorMessage) {
-      setLocalErrorMessage(errorMessage);
     }
   };
 
   const handleFocus = () => {
-    // hide error when focusing on the input again
+    // Clear local validation error when focusing on the input again
     setLocalErrorMessage(null);
-    setIsTouched(false);
   };
 
-  const displayErrorMessage = isTouched && (localErrorMessage || errorMessage);
+  // Prioritize local validation over external error message
+  const displayErrorMessage = isTouched
+    ? localErrorMessage ?? errorMessage
+    : null;
 
   return (
     <View style={styles.container}>
@@ -87,8 +73,7 @@ const InputField: React.FC<InputField> = ({
           displayErrorMessage ? styles.inputBoxError : null,
         ]}
       >
-        {!showLegend && <Text style={styles.legend}>{placeholder}</Text>}
-        {showIcon && <Ionicons name={icon} size={20} color="#ff914d" />}
+        {!isEmpty && <Text style={styles.legend}>{placeholder}</Text>}
         <TextInput
           style={styles.input}
           placeholder={placeholder}
@@ -97,7 +82,9 @@ const InputField: React.FC<InputField> = ({
           onBlur={handleBlur}
           onFocus={handleFocus}
           secureTextEntry={secureTextEntry}
-          keyboardType={keyboardType}
+          accessibilityLabel={placeholder}
+          accessibilityHint={displayErrorMessage || undefined}
+          autoCapitalize={autoCapitalize}
         />
         {toggleSecure && (
           <TouchableOpacity onPress={toggleSecure}>
@@ -109,11 +96,8 @@ const InputField: React.FC<InputField> = ({
           </TouchableOpacity>
         )}
       </View>
-      {displayErrorMessage && (
-        <Text style={styles.errorMessage}>
-          {localErrorMessage || errorMessage}
-        </Text>
-      )}
+
+      <Text style={styles.errorMessage}>{displayErrorMessage}</Text>
     </View>
   );
 };
@@ -141,15 +125,17 @@ const styles = StyleSheet.create({
   legend: {
     position: "absolute",
     top: -10,
-    left: 26,
+    left: 18,
     backgroundColor: "#f5f5f5",
     color: "#aaa",
     paddingHorizontal: 5,
   },
   errorMessage: {
     color: "red",
+    fontSize: 12,
     marginTop: 5,
     marginLeft: 10,
+    height: 18,
   },
 });
 
