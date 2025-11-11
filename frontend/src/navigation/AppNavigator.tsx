@@ -10,6 +10,7 @@ import MapScreen from "../screens/home/MapScreen";
 import EventScreen from "../screens/home/EventScreen";
 import ProfileScreen from "../screens/home/ProfileScreen";
 import { Ionicons } from "@expo/vector-icons";
+import type { ComponentProps } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { ActivityIndicator, View, TouchableOpacity } from "react-native";
 
@@ -27,6 +28,18 @@ const AuthStack = () => {
     </Stack.Navigator>
   );
 };
+
+const getIconName = (routeName: string): ComponentProps<typeof Ionicons>['name'] => {
+  const iconMap: Record<string, ComponentProps<typeof Ionicons>['name']> = {
+    'Home': 'home',
+    'Mapa': 'map',
+    'Wydarzenia': 'locate',
+    'Profil': 'person'
+  };
+  
+  return iconMap[routeName] ?? 'home';
+};
+
 
 // for authenticated users
 const MainTabs = () => {
@@ -50,17 +63,7 @@ const MainTabs = () => {
         ),
 
         tabBarIcon: ({ color }) => {
-          let iconName;
-
-          if (route.name === 'Home') {
-            iconName = 'home';
-          } else if (route.name === 'Mapa') {
-            iconName = 'map';
-          } else if (route.name === 'Wydarzenia') {
-            iconName = 'locate'
-          } else if (route.name === 'Profil') {
-            iconName = 'person'
-          }
+          const iconName = getIconName(route.name)
           return <Ionicons name={iconName} size={28} color={color} />;
         },
       })}
