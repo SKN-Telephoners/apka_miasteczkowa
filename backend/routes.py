@@ -212,7 +212,7 @@ def reset_password(token):
     }, 200
 
 
-@main.route("/mail_auth_request",method=["POST"])
+@main.route("/mail_auth_request",methods=["POST"])
 def mail_auth_request():
     user_data = request.get_json()
     
@@ -229,13 +229,10 @@ def mail_auth_request():
 
     if user.is_confirmed:
         return jsonify({"message": "User already confirmed"}), 400
-
-    if User.query.filter_by(email=email).first():
-        return jsonify({"message": "User already exists"}), 409
-
+    
     auth_token = create_access_token(identity=user.email)
 
-    auth_url=url_for("main.reset_password", token=auth_token, _external=True)
+    auth_url=url_for("main.mail_auth", token=auth_token, _external=True)
 
         
     msg = Message(
