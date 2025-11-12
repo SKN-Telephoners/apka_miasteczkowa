@@ -3,7 +3,8 @@ from re import search
 from backend.app import create_app
 from backend.extensions import db, mail
 from sqlalchemy.exc import IntegrityError
-from backend.models import User, TokenBlocklist, FriendRequest, Friendship
+from backend.models import User, TokenBlocklist, FriendRequest, Friendship, Event
+from datetime import datetime
 import json
 import uuid
 
@@ -897,3 +898,195 @@ def test_decline_request_not_exist(client, app):
         db.session.query(FriendRequest).delete()
         db.session.query(Friendship).delete()
         db.session.commit()
+
+# =============================================================================
+# Tests for handling events
+# =============================================================================
+def test_create_event(client, app):
+    with app.app_context():
+        username1 = "user1"
+        password1 = "root"
+        email1 = "example1@gmail.com"
+        user = User(username1, password1, email1)
+
+        db.session.add(user)
+        db.session.commit()
+
+        #user logs in
+        response_login = client.post("/api/login", json={"username": username1, "password": password1})
+        assert response_login.status_code == 200
+
+        data = json.loads(response_login.data)
+        token = data["access_token"]
+
+        #create event
+        payload = {
+            "name": "event1",
+            "description": "very cool event",
+            "date": "01.01.2026",
+            "time": "21:37",
+            "location": "here"
+        }
+
+        response_create_event = client.post(f"/create_event", headers={
+            "Authorization": f"Bearer {token}"
+        }, json=payload)
+
+        assert response_create_event.status_code == 200
+        assert response_create_event.get_json() == {
+            "message": "Event created successfully"
+        }
+
+        db.session.rollback()
+        db.session.query(User).delete()
+        db.session.query(Event).delete()
+        db.session.commit()
+
+def test_create_event_invalid_date(client, app):
+    with app.app_context():
+        username1 = "user1"
+        password1 = "root"
+        email1 = "example1@gmail.com"
+        user = User(username1, password1, email1)
+
+        db.session.add(user)
+        db.session.commit()
+
+        #user logs in
+        response_login = client.post("/api/login", json={"username": username1, "password": password1})
+        assert response_login.status_code == 200
+
+        data = json.loads(response_login.data)
+        token = data["access_token"]
+
+        #create event
+        payload = {
+            "name": "event1",
+            "description": "very cool event",
+            "date": "01.01.1995",
+            "time": "21:37",
+            "location": "here"
+        }
+
+        response_create_event = client.post(f"/create_event", headers={
+            "Authorization": f"Bearer {token}"
+        }, json=payload)
+
+        assert response_create_event.status_code == 400
+        assert response_create_event.get_json() == {
+            "message": "Event date must be in the future"
+        }
+
+        db.session.rollback()
+        db.session.query(User).delete()
+        db.session.query(Event).delete()
+        db.session.commit()
+
+
+def test_delete_event(client, app):
+    with app.app_context():
+        username1 = "user1"
+        password1 = "root"
+        email1 = "example1@gmail.com"
+        user = User(username1, password1, email1)
+
+        db.session.add(user)
+        db.session.commit()
+
+        #user logs in
+        response_login = client.post("/api/login", json={"username": username1, "password": password1})
+        assert response_login.status_code == 200
+
+        data = json.loads(response_login.data)
+        token = data["access_token"]
+
+        #create event
+        payload = {
+            "name": "to delete",
+            "description": "very cool event",
+            "date": "01.01.2026",
+            "time": "21:37",
+            "location": "here"
+        }
+
+        response_create_event = client.post(f"/create_event", headers={
+            "Authorization": f"Bearer {token}"
+        }, json=payload)
+
+        assert response_create_event.status_code == 200
+        assert response_create_event.get_json() == {
+            "message": "Event created successfully"
+        }
+
+        event = Event.query.filter_by(name="to delete").first()
+        assert event is not None
+
+        #delete event
+        response_delete_event = client.delete(f"/delete_event/{event.event_id}", headers={
+            "Authorization": f"Bearer {token}"
+        })
+
+        assert response_delete_event.status_code == 200
+        assert response_delete_event.get_json() == {
+            "message": "Event deleted successfully"
+        }
+
+        deleted = Event.query.filter_by(event_id=event.event_id).first()
+        assert deleted is None
+
+        db.session.rollback()
+        db.session.query(User).delete()
+        db.session.query(Event).delete()
+        db.session.commit()
+
+def test_delete_event_not_owner(client, app):
+    with app.app_context():
+        # user1 owns event
+        user1 = User("user1", "root", "u1@example.com")
+        user2 = User("user2", "root", "u2@example.com")
+        db.session.add(user1)
+        db.session.add(user2)
+        db.session.commit()
+
+        event = Event(
+            name="event1",
+            description="private",
+            date_and_time=datetime(2026, 1, 1, 21, 37),
+            location="here",
+            creator_id=user1.user_id
+        )
+        db.session.add(event)
+        db.session.commit()
+
+        # login as user2
+        login_resp = client.post("/api/login", json={"username": "user2", "password": "root"})
+        token = login_resp.get_json()["access_token"]
+
+        # attempt delete
+        response_delete_event = client.delete(f"/delete_event/{event.event_id}", headers={
+            "Authorization": f"Bearer {token}"
+        })
+
+        assert response_delete_event.status_code == 401
+        assert response_delete_event.get_json() == {
+            "message": "You can delete your own events only"
+        }
+
+def test_delete_invalid_event(client, app):
+    with app.app_context():
+        user1 = User("user1", "root", "u1@example.com")
+        db.session.add(user1)
+        db.session.commit()
+
+        login_resp = client.post("/api/login", json={"username": "user1", "password": "root"})
+        token = login_resp.get_json()["access_token"]
+
+        # attempt delete
+        response_delete_event = client.delete(f"/delete_event/{uuid.uuid4()}", headers={
+            "Authorization": f"Bearer {token}"
+        })
+
+        assert response_delete_event.status_code == 400
+        assert response_delete_event.get_json() == {
+            "message": "Event doesn't exist"
+        }
