@@ -12,7 +12,7 @@ interface EventData {
 }
 
 // Create event
-export const createEvent = async(eventData: EventData) : Promise<string> =>{
+export const createEvent = async(eventData: EventData) : Promise<string> =>{ // check promise
     try {
         const response = await api.post<ApiMessage>('/create_event', eventData);
         return response.data.message ?? "Event created";// return, delete if unnecessary

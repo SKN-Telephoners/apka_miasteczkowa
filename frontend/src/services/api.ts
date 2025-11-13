@@ -2,6 +2,10 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE_URL, STORAGE_KEYS } from "../utils/constants";
 
+const MAX_RETRY_ATTEMPTS = 2;
+const INITIAL_RETRY_DELAY = 500; // in milliseconds
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms)); // helper function for delay
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
@@ -10,11 +14,23 @@ const api = axios.create({
   },
 });
 
+
+// LOGOUT function to clear tokens
+export async function handleSessionExpiry() {
+  console.log("Token refresh failed, logging out");
+  await AsyncStorage.multiRemove([
+    STORAGE_KEYS.ACCESS_TOKEN,
+    STORAGE_KEYS.REFRESH_TOKEN,
+    ]);
+    //TO DO : redirect to login screen
+}
 // Request interceptor - adds auth token to all requests
 api.interceptors.request.use(
   async (config) => {
+    console.log("Request interceptor for", config.url);
     const token = await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
     if (token) {
+      console.log("Found token, adding to headers");
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -26,10 +42,14 @@ api.interceptors.request.use(
 
 // Response interceptor - handles token refresh
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log("Response interceptor for", response.config.url);
+     return response;
+  },
   async (error) => {
     const originalRequest = error.config;
-
+    console.log('Response error Błąd:', error.response?.status, 'dla URL:', originalRequest.url);
+    
     // if 401 and not already retried, try to refresh token
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
@@ -40,6 +60,7 @@ api.interceptors.response.use(
         );
 
         if (refreshToken) {
+          console.log("Attempting token refresh");
           const response = await axios.post(`${API_BASE_URL}/api/refresh`, {
             refresh_token: refreshToken,
           });
@@ -50,17 +71,27 @@ api.interceptors.response.use(
           // retry original request with new token
           originalRequest.headers.Authorization = `Bearer ${access_token}`;
           return api(originalRequest);
-        }
+        } 
       } catch (refreshError) {
         // refresh failed, clear tokens and redirect to login
-        await AsyncStorage.multiRemove([
-          STORAGE_KEYS.ACCESS_TOKEN,
-          STORAGE_KEYS.REFRESH_TOKEN,
-        ]);
-        return Promise.reject(refreshError);
+        await handleSessionExpiry();
+        return Promise.reject(new Error("Session expired. Please log in again."));
       }
     }
+    const isRetryableError = !error.response || (error.response.status >= 500 && error.response.status < 600);
+    if (isRetryableError) {
+      originalRequest._retryCount = originalRequest._retryCount || 0;
+      if (originalRequest._retryCount < MAX_RETRY_ATTEMPTS) {
+        originalRequest._retryCount += 1;
+        const delayDuration = INITIAL_RETRY_DELAY * Math.pow(2, originalRequest._retryCount - 1);
 
+        console.log(`Retrying request to ${originalRequest.url} (attempt ${originalRequest._retryCount}) after ${delayDuration}ms`);
+
+        await delay(delayDuration);
+
+        return api(originalRequest);
+      }
+    }
     return Promise.reject(error);
   }
 );
