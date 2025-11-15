@@ -14,7 +14,7 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
     
     __table_args__ = (
-        CheckConstraint("email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'", name="email_format"),
+        CheckConstraint(r"email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'", name="email_format"),
     )
     
     def __init__(self, username, password, email):
@@ -90,7 +90,7 @@ class Event(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
 
     __table_args__ = (
-        CheckConstraint('date > CURRENT_TIMESTAMP', name='check_event_date_future'),
+        CheckConstraint('date_and_time > CURRENT_TIMESTAMP', name='check_event_date_future'),
     )
 
     creator = db.relationship("User", foreign_keys=[creator_id])

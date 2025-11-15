@@ -1,12 +1,12 @@
 from flask import Blueprint, request, jsonify, url_for
-from backend.models import User, TokenBlocklist, FriendRequest, Friendship, Event
+from backend.models import User, FriendRequest, Friendship, Event
 from backend.extensions import db, jwt, mail, limiter
 from flask_jwt_extended import jwt_required, create_access_token, create_refresh_token, get_jwt, get_jwt_identity, get_current_user, decode_token
 from backend.helpers import add_token_to_db, revoke_token, is_token_revoked
 import re
 import uuid
 from flask_mail import Message
-from datetime import datetime
+from datetime import datetime, timezone
 
 MAX_EMAIL_LEN = 320
 MAX_USERNAME_LEN = 32
@@ -104,10 +104,7 @@ def get_user_info():
 def refresh():
     identity = get_jwt_identity()
     access_token = create_access_token(identity=identity)
-
-    db.session.add(TokenBlocklist(access_token))
-    db.session.commit()
-    
+    add_token_to_db(access_token)
     return jsonify(access_token=access_token)
 
 @auth.route("/revoke_access", methods=["GET", "DELETE"])
@@ -125,6 +122,33 @@ def revoke_refresh_token():
     user_id = get_jwt_identity()
     revoke_token(jti, user_id)
     return jsonify(message="refresh token revoked")
+
+@auth.route("/api/logout", methods=["DELETE"])
+@jwt_required(refresh=True)
+def logout():
+    user_id = get_jwt_identity()
+    refresh_jti = get_jwt()["jti"]
+    revoke_token(refresh_jti, user_id)  
+
+    data = request.get_json()
+    access_token = data.get("access_token") if data else None
+
+    if not access_token:
+        return jsonify(message="Refresh token revoked. Logged out.")
+
+    try:
+        access_payload = decode_token(access_token, allow_expired=True)
+    
+        if access_payload["sub"] != user_id:
+            return jsonify(message="Token mismatch"), 401
+            
+        access_jti = access_payload["jti"]
+        revoke_token(access_jti, user_id) 
+        
+        return jsonify(message="Access and refresh tokens revoked. Logged out.")
+
+    except:
+        return jsonify(message="Refresh token revoked, but provided access token was invalid."), 400
 
 @jwt.token_in_blocklist_loader
 def check_if_token_revoked(jwt_header, jwt_payload):
@@ -148,7 +172,7 @@ def expired_token_callback(expired_token):
 @jwt.user_lookup_loader
 def load_user(jwt_header, jwt_payload):
     user_id = jwt_payload["sub"]
-    return User.query.get(user_id)
+    return db.session.get(User, user_id)
   
 @main.route("/reset_password_request", methods=["POST"])
 def reset_password_request():
@@ -293,9 +317,10 @@ def create_event():
     name = event_data["name"]
     description = event_data["description"]
     date_and_time = datetime.strptime(event_data["date"] + " " + event_data["time"], "%d.%m.%Y %H:%M")
+    date_and_time = date_and_time.replace(tzinfo=timezone.utc)
     location = event_data["location"]
 
-    if date_and_time <= datetime.utcnow():
+    if date_and_time <= datetime.now(timezone.utc):
             return {"message": "Event date must be in the future"}, 400
     
     new_event = Event(name=name, description=description, date_and_time=date_and_time, location=location, creator_id=user.user_id)
