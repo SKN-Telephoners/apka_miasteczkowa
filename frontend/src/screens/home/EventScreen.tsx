@@ -2,18 +2,15 @@ import React, { useState, useEffect } from "react";
 import {
     View,
     Text,
-    StyleSheet,
-    TouchableOpacity,
-    Alert,
     SafeAreaView,
     ActivityIndicator
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { FlatList, TextInput } from "react-native-gesture-handler";
+import EventCard from "../../components/EventCard"
+import { FlatList } from "react-native-gesture-handler";
 import { Event } from "../../types";
+import InputField from "../../components/InputField";
 // TODO: mock data to use untill there is an api endpoint for getting events 
 
-const filterFields = ['name', 'description', 'location']
 
 const DATA: Partial<Event>[] = [
     {
@@ -129,21 +126,19 @@ const EventScreen = () => {
     }
 
     return (
-        <SafeAreaView style={{ flex: 1, marginHorizontal: 20 }}>
-            <View>
-                <TextInput
+        <SafeAreaView style={{ flex: 1, marginHorizontal: 10 }}>
+            <View style={{ marginVertical: 10 }}>
+                <InputField
+                    icon="search"
                     placeholder="Szukaj"
-                    clearButtonMode="always"
-                    autoCapitalize="none"
                     onChangeText={(query) => handleSearch(query)}
                     value={searchQuery}
-                    style={styles.searchBox}
                 />
 
             </View>
             <FlatList
                 data={data}
-                renderItem={EventCard}
+                renderItem={({ item }) => <EventCard item={item} />}
                 keyExtractor={item => item.event_id!}
 
             />
@@ -152,63 +147,6 @@ const EventScreen = () => {
     );
 }
 
-const EventCard = ({ item }: { item: Partial<Event> }) => {
-    return (
-        <TouchableOpacity onPress={() => Alert.alert("Hello")}>
-            <View style={styles.container}>
-                <Text style={styles.title}>{item.name}</Text>
-                <View style={{ flexDirection: "row" }}>
-                    <Text style={{ fontSize: 16, marginRight: 10 }}>{item.date_and_time}</Text>
-                    <Text style={styles.location}>{item.location}</Text>
-                </View>
-            </View>
-        </TouchableOpacity>
-    )
-}
-
-const styles = StyleSheet.create({
-
-    container: {
-        backgroundColor: '#fdfafaff',
-        padding: 20,
-        marginVertical: 5,
-        borderRadius: 25,
-
-    },
-
-    title: {
-        fontSize: 24,
-        marginBottom: 90,
-        fontWeight: "bold",
-    },
-
-
-    location: {
-        fontSize: 18,
-        bottom: 2,
-        fontWeight: "bold",
-        color: "#045ddaff",
-    },
-
-    searchBox: {
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        marginVertical: 10,
-        backgroundColor: "#fdfafaff",
-        borderColor: "#ccc",
-        borderWidth: 1,
-        borderRadius: 25,
-    },
-
-    filterButton: {
-        padding: 10,
-        marginRight: 260,
-        backgroundColor: "#fdfafaff",
-        borderRadius: 25,
-        flexDirection: "row",
-        alignItems: "center",
-    },
-});
 
 
 export default EventScreen;
