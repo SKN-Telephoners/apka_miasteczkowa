@@ -7,7 +7,7 @@ from datetime import timedelta, datetime
 import re
 import uuid
 from flask_mail import Message
-from datetime import datetime
+from datetime import datetime, timezone
 
 MAX_EMAIL_LEN = 320
 MAX_USERNAME_LEN = 32
@@ -93,7 +93,7 @@ def update_event(event_id):
     return jsonify(event.to_dict()), 200
 
 @auth.route("/api/register",methods=["POST"])
-@limiter.limit("50 per hour")   # maks. 5 rejestracji na IP na godzinę
+@limiter.limit("500 per hour")   # for tests, 500 registers for IP per hour, change before deployment to 5
 def register_user():    
     user_data = request.get_json()
     required_keys = {"username", "password", "email"}
@@ -130,7 +130,7 @@ def register_user():
     }, 200
 
 @auth.route("/api/login", methods=["POST"])
-@limiter.limit("5 per 15 minutes")  # maks. 5 prób logowania na IP w ciągu 15 minut
+@limiter.limit("500 per 15 minutes")   # for tests, 500 logins for IP per 15 minutes, change before deployment to 5
 def login_user():
     user_data = request.get_json()
     required_keys = {"username", "password"}
@@ -180,10 +180,7 @@ def get_user_info():
 def refresh():
     identity = get_jwt_identity()
     access_token = create_access_token(identity=identity)
-
-    db.session.add(TokenBlocklist(access_token))
-    db.session.commit()
-    
+    add_token_to_db(access_token)
     return jsonify(access_token=access_token)
 
 @auth.route("/revoke_access", methods=["GET", "DELETE"])
@@ -201,6 +198,33 @@ def revoke_refresh_token():
     user_id = get_jwt_identity()
     revoke_token(jti, user_id)
     return jsonify(message="refresh token revoked")
+
+@auth.route("/api/logout", methods=["DELETE"])
+@jwt_required(refresh=True)
+def logout():
+    user_id = get_jwt_identity()
+    refresh_jti = get_jwt()["jti"]
+    revoke_token(refresh_jti, user_id)  
+
+    data = request.get_json()
+    access_token = data.get("access_token") if data else None
+
+    if not access_token:
+        return jsonify(message="Refresh token revoked. Logged out.")
+
+    try:
+        access_payload = decode_token(access_token, allow_expired=True)
+    
+        if access_payload["sub"] != user_id:
+            return jsonify(message="Token mismatch"), 401
+            
+        access_jti = access_payload["jti"]
+        revoke_token(access_jti, user_id) 
+        
+        return jsonify(message="Access and refresh tokens revoked. Logged out.")
+
+    except:
+        return jsonify(message="Refresh token revoked, but provided access token was invalid."), 400
 
 @jwt.token_in_blocklist_loader
 def check_if_token_revoked(jwt_header, jwt_payload):
@@ -224,9 +248,10 @@ def expired_token_callback(expired_token):
 @jwt.user_lookup_loader
 def load_user(jwt_header, jwt_payload):
     user_id = jwt_payload["sub"]
-    return User.query.get(user_id)
+    return db.session.get(User, user_id)
   
 @main.route("/reset_password_request", methods=["POST"])
+@limiter.limit("500 per hour")   # for tests, 500 password resets for IP per hour, change before deployment to 5
 def reset_password_request():
     user_data = request.get_json()
     
@@ -255,6 +280,7 @@ def reset_password_request():
     }, 200
 
 @main.route("/reset_password/<token>", methods=["POST"])
+@limiter.limit("500 per hour")   # for tests, 500 password resets for IP per hour, change before deployment to 5
 def reset_password(token):
     decoded = decode_token(token)
     user_email = decoded["sub"]
@@ -354,6 +380,7 @@ def decline_friend_request(friend_id):
     }, 200
 
 @main.route("/create_event", methods=["POST"])
+@limiter.limit("500 per minute")   # for tests, 500 events creations for IP per hour, change before deployment to 1
 @jwt_required()
 def create_event():
     user = get_current_user()
@@ -367,9 +394,10 @@ def create_event():
     name = event_data["name"]
     description = event_data["description"]
     date_and_time = datetime.strptime(event_data["date"] + " " + event_data["time"], "%d.%m.%Y %H:%M")
+    date_and_time = date_and_time.replace(tzinfo=timezone.utc)
     location = event_data["location"]
 
-    if date_and_time <= datetime.utcnow():
+    if date_and_time <= datetime.now(timezone.utc):
             return {"message": "Event date must be in the future"}, 400
     
     new_event = Event(name=name, description=description, date_and_time=date_and_time, location=location, creator_id=user.user_id)
