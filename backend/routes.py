@@ -7,6 +7,7 @@ from datetime import timedelta, datetime
 import re
 import uuid
 from flask_mail import Message
+from datetime import datetime
 
 MAX_EMAIL_LEN = 320
 MAX_USERNAME_LEN = 32
@@ -92,7 +93,7 @@ def update_event(event_id):
     return jsonify(event.to_dict()), 200
 
 @auth.route("/api/register",methods=["POST"])
-@limiter.limit("5 per hour")   # maks. 5 rejestracji na IP na godzinę
+@limiter.limit("50 per hour")   # maks. 5 rejestracji na IP na godzinę
 def register_user():    
     user_data = request.get_json()
     required_keys = {"username", "password", "email"}
@@ -104,7 +105,8 @@ def register_user():
     username = user_data["username"]
     password = user_data["password"]
     email = user_data["email"]
-    
+
+    # this check has been moved to frontend
     email_pattern = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
     if (
         not re.match(email_pattern, email)
@@ -349,4 +351,56 @@ def decline_friend_request(friend_id):
         
     return {
         "message": "Friend request declined",
+    }, 200
+
+@main.route("/create_event", methods=["POST"])
+@jwt_required()
+def create_event():
+    user = get_current_user()
+
+    event_data = request.get_json()
+    required_keys = {"name", "description", "date", "time", "location"}
+
+    if not event_data or not required_keys.issubset(event_data.keys()):
+        return jsonify({"message": "Bad request"}), 400
+    
+    name = event_data["name"]
+    description = event_data["description"]
+    date_and_time = datetime.strptime(event_data["date"] + " " + event_data["time"], "%d.%m.%Y %H:%M")
+    location = event_data["location"]
+
+    if date_and_time <= datetime.utcnow():
+            return {"message": "Event date must be in the future"}, 400
+    
+    new_event = Event(name=name, description=description, date_and_time=date_and_time, location=location, creator_id=user.user_id)
+    
+    db.session.add(new_event)
+    db.session.commit()
+    
+    return {
+        "message": "Event created successfully",
+    }, 200
+
+@main.route("/delete_event/<event_id>", methods=["DELETE"])
+@jwt_required()
+def delete_event(event_id):
+    user = get_current_user()
+    event_id = uuid.UUID(event_id)
+    event = Event.query.filter_by(event_id=event_id).first()
+
+    if event is None:
+        return {
+            "message": "Event doesn't exist"
+        }, 400
+
+    if user.user_id != event.creator_id:
+        return {
+            "message": "You can delete your own events only"
+        }, 401
+        
+    db.session.delete(event)
+    db.session.commit()
+
+    return {
+        "message": "Event deleted successfully"
     }, 200

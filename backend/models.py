@@ -80,20 +80,19 @@ class FriendRequest(db.Model):
     sender = db.relationship('User', foreign_keys=[sender_id])
     receiver = db.relationship('User', foreign_keys=[receiver_id])
 
-# Event Class
-
 class Event(db.Model):
-    __tablename__ = "events"
+    __tablename__ = "event"
+    
+    event_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
+    name = db.Column(db.String(32), nullable=False)
+    description = db.Column(db.String(1000))
+    date_and_time = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+    location = db.Column(db.String(32), nullable=False)
+    creator_id = db.Column(UUID(as_uuid=True), db.ForeignKey("app_user.user_id", ondelete='CASCADE'), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
 
-    id = db.Column(db.Integer, primary_key = True)
-    title = db.Column(db.String(120), nullable = False)
-    description = db.Column(db.Text, nullable = True)
-    date = db.Column(db.DateTime, nullable = False, default = datetime.utcnow)
+    __table_args__ = (
+        CheckConstraint('date > CURRENT_TIMESTAMP', name='check_event_date_future'),
+    )
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'title': self.title,
-            'description': self.description,
-            'date': self.date.isoformat()
-        }
+    creator = db.relationship("User", foreign_keys=[creator_id])

@@ -1,21 +1,21 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  StyleSheet, 
-  ImageBackground
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ImageBackground,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient"; 
-import * as SplashScreen from "expo-splash-screen"; 
-import { Asset } from "expo-asset"; 
+import { LinearGradient } from "expo-linear-gradient";
+import * as SplashScreen from "expo-splash-screen";
+import { Asset } from "expo-asset";
 
 // zapobieganie automatycznemu ukryciu splash screena
 SplashScreen.preventAutoHideAsync();
 
 const WelcomeScreen = ({ navigation }: { navigation: any }) => {
   const [isReady, setIsReady] = useState(false);
-  const imageAsset = require("../assets/telephlogo.jpg");
+  const imageAsset = require("../../../assets/telephlogo.jpg");
 
   useEffect(() => {
     async function loadResources() {
@@ -39,30 +39,27 @@ const WelcomeScreen = ({ navigation }: { navigation: any }) => {
   }, [isReady]);
 
   if (!isReady) {
-    // jak obraz sie nie załadował to splashscreen 
+    // jak obraz sie nie załadował to splashscreen
     return null;
   }
 
   return (
     <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-      <ImageBackground 
-        source={imageAsset}
-        style={styles.background}
-      >
-        <LinearGradient 
-          colors={["rgba(3, 0, 209, 0.8)", "rgba(207, 111, 2, 0.8)"]} 
+      <ImageBackground source={imageAsset} style={styles.background}>
+        <LinearGradient
+          colors={["rgba(3, 0, 209, 0.8)", "rgba(207, 111, 2, 0.8)"]}
           style={styles.overlay}
         >
           <View style={styles.container}>
             <Text style={styles.title}>Aplikacja Miasteczkowa</Text>
-            <TouchableOpacity 
-              style={styles.loginButton} 
+            <TouchableOpacity
+              style={styles.loginButton}
               onPress={() => navigation.navigate("Login")}
             >
               <Text style={styles.buttonText}>Zaloguj się</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.signUpButton} 
+            <TouchableOpacity
+              style={styles.signUpButton}
               onPress={() => navigation.navigate("Register")}
             >
               <Text style={styles.buttonText}>Załóż konto</Text>

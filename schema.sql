@@ -196,5 +196,38 @@ ALTER TABLE ONLY public.friendships
 
 
 --
+-- Name: event; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.event (
+    event_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name character varying(32) NOT NULL,
+    description character varying(1000),
+    date_and_time timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    location character varying(32) NOT NULL,
+    creator_id uuid NOT NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT event_pkey PRIMARY KEY (event_id),
+    CONSTRAINT check_event_date_future CHECK (date_and_time > CURRENT_TIMESTAMP)
+);
+
+ALTER TABLE public.event OWNER TO postgres;
+
+--
+-- Name: event fk_event_creator; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.event
+    ADD CONSTRAINT fk_event_creator FOREIGN KEY (creator_id)
+    REFERENCES public.app_user(user_id) ON DELETE CASCADE;
+
+--
+-- Name: idx_event_creator_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_event_creator_id ON public.event (creator_id);
+
+--
 -- PostgreSQL database dump complete
 --
