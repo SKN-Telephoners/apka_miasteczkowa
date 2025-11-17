@@ -44,3 +44,5 @@ backend/.venv
 
 backend/__pycache__/
 tests/__pycache__/
+frontend/package-lock.json
+frontend/package.json

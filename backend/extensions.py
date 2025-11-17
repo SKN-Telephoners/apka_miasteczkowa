@@ -14,5 +14,6 @@ limiter = Limiter(
     key_func=get_remote_address,
     default_limits=[],
     headers_enabled=True,
-    retry_after="delta-seconds"      
+    retry_after="delta-seconds", 
+    storage_uri="redis://localhost:6379"     
 )
