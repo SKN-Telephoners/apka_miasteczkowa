@@ -17,7 +17,7 @@ auth = Blueprint("auth", __name__)
 
 public_url = "example address"
 @auth.route("/api/register",methods=["POST"])
-@limiter.limit("50 per hour")   # maks. 5 rejestracji na IP na godzinę
+@limiter.limit("500 per hour")   # for tests, 500 registers for IP per hour, change before deployment to 5
 def register_user():    
     user_data = request.get_json()
     required_keys = {"username", "password", "email"}
@@ -54,7 +54,7 @@ def register_user():
     }, 200
 
 @auth.route("/api/login", methods=["POST"])
-@limiter.limit("5 per 15 minutes")  # maks. 5 prób logowania na IP w ciągu 15 minut
+@limiter.limit("500 per 15 minutes")   # for tests, 500 logins for IP per 15 minutes, change before deployment to 5
 def login_user():
     user_data = request.get_json()
     required_keys = {"username", "password"}
@@ -175,6 +175,7 @@ def load_user(jwt_header, jwt_payload):
     return db.session.get(User, user_id)
   
 @main.route("/reset_password_request", methods=["POST"])
+@limiter.limit("500 per hour")   # for tests, 500 password resets for IP per hour, change before deployment to 5
 def reset_password_request():
     user_data = request.get_json()
     
@@ -205,6 +206,7 @@ def reset_password_request():
     }, 200
 
 @main.route("/reset_password/<token>", methods=["POST"])
+@limiter.limit("500 per hour")   # for tests, 500 password resets for IP per hour, change before deployment to 5
 def reset_password(token):
     decoded = decode_token(token)
     user_email = decoded["sub"]
@@ -304,6 +306,7 @@ def decline_friend_request(friend_id):
     }, 200
 
 @main.route("/create_event", methods=["POST"])
+@limiter.limit("500 per minute")   # for tests, 500 events creations for IP per hour, change before deployment to 1
 @jwt_required()
 def create_event():
     user = get_current_user()
