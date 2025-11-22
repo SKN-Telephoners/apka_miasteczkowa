@@ -358,3 +358,32 @@ def delete_event(event_id):
     return {
         "message": "Event deleted successfully"
     }, 200
+
+
+@main.route("/feed",methods=["GET"])
+@jwt_required()
+def feed():
+
+    page = request.args.get("page", default=1, type=int)
+    limit = request.args.get("limit", default=20, type=int)
+    
+    events=Event.query \
+        .filter(Event.date_and_time > datetime.now(timezone.utc)) \
+        .order_by(Event.date_and_time.asc())
+    
+    pagination = events.paginate(page=page, per_page=limit, error_out=False)
+    
+    event_list=[
+        {
+            "id": event.event_id,
+            "name": event.name,
+            "description": event.description,
+            "date": event.date_and_time.strftime("%d.%m.%Y"),
+            "time": event.date_and_time.strftime("%H:%M"),
+            "location": event.location,
+            "creator_id": event.creator_id
+        }
+        for event in pagination.items
+    ]
+
+    return jsonify(event_list) ,200
