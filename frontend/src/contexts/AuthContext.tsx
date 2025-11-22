@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { tokenStorage } from "../utils/storage";
 
 interface AuthContextType {
@@ -40,6 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const logout = async () => {
     await tokenStorage.clearTokens();
+    await AsyncStorage.clear();
     setIsAuthenticated(false);
   };
 
