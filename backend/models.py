@@ -1,8 +1,6 @@
 from backend.extensions import db, bcrypt
 from sqlalchemy import CheckConstraint, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
-from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime 
 import uuid
 from datetime import datetime, timezone
 
@@ -16,7 +14,7 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
     
     __table_args__ = (
-        CheckConstraint("email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'", name="email_format"),
+        CheckConstraint(r"email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'", name="email_format"),
     )
     
     def __init__(self, username, password, email):
@@ -92,27 +90,7 @@ class Event(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
 
     __table_args__ = (
-        CheckConstraint('date > CURRENT_TIMESTAMP', name='check_event_date_future'),
+        CheckConstraint('date_and_time > CURRENT_TIMESTAMP', name='check_event_date_future'),
     )
 
     creator = db.relationship("User", foreign_keys=[creator_id])
-
-class Comment(db.Model):
-    __tablename__ = 'comments'
-
-    comment_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,  unique=True, nullable=False)
-    parent_comment_id = db.Column(UUID(as_uuid=True), db.ForeignKey("comment.comment_id", ondelete='CASCADE'), nullable=True)
-    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey("app_user.user_id", ondelete='CASCADE'), nullable=False)
-    event_id = db.Column(UUID(as_uuid=True), db.ForeignKey("events.event_id", ondelete='CASCADE'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
-    content = db.Column(db.String(1000), nullable=False)
-    edited = db.Column(db.Boolean, default=False)
-
-    parent_comment = db.relationship('Comment', foreign_keys=[parent_comment_id])
-    user = db.relationship('User', foreign_keys=[user_id])
-    event = db.relationship('Event', foreign_keys=[event_id])
-
-    def __init__(self, user_id, event_id, content):
-        self.user_id = user_id
-        self.event_id = event_id
-        self.content = content

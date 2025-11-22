@@ -18,4 +18,3 @@ class TestConfig(Config):
     MAIL_BACKEND = 'flask_mail.backends.locmem.EmailBackend'
     SQLALCHEMY_DATABASE_URI = "postgresql://postgres:postgres@localhost/apka_miasteczkowa_test?sslmode=require"
     TESTING = True
-
