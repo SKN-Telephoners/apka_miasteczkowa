@@ -391,7 +391,10 @@ def get_friends_list():
         )
     ).all()
     if not friendships:
-        return jsonify([]), 200 # to do message 
+        return jsonify({
+            "message": "Empty friends list",
+            "friends": []
+        }), 200
     friends_id=[]
     for friendship  in friendships:
         if user==friendship.user_id :
@@ -407,7 +410,10 @@ def get_friends_list():
             "id": friend.user_id,
             "username": friend.username
         })
-    return   jsonify(friends_data), 200 #dodac wiadmosc
+    return jsonify({
+        "message": "Friends list.. ",
+        "friends": friends_data
+    }), 200
 
     
 @main.route("/create_event", methods=["POST"])
