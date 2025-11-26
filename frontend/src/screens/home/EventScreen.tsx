@@ -12,8 +12,6 @@ import EventCard from "../../components/EventCard"
 import { Event } from "../../types";
 import InputField from "../../components/InputField";
 import { deleteEvent, getEvents, createEvent } from "../../services/events";
-import { PaginatedEvents } from "../../services/events";
-
 
 const EventScreen = () => {
 
@@ -145,7 +143,7 @@ const EventScreen = () => {
             </View>
             <FlatList
                 data={data}
-                renderItem={EventCard}
+                renderItem={({ item }) => <EventCard item={item} />}
                 keyExtractor={(item: Event) => item.event_id!}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />

@@ -1,21 +1,27 @@
-import { TouchableOpacity, Text, View, Alert, StyleSheet, ListRenderItem } from "react-native";
+import { TouchableOpacity, Text, View, StyleSheet, ListRenderItem } from "react-native";
 import React from "react";
 import { Event } from "../types";
+import { useNavigation } from "@react-navigation/native";
 
 
-const EventCard: ListRenderItem<Event> = ({ item }) => {
+const EventCard = ({ item }: {item: Event}) => {
+    const navigation = useNavigation<any>();
     return (
         <View key={item.event_id}>
-            <TouchableOpacity onPress={() => Alert.alert("Hello")}>
+            <TouchableOpacity onPress={() => {
+                navigation.navigate('EventDetails', {
+                    event: item
+                });
+            }}>
                 <View style={styles.container}>
                     <Text style={styles.title}>{item.name}</Text>
                     <View style={{ flexDirection: "row" }}>
-                        <Text style={{ fontSize: 16, marginRight: 10 }}>{item.date_and_time}</Text>
+                        <Text style={{ fontSize: 16, marginRight: 10 }}>{item.date}</Text>
                         <Text style={styles.location}>{item.location}</Text>
                     </View>
                 </View>
             </TouchableOpacity>
-        </View>
+        </View >
     )
 }
 
