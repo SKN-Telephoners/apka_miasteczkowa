@@ -8,7 +8,6 @@ import DatePicker from "../../components/DateTimePicker"
 
 const AddEvent = () => {
 
-  const [isLoading, setIsLoading] = useState(false);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -71,7 +70,6 @@ const AddEvent = () => {
     if (!validateInputs()) {
       return;
     }
-    setIsLoading(true);
     try {
       await createEvent(
         {
@@ -95,8 +93,6 @@ const AddEvent = () => {
           "Wystąpił nieoczekiwany błąd. Spróbuj ponownie."
         );
       }
-    } finally {
-      setIsLoading(false);
     }
 
     setTitle("");
