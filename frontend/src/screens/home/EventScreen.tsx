@@ -12,6 +12,7 @@ import EventCard from "../../components/EventCard"
 import { Event } from "../../types";
 import InputField from "../../components/InputField";
 import { deleteEvent, getEvents, createEvent } from "../../services/events";
+import { useNavigation } from "@react-navigation/native";
 
 const EventScreen = () => {
 
@@ -24,6 +25,8 @@ const EventScreen = () => {
     const [refreshing, setRefreshing] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
+
+    const navigation = useNavigation<any>();
 
     const loadEvents = async (p = currentPage, isLoadMore: boolean = false) => {
         try {
@@ -118,15 +121,15 @@ const EventScreen = () => {
         return (
             <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
                 <Text>Wystąpił błąd podczas pobierania wydarzeń</Text>
-                <TouchableOpacity 
-                onPress={() => {
-                    setError(false);
-                    setIsLoading(true);
-                    loadEvents(1, false);
-                }}
-            >
-                <Text style={{ color: '#0000ff', fontWeight: 'bold' }}>Spróbuj ponownie</Text>
-            </TouchableOpacity>
+                <TouchableOpacity
+                    onPress={() => {
+                        setError(false);
+                        setIsLoading(true);
+                        loadEvents(1, false);
+                    }}
+                >
+                    <Text style={{ color: '#0000ff', fontWeight: 'bold' }}>Spróbuj ponownie</Text>
+                </TouchableOpacity>
             </View>
         );
     }
@@ -139,8 +142,13 @@ const EventScreen = () => {
                     onChangeText={(query) => handleSearch(query)}
                     value={searchQuery}
                 />
+                <TouchableOpacity onPress={() => navigation.navigate('AddEvent')} style={{ backgroundColor: '#045ddaff', alignItems: 'center', padding: 10, borderRadius: 25 }} >
+                    <Text style={{color: '#ffffff'}}>Dodaj wydarzenie</Text>
+                </TouchableOpacity>
 
             </View>
+
+
             <FlatList
                 data={data}
                 renderItem={({ item }) => <EventCard item={item} />}
