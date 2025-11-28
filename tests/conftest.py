@@ -35,7 +35,8 @@ def runner(app):
 
 @pytest.fixture
 def registered_user(client):
-    payload = {"username": "user1", "password": "secret", "email": "user1@gmail.com"}
+    # Updated password to meet new complexity requirements
+    payload = {"username": "user1", "password": "Secret123", "email": "user1@gmail.com"}
     client.post("/api/register", json=payload)
     user = User.query.filter_by(username="user1").first()
     return user, payload["password"]
@@ -52,7 +53,8 @@ def logged_in_user(registered_user, client):
 
 @pytest.fixture
 def registered_friend(client):
-    payload = {"username": "friend", "password": "friend_secret", "email": "friend@gmail.com"}
+    # Updated password to meet new complexity requirements
+    payload = {"username": "friend", "password": "FriendSecret123", "email": "friend@gmail.com"}
     client.post("/api/register", json=payload)
     friend = User.query.filter_by(username="friend").first()
     return friend, payload["password"]
