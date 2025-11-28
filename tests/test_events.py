@@ -1,6 +1,6 @@
 import pytest
 from backend.extensions import db
-from backend.models import Event
+from backend.models import Event, Comment
 from datetime import datetime
 import uuid
 
@@ -134,35 +134,161 @@ def test_delete_invalid_event(client, logged_in_user, app):
 
 def test_create_comment(client, app, logged_in_user, event):
     with app.app_context():
-        token = logged_in_user[1]
+        user, token = logged_in_user
+
+        payload = {
+            "content": "Jebać UJ!",
+        }
 
         response_create_comment = client.post(f"/create_comment/{event.event_id}", headers={
             "Authorization": f"Bearer {token}"
-        })
+        }, json=payload)
 
         assert response_create_comment.status_code == 200
         assert response_create_comment.get_json() == {
             "message": "Comment created successfully"
         }
+
+        assert len(Comment.query.filter_by(user_id=user.user_id).all()) == 1
+
+def test_create_comment_no_content(client, app, logged_in_user, event):
+    with app.app_context():
+        user, token = logged_in_user
+
+        response_create_comment = client.post(f"/create_comment/{event.event_id}", headers={
+            "Authorization": f"Bearer {token}"
+        }, json = {"comment": ""})
+
+        assert response_create_comment.status_code == 400
+        assert response_create_comment.get_json() == {
+            "message": "Bad request"
+        }
+
+        assert len(Comment.query.filter_by(user_id=user.user_id).all()) == 0
 
 def test_delete_comment(client, app, logged_in_user, event):
     with app.app_context():
-        token = logged_in_user[1]
+        user, token = logged_in_user
+
+        payload = {
+            "content": "jebać UJ!",
+        }
 
         response_create_comment = client.post(f"/create_comment/{event.event_id}", headers={
             "Authorization": f"Bearer {token}"
-        })
+        }, json=payload)
 
         assert response_create_comment.status_code == 200
         assert response_create_comment.get_json() == {
             "message": "Comment created successfully"
         }
 
-        response_delete_comment = client.post(f"/create_comment/{event.id}", headers={
+        assert len(Comment.query.filter_by(user_id=user.user_id).all()) == 1
+        comment = Comment.query.filter_by(user_id=user.user_id).first()
+
+        response_delete_comment = client.delete(f"/delete_comment/{comment.comment_id}", headers={
             "Authorization": f"Bearer {token}"
         })
 
         assert response_delete_comment.status_code == 200
         assert response_delete_comment.get_json() == {
             "message": "Comment deleted successfully"
+        }
+
+def test_delete_comment_not_exist(client, app, logged_in_user, event):
+    with app.app_context():
+        token = logged_in_user[1]
+
+        response_delete_comment = client.delete(f"/delete_comment/{uuid.uuid4()}", headers={
+            "Authorization": f"Bearer {token}"
+        })
+
+        assert response_delete_comment.status_code == 400
+        assert response_delete_comment.get_json() == {
+            "message": "Comment doesn't exist"
+        }
+
+def test_delete_comment_not_owner(client, logged_in_user, registered_friend, event, app):
+    with app.app_context():
+        token = logged_in_user[1]
+        friend = registered_friend[0]
+
+        comment = Comment(
+            user_id = friend.user_id, #other user
+            event_id = event.event_id,
+            content = "jebać UJ!"
+        )
+        db.session.add(comment)
+        db.session.commit()
+
+        # attempt delete
+        response_delete_comment = client.delete(f"/delete_comment/{comment.comment_id}", headers={
+            "Authorization": f"Bearer {token}"
+        })
+
+        assert response_delete_comment.status_code == 401
+        assert response_delete_comment.get_json() == {
+            "message": "You can delete your own comments only"
+        }
+
+def test_edit_comment(client, app, logged_in_user, event):
+    with app.app_context():
+        user, token = logged_in_user
+
+        comment = Comment(
+            user_id = user.user_id,
+            event_id = event.event_id,
+            content = "jebać UJ!"
+        )
+        db.session.add(comment)
+        db.session.commit()
+
+        response_edit_comment = client.post(f"/edit_comment/{comment.comment_id}", headers={
+            "Authorization": f"Bearer {token}"
+        }, json = {"new_content": "Jebać UKEN!"})
+
+        assert response_edit_comment.status_code == 200
+        assert response_edit_comment.get_json() == {
+            "message": "Comment edited successfully"
+        }
+
+        assert len(Comment.query.all()) == 1
+        edited_comment = Comment.query.filter_by(content="Jebać UKEN!").first()
+        assert edited_comment is not None
+        assert edited_comment.edited == True
+
+def test_edit_comment_not_exist(client, app, logged_in_user, event):
+    with app.app_context():
+        token = logged_in_user[1]
+
+        response_edit_comment = client.post(f"/edit_comment/{uuid.uuid4()}", headers={
+            "Authorization": f"Bearer {token}"
+        })
+
+        assert response_edit_comment.status_code == 400
+        assert response_edit_comment.get_json() == {
+            "message": "Comment doesn't exist"
+        }
+
+def test_edit_comment_not_owner(client, logged_in_user, registered_friend, event, app):
+    with app.app_context():
+        token = logged_in_user[1]
+        friend = registered_friend[0]
+
+        comment = Comment(
+            user_id = friend.user_id, #other user
+            event_id = event.event_id,
+            content = "jebać UJ!"
+        )
+        db.session.add(comment)
+        db.session.commit()
+
+        # attempt edit
+        response_edit_comment = client.post(f"/edit_comment/{comment.comment_id}", headers={
+            "Authorization": f"Bearer {token}"
+        })
+
+        assert response_edit_comment.status_code == 401
+        assert response_edit_comment.get_json() == {
+            "message": "You can edit your own comments only"
         }

@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, url_for
-from backend.models import User, FriendRequest, Friendship, Event
+from backend.models import User, FriendRequest, Friendship, Event, Comment
 from backend.extensions import db, jwt, mail, limiter
 from flask_jwt_extended import jwt_required, create_access_token, create_refresh_token, get_jwt, get_jwt_identity, get_current_user, decode_token
 from backend.helpers import add_token_to_db, revoke_token, is_token_revoked
@@ -397,7 +397,7 @@ def delete_event(event_id):
         "message": "Event deleted successfully"
     }, 200
 
-@main.route("/create_comment/<event_id>", methods=["POST", "GET"])
+@main.route("/create_comment/<event_id>", methods=["POST"])
 @jwt_required()
 def create_comment(event_id):
     user = get_current_user()
@@ -430,8 +430,7 @@ def create_comment(event_id):
 def delete_comment(comment_id):
     user = get_current_user()
     comment_id = uuid.UUID(comment_id)
-    comment = Comment.query.filter_by(comment_id=comment_id)
-
+    comment = Comment.query.filter_by(comment_id=comment_id).first()
     if comment is None:
         return {
             "message": "Comment doesn't exist"
@@ -454,7 +453,7 @@ def delete_comment(comment_id):
 def edit_comment(comment_id):
     user = get_current_user()
     comment_id = uuid.UUID(comment_id)
-    comment = Comment.query.filter_by(comment_id=comment_id)
+    comment = Comment.query.filter_by(comment_id=comment_id).first()
 
     if comment is None:
         return {
@@ -469,6 +468,7 @@ def edit_comment(comment_id):
     data = request.get_json()
     new_content = data["new_content"]
     comment.content = new_content
+    comment.edited = True
     db.session.commit()
 
     return {
