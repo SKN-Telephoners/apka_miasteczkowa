@@ -386,4 +386,12 @@ def feed():
         for event in pagination.items
     ]
 
-    return jsonify(event_list) ,200
+    return jsonify({
+        "data": event_list,
+        "pagination": {
+            "page": pagination.page,
+            "limit": limit,
+            "total": pagination.total,
+            "pages": pagination.pages
+        }
+    }) ,200
