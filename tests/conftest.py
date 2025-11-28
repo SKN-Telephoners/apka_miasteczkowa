@@ -1,7 +1,8 @@
 import pytest
 from backend.app import create_app
-from backend.extensions import db
+from backend.extensions import db, mail
 from backend.models import User, TokenBlocklist, Friendship, FriendRequest, Event
+from re import search
 
 @pytest.fixture
 def app():
@@ -39,6 +40,14 @@ def registered_user(client):
     payload = {"username": "user1", "password": "Secret123", "email": "user1@gmail.com"}
     client.post("/api/register", json=payload)
     user = User.query.filter_by(username="user1").first()
+    #confirm email
+    with mail.record_messages() as outbox:
+        response = client.post("/mail_auth_request", json={"email": user.email})
+        match = search(r'(http://.+/mail_auth/\S+)', outbox[0].body)
+        auth_url = match.group()
+        token_path = auth_url.replace("http://localhost", "")
+        client.post(token_path)
+
     return user, payload["password"]
 
 @pytest.fixture
@@ -57,4 +66,11 @@ def registered_friend(client):
     payload = {"username": "friend", "password": "FriendSecret123", "email": "friend@gmail.com"}
     client.post("/api/register", json=payload)
     friend = User.query.filter_by(username="friend").first()
+    #confirm email
+    with mail.record_messages() as outbox:
+        response = client.post("/mail_auth_request", json={"email": friend.email})
+        match = search(r'(http://.+/mail_auth/\S+)', outbox[0].body)
+        auth_url = match.group()
+        token_path = auth_url.replace("http://localhost", "")
+        client.post(token_path)
     return friend, payload["password"]
