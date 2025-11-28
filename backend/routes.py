@@ -396,3 +396,81 @@ def delete_event(event_id):
     return {
         "message": "Event deleted successfully"
     }, 200
+
+@main.route("/create_comment/<event_id>", methods=["POST", "GET"])
+@jwt_required()
+def create_comment(event_id):
+    user = get_current_user()
+    event_id = uuid.UUID(event_id)
+
+    event = Event.query.filter_by(event_id=event_id)
+
+    if event is None:
+        return {
+            "message": "Event doesn't exist"
+        }, 400
+    
+    comment_data = request.get_json()
+    required_keys = {"content"}
+    
+    if not comment_data or not required_keys.issubset(comment_data.keys()):
+        return jsonify({"message": "Bad request"}), 400
+    
+    new_comment = Comment(user_id=user.user_id, event_id=event_id, content=comment_data["content"])
+
+    db.session.add(new_comment)
+    db.session.commit()
+
+    return {
+        "message": "Comment created successfully"
+    }, 200
+
+@main.route("/delete_comment/<comment_id>", methods=["DELETE"])
+@jwt_required()
+def delete_comment(comment_id):
+    user = get_current_user()
+    comment_id = uuid.UUID(comment_id)
+    comment = Comment.query.filter_by(comment_id=comment_id)
+
+    if comment is None:
+        return {
+            "message": "Comment doesn't exist"
+        }, 400
+
+    if user.user_id != comment.user_id:
+        return {
+            "message": "You can delete your own comments only"
+        }, 401
+        
+    db.session.delete(comment)
+    db.session.commit()
+
+    return {
+        "message": "Comment deleted successfully"
+    }, 200
+
+@main.route("/edit_comment/<comment_id>", methods=["POST", "GET"])
+@jwt_required()
+def edit_comment(comment_id):
+    user = get_current_user()
+    comment_id = uuid.UUID(comment_id)
+    comment = Comment.query.filter_by(comment_id=comment_id)
+
+    if comment is None:
+        return {
+            "message": "Comment doesn't exist"
+        }, 400
+
+    if user.user_id != comment.user_id:
+        return {
+            "message": "You can edit your own comments only"
+        }, 401
+        
+    data = request.get_json()
+    new_content = data["new_content"]
+    comment.content = new_content
+    db.session.commit()
+
+    return {
+        "message": "Comment edited successfully"
+    }, 200

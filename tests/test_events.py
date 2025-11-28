@@ -127,3 +127,42 @@ def test_delete_invalid_event(client, logged_in_user, app):
         assert response_delete_event.get_json() == {
             "message": "Event doesn't exist"
         }
+
+# =============================================================================
+# Tests for handling comments on events
+# =============================================================================
+
+def test_create_comment(client, app, logged_in_user, event):
+    with app.app_context():
+        token = logged_in_user[1]
+
+        response_create_comment = client.post(f"/create_comment/{event.event_id}", headers={
+            "Authorization": f"Bearer {token}"
+        })
+
+        assert response_create_comment.status_code == 200
+        assert response_create_comment.get_json() == {
+            "message": "Comment created successfully"
+        }
+
+def test_delete_comment(client, app, logged_in_user, event):
+    with app.app_context():
+        token = logged_in_user[1]
+
+        response_create_comment = client.post(f"/create_comment/{event.event_id}", headers={
+            "Authorization": f"Bearer {token}"
+        })
+
+        assert response_create_comment.status_code == 200
+        assert response_create_comment.get_json() == {
+            "message": "Comment created successfully"
+        }
+
+        response_delete_comment = client.post(f"/create_comment/{event.id}", headers={
+            "Authorization": f"Bearer {token}"
+        })
+
+        assert response_delete_comment.status_code == 200
+        assert response_delete_comment.get_json() == {
+            "message": "Comment deleted successfully"
+        }
