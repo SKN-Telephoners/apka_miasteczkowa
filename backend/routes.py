@@ -7,6 +7,8 @@ import re
 import uuid
 from flask_mail import Message
 from datetime import datetime, timezone
+from sqlalchemy import or_
+
 
 MAX_EMAIL_LEN = 320
 MAX_USERNAME_LEN = 32
@@ -312,8 +314,8 @@ def get_friends_list():
     
     friendships = Friendship.query.filter(
         or_(
-            Friendship.user_id == user,
-            Friendship.friend_id == user
+            Friendship.user_id == user.user_id,
+            Friendship.friend_id == user.user_id
         )
     ).all()
     if not friendships:
@@ -323,12 +325,12 @@ def get_friends_list():
         }), 200
     friends_id=[]
     for friendship  in friendships:
-        if user==friendship.user_id :
+        if user.user_id==friendship.user_id :
             friends_id.append(friendship.friend_id)
         else:
             friends_id.append(friendship.user_id)
 
-    friends = App_user.query.filter(App_user.user_id.in_(friend_id)).all()
+    friends = User.query.filter(User.user_id.in_(friends_id)).all()
 
     friends_data = []
     for friend in friends:
@@ -337,7 +339,7 @@ def get_friends_list():
             "username": friend.username
         })
     return jsonify({
-        "message": "Friends list.. ",
+        "message": "Friends list",
         "friends": friends_data
     }), 200
     
