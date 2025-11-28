@@ -7,9 +7,6 @@ from werkzeug.exceptions import HTTPException
 def create_app(test_mode=False):
     app = Flask(__name__)
     CORS(app)
-    
-# Initializing limtier (in-memory)
-    limiter.init_app(app)
 
     if test_mode:
         app.config.from_object(TestConfig)
@@ -20,6 +17,7 @@ def create_app(test_mode=False):
     bcrypt.init_app(app)
     jwt.init_app(app)
     mail.init_app(app)
+    limiter.init_app(app)
     
     app.register_blueprint(main)
     app.register_blueprint(auth)

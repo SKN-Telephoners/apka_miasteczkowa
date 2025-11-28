@@ -5,11 +5,14 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  Modal,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import axios from "axios";
+import { ScrollView } from "react-native-gesture-handler";
+import { authService } from "../../services/api";
 import InputField from "../../components/InputField";
+import { MESSAGES } from "../../utils/constants";
 
 const RegisterScreen = ({ navigation }: { navigation: any }) => {
   const [username, setUsername] = useState("");
@@ -18,7 +21,7 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [secureText, setSecureText] = useState(true);
   const [secureTextConfirm, setSecureTextConfirm] = useState(true);
-  const [infoModalVisible, setInfoModalVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const [usernameError, setUsernameError] = useState("");
   const [emailError, setEmailError] = useState("");
@@ -89,186 +92,131 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
     );
   };
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!validateInputs()) {
       return;
     }
-    console.log("Rejestracja:", username, email, password);
-
-    // wywołanie funkcji rejestracji
-    registerUser(username, email, password, confirmPassword);
-  };
-
-  // funkcja rejestracji (ta co wysyła api)
-  async function registerUser(
-    username: string,
-    email: string,
-    password: string,
-    confirmPassword: string
-  ): Promise<void> {
+    setIsLoading(true);
     try {
-      const response = await axios.post("http://10.0.2.2:5000/api/register", {
-        username: username,
-        email: email,
-        password: password,
-      });
-
-      if (response.status === 200) {
-        console.log("Rejestracja powiodło się!");
-        navigation.navigate("Welcome");
-      } else {
-        console.log("Rejestracja nie powiodło się. Kod:", response.status);
-      }
+      await authService.register(username, email, password);
+      Alert.alert("Rejestracja powiodła się!", "Możesz się teraz zalogować.", [
+        { text: "OK", onPress: () => navigation.navigate("Login") },
+      ]);
     } catch (error: any) {
       if (error.response) {
-        console.log(
-          "Rejestracja nie powiodło się. Kod:",
+        Alert.alert(
+          "Rejestracja nie powiodła się",
           error.response.data.message
         );
-        Alert.alert("Rejestracja nie powiodła się", error.response.data.message);
       } else {
-        console.error("Błąd:", error.message);
+        Alert.alert(
+          "Błąd rejestracji",
+          "Wystąpił nieoczekiwany błąd. Spróbuj ponownie."
+        );
       }
+    } finally {
+      setIsLoading(false);
     }
-  }
-
-  const handleInfoPress = () => {
-    setInfoModalVisible(true);
   };
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity style={styles.infoButton} onPress={handleInfoPress}>
-        <Ionicons name="information-circle-outline" size={36} color="#004aad" />
-      </TouchableOpacity>
-
-      <Text style={styles.title}>Rejestracja</Text>
-
-      <View style={styles.inputContainer}>
-        <InputField
-          icon="person-outline"
-          placeholder="Nazwa użytkownika"
-          value={username}
-          onChangeText={setUsername}
-          secureTextEntry={false}
-          keyboardType="default"
-          errorMessage={usernameError}
-          validate={validateUsername}
-        />
-
-        <InputField
-          icon="mail-outline"
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          secureTextEntry={false}
-          keyboardType="email-address"
-          errorMessage={emailError}
-          validate={validateEmail}
-        />
-
-        <InputField
-          icon="lock-closed-outline"
-          placeholder="Hasło"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry={secureText}
-          toggleSecure={() => setSecureText(!secureText)}
-          errorMessage={passwordError}
-          validate={validatePassword}
-        />
-
-        <InputField
-          icon="lock-closed-outline"
-          placeholder="Powtórz hasło"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry={secureTextConfirm}
-          toggleSecure={() => setSecureTextConfirm(!secureTextConfirm)}
-          errorMessage={confirmPasswordError}
-          validate={validateConfirmPassword}
-        />
-      </View>
-
-      <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
-        <Text style={styles.buttonText}>Zarejestruj się</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity onPress={() => navigation.navigate("Welcome")}>
-        <Text style={styles.backText}>Wróć do strony głównej</Text>
-      </TouchableOpacity>
-
-      {/* Modal z wymaganiami */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={infoModalVisible}
-        onRequestClose={() => {
-          setInfoModalVisible(false);
-        }}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Wymagania</Text>
-            <Text style={styles.modalText}>
-              Nazwa użytkownika musi zawierać co najmniej 3 znaki.
-            </Text>
-            <Text style={styles.modalText}>Hasło musi zawierać:</Text>
-            <Text style={[styles.modalText, styles.modalBullet]}>
-              - Co najmniej 8 znaków
-            </Text>
-            <Text style={[styles.modalText, styles.modalBullet]}>
-              - Jedną wielką literę
-            </Text>
-            <Text style={[styles.modalText, styles.modalBullet]}>
-              - Jedną małą literę
-            </Text>
-            <Text style={[styles.modalText, styles.modalBullet]}>
-              - Jedną cyfrę
-            </Text>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setInfoModalVisible(false)}
-            >
-              <Text style={styles.closeButtonText}>Zamknij</Text>
-            </TouchableOpacity>
-          </View>
+        <Text style={styles.title}>{MESSAGES.APP.REGISTER_TITLE}</Text>
+
+        <View style={styles.inputContainer}>
+          <InputField
+            placeholder={MESSAGES.PLACEHOLDERS.USERNAME}
+            value={username}
+            onChangeText={setUsername}
+            secureTextEntry={false}
+            errorMessage={usernameError}
+            validate={validateUsername}
+          />
+
+          <InputField
+            placeholder={MESSAGES.PLACEHOLDERS.EMAIL}
+            value={email}
+            onChangeText={setEmail}
+            secureTextEntry={false}
+            errorMessage={emailError}
+            validate={validateEmail}
+          />
+
+          <InputField
+            placeholder={MESSAGES.PLACEHOLDERS.PASSWORD}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={secureText}
+            toggleSecure={() => setSecureText(!secureText)}
+            errorMessage={passwordError}
+            validate={validatePassword}
+          />
+
+          <InputField
+            placeholder={MESSAGES.PLACEHOLDERS.CONFIRM_PASSWORD}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry={secureTextConfirm}
+            toggleSecure={() => setSecureTextConfirm(!secureTextConfirm)}
+            errorMessage={confirmPasswordError}
+            validate={validateConfirmPassword}
+          />
         </View>
-      </Modal>
-    </View>
+
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[styles.registerButton, isLoading && styles.buttonDisabled]}
+            onPress={handleRegister}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>{MESSAGES.BUTTONS.REGISTER}</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.registerButton}
+            onPress={() => navigation.navigate("Login")}
+          >
+            <Text style={styles.buttonText}>
+              {MESSAGES.BUTTONS.BACK_TO_LOGIN}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
-  },
-  infoButton: {
-    position: "absolute",
-    top: 50,
-    right: 20,
+    justifyContent: "center",
   },
   title: {
     fontSize: 48,
     fontWeight: "bold",
-    color: "#004aad",
-    marginBottom: 50,
+    marginVertical: 30,
     textAlign: "center",
   },
   inputContainer: {
-    marginBottom: 15,
+    flex: 2,
     width: "80%",
-    gap: 30,
-    height: 50,
-    borderWidth: 1,
-    borderColor: "#ccc",
+    marginBottom: 40,
   },
-  input: {
-    flex: 1,
-    marginLeft: 10,
+  buttonContainer: {
+    width: "80%",
+    alignItems: "center",
+    gap: 15,
   },
   registerButton: {
     backgroundColor: "#4a90e2",
@@ -276,51 +224,11 @@ const styles = StyleSheet.create({
     width: "80%",
     borderRadius: 10,
     alignItems: "center",
-    marginTop: 30,
-    marginBottom: 10,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   buttonText: {
-    color: "#fff",
-    fontSize: 18,
-  },
-  backText: {
-    color: "#4a90e2",
-    marginTop: 10,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContent: {
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    padding: 20,
-    width: "80%",
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 10,
-    textAlign: "center",
-  },
-  modalText: {
-    fontSize: 16,
-    marginBottom: 5,
-    textAlign: "left",
-  },
-  modalBullet: {
-    marginLeft: 10,
-  },
-  closeButton: {
-    marginTop: 20,
-    backgroundColor: "#4a90e2",
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  closeButtonText: {
     color: "#fff",
     fontSize: 18,
   },
