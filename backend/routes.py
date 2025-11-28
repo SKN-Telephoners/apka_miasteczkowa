@@ -305,6 +305,42 @@ def decline_friend_request(friend_id):
         "message": "Friend request declined",
     }, 200
 
+@main.route("/get_friends_list", methods=["GET"])
+@jwt_required()
+def get_friends_list():
+    user= get_current_user()
+    
+    friendships = Friendship.query.filter(
+        or_(
+            Friendship.user_id == user,
+            Friendship.friend_id == user
+        )
+    ).all()
+    if not friendships:
+        return jsonify({
+            "message": "Empty friends list",
+            "friends": []
+        }), 200
+    friends_id=[]
+    for friendship  in friendships:
+        if user==friendship.user_id :
+            friends_id.append(friendship.friend_id)
+        else:
+            friends_id.append(friendship.user_id)
+
+    friends = App_user.query.filter(App_user.user_id.in_(friend_id)).all()
+
+    friends_data = []
+    for friend in friends:
+        friends_data.append({
+            "id": friend.user_id,
+            "username": friend.username
+        })
+    return jsonify({
+        "message": "Friends list.. ",
+        "friends": friends_data
+    }), 200
+    
 @main.route("/create_event", methods=["POST"])
 @limiter.limit("500 per minute")   # for tests, 500 events creations for IP per hour, change before deployment to 1
 @jwt_required()
