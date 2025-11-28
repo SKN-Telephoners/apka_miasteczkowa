@@ -7,6 +7,8 @@ import re
 import uuid
 from flask_mail import Message
 from datetime import datetime, timezone
+from sqlalchemy import or_
+
 
 MAX_EMAIL_LEN = 320
 MAX_USERNAME_LEN = 32
@@ -305,6 +307,42 @@ def decline_friend_request(friend_id):
         "message": "Friend request declined",
     }, 200
 
+@main.route("/get_friends_list", methods=["GET"])
+@jwt_required()
+def get_friends_list():
+    user= get_current_user()
+    
+    friendships = Friendship.query.filter(
+        or_(
+            Friendship.user_id == user.user_id,
+            Friendship.friend_id == user.user_id
+        )
+    ).all()
+    if not friendships:
+        return jsonify({
+            "message": "Empty friends list",
+            "friends": []
+        }), 200
+    friends_id=[]
+    for friendship  in friendships:
+        if user.user_id==friendship.user_id :
+            friends_id.append(friendship.friend_id)
+        else:
+            friends_id.append(friendship.user_id)
+
+    friends = User.query.filter(User.user_id.in_(friends_id)).all()
+
+    friends_data = []
+    for friend in friends:
+        friends_data.append({
+            "id": friend.user_id,
+            "username": friend.username
+        })
+    return jsonify({
+        "message": "Friends list",
+        "friends": friends_data
+    }), 200
+    
 @main.route("/create_event", methods=["POST"])
 @limiter.limit("500 per minute")   # for tests, 500 events creations for IP per hour, change before deployment to 1
 @jwt_required()

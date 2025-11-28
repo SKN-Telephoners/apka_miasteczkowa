@@ -190,3 +190,46 @@ def test_decline_request_not_exist(client, logged_in_user, registered_friend, ap
 
         assert (Friendship.query.filter_by(user_id=user.user_id, friend_id=friend.user_id).first() and
                 Friendship.query.filter_by(user_id=friend.user_id, friend_id=user.user_id).first()) is None
+
+def test_get_not_empty_friends_list(client, logged_in_user, registered_friend, app):
+    with app.app_context():
+        user, token = logged_in_user
+        friend = registered_friend[0]
+
+        if user.user_id < friend.user_id:
+            new_friendship = Friendship(user_id=user.user_id, friend_id=friend.user_id)
+        else:
+            new_friendship = Friendship(user_id=friend.user_id, friend_id=user.user_id)
+
+        db.session.add(new_friendship)
+        db.session.commit()
+
+        response = client.get("/get_friends_list", headers={
+            "Authorization": f"Bearer {token}"
+        })
+        assert response.status_code == 200
+
+        data = response.get_json()
+
+        assert "friends" in data
+        assert len(data["friends"]) == 1
+        assert data["message"] == "Friends list"
+        
+        assert uuid.UUID(data["friends"][0]["id"]) == friend.user_id
+        assert data["friends"][0]["username"] == friend.username
+
+def test_get_empty_friends_list(client, logged_in_user, app):
+    with app.app_context():
+        user, token = logged_in_user
+
+        response = client.get("/get_friends_list", headers={
+            "Authorization": f"Bearer {token}"
+        })
+        assert response.status_code == 200
+
+        data = response.get_json()
+
+        assert data == {
+            "message": "Empty friends list",
+            "friends": []
+        }
