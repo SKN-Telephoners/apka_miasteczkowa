@@ -34,9 +34,9 @@ const EventDetails = () => {
     }
   }, [userID, event.creator_id]);
 
-  const deleteGoBack = () => {
+  const deleteGoBack = async () => {
     try {
-      deleteEvent(event.id);
+      await deleteEvent(event.id);
     } catch (error: any) {
       Alert.alert(
         "Błąd usuwania wydarzenia",
