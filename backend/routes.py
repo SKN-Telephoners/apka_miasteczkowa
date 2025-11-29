@@ -6,9 +6,9 @@ from backend.helpers import add_token_to_db, revoke_token, is_token_revoked
 import re
 import uuid
 from flask_mail import Message
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import or_
-
 
 MAX_EMAIL_LEN = 320
 MAX_USERNAME_LEN = 32
@@ -32,14 +32,20 @@ def register_user():
     password = user_data["password"]
     email = user_data["email"]
 
-    # this check has been moved to frontend
     email_pattern = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
+    username_pattern = r"^[A-Za-z0-9_.'-]+$"
+    password_pattern = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,72}$" #72 bytes is a max input for bcrypt hash function
+
     if (
         not re.match(email_pattern, email)
+        or not re.match(username_pattern, username)
         or not len(email) < MAX_EMAIL_LEN
         or not MIN_USERNAME_LEN <= len(username) <= MAX_USERNAME_LEN
     ):
         return jsonify({"message": "Invalid username or email"}), 400
+    
+    if not re.match(password_pattern, password):
+        return jsonify({"message": "Incorrect password format"}), 400
     
     new_user = User(username=username, password=password, email=email)
     if User.query.filter_by(username=username).first() is not None:
@@ -50,6 +56,20 @@ def register_user():
     db.session.add(new_user)
     db.session.commit()
     print("Dodano użytkownika do bazy!")
+
+    #send auth email
+
+    auth_token = create_access_token(identity=email)
+
+    auth_url=url_for("main.mail_auth", token=auth_token, _external=True)
+
+    msg = Message(
+            'Auth account',
+            recipients=[email],
+            body=f"Hello! Click the link to authorize your account: {auth_url}"
+        )
+
+    mail.send(msg)
     
     return {
         "message": "Registration successful",
@@ -67,9 +87,20 @@ def login_user():
     username = user_data["username"]
     password = user_data["password"]
 
+    if (
+        not isinstance(username, str)
+        or not isinstance(password, str) 
+        or len(username) > MAX_USERNAME_LEN
+        or len(password) > 128
+    ):
+        return jsonify({"message" : "Incorrect username or password"}), 401
+
     user = User.query.filter_by(username=username).first()
     if not user or not user.validate_password(password):
         return jsonify({"message": "Invalid username or password"}), 401
+    
+    if not user.is_confirmed:
+        return jsonify({"message":"At first, verify your account"})
     
     limiter.reset()
 
@@ -94,6 +125,9 @@ def login_user():
 def get_user_info():
     user = get_current_user()
 
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+
     return {
         "user": {
             "username": user.username,
@@ -105,9 +139,20 @@ def get_user_info():
 @jwt_required(refresh=True)
 def refresh():
     identity = get_jwt_identity()
-    access_token = create_access_token(identity=identity)
-    add_token_to_db(access_token)
-    return jsonify(access_token=access_token)
+    jti = get_jwt()["jti"]
+
+    revoke_token(jti, identity)
+
+    new_access_token = create_access_token(identity=identity)
+    new_refresh_token = create_refresh_token(identity=identity)
+
+    add_token_to_db(new_access_token)
+    add_token_to_db(new_refresh_token)
+    
+    return jsonify({
+        "access_token": new_access_token,
+        "refresh_token": new_refresh_token
+    }), 200
 
 @auth.route("/revoke_access", methods=["GET", "DELETE"])
 @jwt_required()
@@ -115,15 +160,18 @@ def revoke_access_token():
     jti = get_jwt()["jti"]
     user_id = get_jwt_identity()
     revoke_token(jti, user_id)
-    return jsonify(message="access token revoked")
+    return jsonify(message="Access token revoked")
 
-@auth.route("/revoke_refresh", methods=["GET", "DELETE"])
+@auth.route("/revoke_refresh", methods=["DELETE"])
 @jwt_required(refresh=True)
 def revoke_refresh_token():
     jti = get_jwt()["jti"]
     user_id = get_jwt_identity()
-    revoke_token(jti, user_id)
-    return jsonify(message="refresh token revoked")
+    try:
+        revoke_token(jti, user_id)
+    except Exception:
+        db.session.rollback()
+    return jsonify(message="Refresh token revoked")
 
 @auth.route("/api/logout", methods=["DELETE"])
 @jwt_required(refresh=True)
@@ -132,31 +180,26 @@ def logout():
     refresh_jti = get_jwt()["jti"]
     revoke_token(refresh_jti, user_id)  
 
-    data = request.get_json()
+    data = request.get_json(silent=True)
     access_token = data.get("access_token") if data else None
 
-    if not access_token:
-        return jsonify(message="Refresh token revoked. Logged out.")
-
-    try:
-        access_payload = decode_token(access_token, allow_expired=True)
-    
-        if access_payload["sub"] != user_id:
-            return jsonify(message="Token mismatch"), 401
+    if access_token:
+        try:
+            access_payload = decode_token(access_token, allow_expired=True)
+            if access_payload["sub"] == user_id:
+                access_jti = access_payload["jti"]
+                revoke_token(access_jti, user_id)
+        except Exception:
+            db.session.rollback()
             
-        access_jti = access_payload["jti"]
-        revoke_token(access_jti, user_id) 
-        
-        return jsonify(message="Access and refresh tokens revoked. Logged out.")
-
-    except:
-        return jsonify(message="Refresh token revoked, but provided access token was invalid."), 400
+    return jsonify(message="Logged out successfully"), 200
 
 @jwt.token_in_blocklist_loader
 def check_if_token_revoked(jwt_header, jwt_payload):
     try:
         return is_token_revoked(jwt_payload)
     except Exception:
+        db.session.rollback()
         return True
 
 @jwt.unauthorized_loader
@@ -180,60 +223,109 @@ def load_user(jwt_header, jwt_payload):
 @limiter.limit("500 per hour")   # for tests, 500 password resets for IP per hour, change before deployment to 5
 def reset_password_request():
     user_data = request.get_json()
+    email = user_data.get("email")
     
-    if not user_data or not "email" in user_data.keys():
+    if not email:
         return jsonify({"message": "Bad request"}), 400
-    
-    email = user_data["email"]
-    
-    user = User.query.filter_by(email=email).first()
-    if not user:
-        return jsonify({"message": "There is no user with such email"}), 401
+
+    email_pattern = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
+    if not re.match(email_pattern, email):
+        return jsonify({"message": "Invalid email format"})
+        
+    user = User.query.filter_by(email=email).first()  
     
     #now there will be multiple active tokens for password resetting (we don't want that) - to be fixed
-    reset_token = create_access_token(identity=user.email)
+    if user:
+        reset_token = create_access_token(
+            identity=user.email,
+            expires_delta=timedelta(minutes=15),
+            additional_claims={"type": "password_reset"}                              
+        )
 
-    reset_url = url_for("main.reset_password", token=reset_token, _external=True)
+        reset_url = url_for("main.reset_password", token=reset_token, _external=True) #this will have to be changed into deep link to app
 
-    msg = Message(
-        'Reset password',
-        recipients=[email],
-        body=f"Hello! Click the link to reset your password: {reset_url}"
-    )
-    
-    mail.send(msg)
+        msg = Message(
+            'Reset password',
+            recipients=[email],
+            body=f"Hello! Click the link to reset your password: {reset_url}"
+        )
+        try:
+            mail.send(msg)
+        except Exception as e:
+            print(f"Error sending email with password reset: {e}")
 
     return {
-        "message": "Email sent successfully"
+        "message": "If user with that email is present in the database the "
     }, 200
 
 @main.route("/reset_password/<token>", methods=["POST"])
-@limiter.limit("500 per hour")   # for tests, 500 password resets for IP per hour, change before deployment to 5
+@limiter.limit("500 per hour")
 def reset_password(token):
-    decoded = decode_token(token)
-    user_email = decoded["sub"]
+    decoded = None
+    try:
+        decoded = decode_token(token)
+        is_revoked = False
+        try:
+            if is_token_revoked(decoded):
+                is_revoked = True
+        except Exception:
+            db.session.rollback()
+            is_revoked = False
+            
+        if is_revoked:
+             return jsonify({"message": "Link has already been used or expired"}), 400
+        
+        if decoded.get("type") != "password_reset":
+            return jsonify({"message": "Invalid token type"}), 400
+        
+        user_email = decoded["sub"]
 
+    except Exception:
+        db.session.rollback()
+        return jsonify({"message": "Invalid or expired token"}), 400
+    
     user = User.query.filter_by(email=user_email).first()
+
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+    
     data = request.get_json()
+    if not data or "new_password" not in data:
+        return jsonify({"message": "Missing new_password"}), 400
+    
+    password_pattern = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,72}$"
     new_password = data["new_password"]
+    if not re.match(password_pattern, new_password):
+        return jsonify({"message": "Incorrect password format"}), 400
+    
     user.update_password(new_password)
     db.session.commit()
 
-    return {
+    if decoded:
+        try:
+            add_token_to_db(token)
+            revoke_token(decoded["jti"], decoded["sub"])
+        except Exception:
+            db.session.rollback()
+
+    return jsonify({
         "message": "Password changed successfully"
-    }, 200
+    }), 200
 
 @main.route("/create_friend_request/<friend_id>", methods=["POST"])
 @jwt_required()
+@limiter.limit("300 per minute") #chenge to 30 before deployment
 def create_friend_request(friend_id):
     user = get_current_user()
-
-    friend_id = uuid.UUID(friend_id)
-
+    try:
+        friend_id = uuid.UUID(friend_id)
+    except ValueError:
+        return jsonify({"message": "Invalid friend ID format"}), 400
+    
     if User.query.filter_by(user_id=friend_id).first() is None:
         return {
             "message": "Friend does not exist",
-        }, 400
+        }, 404
     
     if user.user_id == friend_id:
         return {
@@ -244,18 +336,25 @@ def create_friend_request(friend_id):
         or FriendRequest.query.filter_by(sender_id=friend_id, receiver_id=user.user_id).first()):
         return {
             "message": "Request already exists",
-        }, 400
+        }, 409
     
     if (Friendship.query.filter_by(user_id=user.user_id, friend_id=friend_id).first() is not None
         or Friendship.query.filter_by(user_id=friend_id, friend_id=user.user_id).first() is not None):
         return {
             "message": "Friendship already exists",
-        }, 400
+        }, 409
 
-    new_request = FriendRequest(sender_id=user.user_id, receiver_id=friend_id)
-
-    db.session.add(new_request)
-    db.session.commit()
+    try:
+        new_request = FriendRequest(sender_id=user.user_id, receiver_id=friend_id)
+        db.session.add(new_request)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"message": "Request already exists"}), 409
+    except Exception as e:
+        db.session.rollback()
+        print(f"Database error: {e}")
+        return jsonify({"message": "Internal server error"}), 500
     
     return {
         "message": "Friend request created",
@@ -263,9 +362,13 @@ def create_friend_request(friend_id):
 
 @main.route("/accept_friend_request/<friend_id>", methods=["POST"])
 @jwt_required()
+@limiter.limit("300 per minute") #change before deployment to 30
 def accept_friend_request(friend_id):
     user = get_current_user()
-    friend_id = uuid.UUID(friend_id)
+    try:
+        friend_id = uuid.UUID(friend_id)
+    except ValueError:
+        return jsonify({"message": "Invalid friend ID format"}), 400
 
     request = FriendRequest.query.filter_by(sender_id=friend_id, receiver_id=user.user_id).first()
 
@@ -273,35 +376,52 @@ def accept_friend_request(friend_id):
         return {
             "message": "Such request doesn't exist",
         }, 400
-    
-    db.session.delete(request)
 
     if user.user_id < friend_id:
         new_friendship = Friendship(user_id=user.user_id, friend_id=friend_id)
     else:
         new_friendship = Friendship(user_id=friend_id, friend_id=user.user_id)
 
-    db.session.add(new_friendship)
-    db.session.commit()
-        
-    return {
+    try:
+        db.session.delete(request)
+        db.session.add(new_friendship)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"message": "Friendship already exists"}), 409
+    except Exception as e:
+        db.session.rollback()
+        print(f"Database error: {e}")
+        return jsonify({"message": "Internal server error"}), 500
+    
+    return jsonify({
         "message": "Friend request accepted",
-    }, 200
+        "friend_id": str(friend_id)
+    }), 200
 
 @main.route("/decline_friend_request/<friend_id>", methods=["POST"])
 @jwt_required()
+@limiter.limit("300 per minute") #change before deployment to 30
 def decline_friend_request(friend_id):
     user = get_current_user()
-    friend_id = uuid.UUID(friend_id)
+    try:
+        friend_id = uuid.UUID(friend_id)
+    except Exception:
+        return jsonify({"message": "Invalid friend ID format"}), 400
     request = FriendRequest.query.filter_by(sender_id=friend_id, receiver_id=user.user_id).first()
 
     if request is None:
         return {
             "message": "Such request doesn't exist",
-        }, 400
+        }, 404
     
-    db.session.delete(request)
-    db.session.commit()
+    try:
+        db.session.delete(request)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Database error: {e}")
+        return jsonify({"message": "Internal server error"}), 500
         
     return {
         "message": "Friend request declined",
@@ -344,7 +464,7 @@ def get_friends_list():
     }), 200
     
 @main.route("/create_event", methods=["POST"])
-@limiter.limit("500 per minute")   # for tests, 500 events creations for IP per hour, change before deployment to 1
+@limiter.limit("100 per minute")
 @jwt_required()
 def create_event():
     user = get_current_user()
@@ -355,44 +475,140 @@ def create_event():
     if not event_data or not required_keys.issubset(event_data.keys()):
         return jsonify({"message": "Bad request"}), 400
     
-    name = event_data["name"]
-    description = event_data["description"]
-    date_and_time = datetime.strptime(event_data["date"] + " " + event_data["time"], "%d.%m.%Y %H:%M")
-    date_and_time = date_and_time.replace(tzinfo=timezone.utc)
-    location = event_data["location"]
+    name = event_data.get("name", "").strip()
+    description = event_data.get("description", "").strip()
+    date_str = event_data.get("date")
+    time_str = event_data.get("time")
+    location = event_data.get("location", "").strip()
 
-    if date_and_time <= datetime.now(timezone.utc):
-            return {"message": "Event date must be in the future"}, 400
+    if not (3 <= len(name) <= 32):
+        return jsonify({"message": "Event name must be between 3 and 32 characters"}), 400
+        
+    if len(location) > 32:
+        return jsonify({"message": "Location name is too long (max 32 chars)"}), 400
+        
+    if len(description) > 1000:
+         return jsonify({"message": "Description is too long (max 1000 chars)"}), 400
+
+    try:
+        dt_string = f"{date_str} {time_str}"
+        date_and_time = datetime.strptime(dt_string, "%d.%m.%Y %H:%M")
+        date_and_time = date_and_time.replace(tzinfo=timezone.utc)
+        
+        if date_and_time <= datetime.now(timezone.utc):
+             return jsonify({"message": "Event date must be in the future"}), 400
+             
+    except ValueError:
+        return jsonify({"message": "Invalid date format. Use DD.MM.YYYY and HH:MM"}), 400
+
+    try:
+        new_event = Event(
+            name=name,
+            description=description,
+            date_and_time=date_and_time,
+            location=location,
+            creator_id=user.user_id
+        )
     
-    new_event = Event(name=name, description=description, date_and_time=date_and_time, location=location, creator_id=user.user_id)
-    
-    db.session.add(new_event)
-    db.session.commit()
+        db.session.add(new_event)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Database error: {e}")
+        return jsonify({"message": "Internal server error"}), 500
     
     return {
         "message": "Event created successfully",
+        "event_id": new_event.event_id
     }, 200
 
 @main.route("/delete_event/<event_id>", methods=["DELETE"])
 @jwt_required()
 def delete_event(event_id):
     user = get_current_user()
-    event_id = uuid.UUID(event_id)
+    try:
+        event_id = uuid.UUID(event_id)
+    except Exception:
+        return jsonify({"message": "Invalid event ID format"}), 400
+    
     event = Event.query.filter_by(event_id=event_id).first()
 
     if event is None:
         return {
             "message": "Event doesn't exist"
-        }, 400
+        }, 404
 
     if user.user_id != event.creator_id:
         return {
             "message": "You can delete your own events only"
-        }, 401
+        }, 403
+    
+    try:
+        db.session.delete(event)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Database error: {e}")
+        return jsonify({"message": "Internal server error"}), 500
+
+    return jsonify ({
+        "message": "Event deleted successfully"
+    }), 200
+
+
+@main.route("/mail_auth_request",methods=["POST"])
+def mail_auth_request():
+    user_data = request.get_json()
+    
+
+    if not user_data or not "email" in user_data.keys():
+        return jsonify({"message":"Bad request"}),400
+    
+    email=user_data["email"]
+
+    user = User.query.filter_by(email=email).first()
+
+    if not user:
+        return jsonify({"message": "There is no user with such email"}), 401
+
+    if user.is_confirmed:
+        return jsonify({"message": "User already confirmed"}), 400
+    
+    auth_token = create_access_token(identity=user.email)
+
+    auth_url=url_for("main.mail_auth", token=auth_token, _external=True)
+
         
-    db.session.delete(event)
+    msg = Message(
+            'Auth account',
+            recipients=[email],
+            body=f"Hello! Click the link to authorize your account: {auth_url}"
+        )
+
+    mail.send(msg)
+
+    return{
+        "message": "Email sent successfully"
+    },200
+
+
+@main.route("/mail_auth/<token>",methods=["POST"])
+def mail_auth(token):
+    decoded = decode_token(token)
+    user_email = decoded["sub"]
+
+    user = User.query.filter_by(email=user_email).first()
+
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+
+    if user.is_confirmed:
+        return jsonify({"message": "User already confirmed"}), 400
+    
+    user.is_confirmed=True
     db.session.commit()
 
     return {
-        "message": "Event deleted successfully"
+        "message": "Verification succesful"
     }, 200
+
