@@ -8,13 +8,12 @@ from backend.models import User
 # Tests for auth user
 # =============================================================================
 
-def test_auth_user(client, app,registered_user):
+def test_auth_user(client, app):
     with app.app_context():
         username = "test_user"
         password = "123456flask"
         email = "test_user@gmail.com"
         user = User(username=username, password=password, email=email)
-
         
         db.session.add(user)
         db.session.commit()
@@ -48,10 +47,6 @@ def test_auth_user(client, app,registered_user):
         user_answer=User.query.filter_by(email=email).first()
         assert user_answer.is_confirmed is True
 
-        db.session.rollback()
-        db.session.query(User).delete()
-        db.session.commit()
-
 def test_auth_user_invalid_email(client, app):
     with app.app_context():
         email_payload = {
@@ -62,4 +57,21 @@ def test_auth_user_invalid_email(client, app):
             response = client.post("/mail_auth_request", json=email_payload)
 
             assert response.status_code == 401
+            assert len(outbox) == 0
+
+def test_auth_user_confirmed(client, app, registered_user):
+    with app.app_context():
+        user = registered_user[0]
+
+        assert user.is_confirmed is True
+
+        email_payload = {
+            "email": user.email
+        }
+
+        with mail.record_messages() as outbox:
+            response = client.post("/mail_auth_request", json=email_payload)
+
+            assert response.status_code == 400
+            assert response.get_json()["message"] == "User already confirmed"
             assert len(outbox) == 0
