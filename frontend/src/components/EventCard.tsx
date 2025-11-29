@@ -7,7 +7,7 @@ import { useNavigation } from "@react-navigation/native";
 const EventCard = ({ item }: {item: Event}) => {
     const navigation = useNavigation<any>();
     return (
-        <View key={item.event_id}>
+        <View key={item.id}>
             <TouchableOpacity onPress={() => {
                 navigation.navigate('EventDetails', {
                     event: item
