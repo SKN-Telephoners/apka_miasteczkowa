@@ -441,7 +441,7 @@ def delete_comment(comment_id):
             "message": "You can delete your own comments only"
         }, 401
         
-    db.session.delete(comment)
+    comment.soft_delete()
     db.session.commit()
 
     return {
@@ -474,3 +474,55 @@ def edit_comment(comment_id):
     return {
         "message": "Comment edited successfully"
     }, 200
+
+@main.route("/reply_to_comment/<parent_comment_id>", methods=["POST"])
+@jwt_required()
+def reply_to_comment(parent_comment_id):
+    user = get_current_user()
+    parent_comment_id = uuid.UUID(parent_comment_id)
+    parent_comment = Comment.query.filter_by(comment_id=parent_comment_id).first()
+
+    if parent_comment is None:
+        return {
+            "message": "Parent comment doesn't exist"
+        }, 400
+    
+    comment_data = request.get_json()
+    required_keys = {"content"}
+    
+    if not comment_data or not required_keys.issubset(comment_data.keys()):
+        return jsonify({"message": "Bad request"}), 400
+    
+    new_comment = Comment(
+        user_id=user.user_id,
+        event_id=parent_comment.event_id,
+        content=comment_data["content"],
+        parent_comment_id=parent_comment_id
+        )
+
+    db.session.add(new_comment)
+    db.session.commit()
+
+    return {
+        "message": "Comment created successfully"
+    }, 200
+
+@main.route("/get_comments_list/<event_id>", methods=["GET"])
+@jwt_required()
+def get_comments_list(event_id):
+
+    comments = Comment.query.filter_by(event_id=event_id).order_by(Comment.created_at.asc()).all()
+
+    if not comments:
+        return jsonify({
+            "message": "Empty comments list",
+            "comments": []
+        }), 200
+
+    top_level_comments = [c for c in comments if c.parent_comment_id is None]
+    comments_tree = [c.to_dict() for c in top_level_comments]
+
+    return jsonify({
+        "message": "Comments list",
+        "comments": comments_tree
+    }), 200
