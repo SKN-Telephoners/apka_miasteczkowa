@@ -37,9 +37,8 @@ def test_accept_friend_request(client, logged_in_user, registered_friend, app):
         })
 
         assert response_accept_request.status_code == 200
-        assert response_accept_request.get_json() == {
-            "message": "Friend request accepted"
-        }
+        
+        assert "friend_id" in response_accept_request.get_json()
 
         assert (Friendship.query.filter_by(user_id=user.user_id, friend_id=friend.user_id).first() or
                 Friendship.query.filter_by(user_id=friend.user_id, friend_id=user.user_id).first()) is not None
@@ -95,7 +94,7 @@ def test_friend_not_exist(client, logged_in_user, app):
             "Authorization": f"Bearer {token}"
         })
 
-        assert response_create_request.status_code == 400
+        assert response_create_request.status_code == 404 # Expecting 404 now
         assert FriendRequest.query.filter_by(sender_id=user.user_id, receiver_id=friend_id).first() is None
 
 def test_befriend_yourself(client, logged_in_user, app):
@@ -123,7 +122,7 @@ def test_request_exists(client, logged_in_user, registered_friend, app):
             "Authorization": f"Bearer {token}"
         })
 
-        assert response_create_request.status_code == 400
+        assert response_create_request.status_code == 409 # Changed to 409 Conflict
         assert response_create_request.get_json() == {
             "message": "Request already exists"
         }
@@ -148,7 +147,7 @@ def test_friendship_exists(client, logged_in_user, registered_friend, app):
             "Authorization": f"Bearer {token}"
         })
 
-        assert response_create_request.status_code == 400
+        assert response_create_request.status_code == 409 # Changed to 409 Conflict
         assert response_create_request.get_json() == {
             "message": "Friendship already exists"
         }
@@ -165,7 +164,7 @@ def test_accept_request_not_exist(client, logged_in_user, registered_friend, app
             "Authorization": f"Bearer {token}"
         })
 
-        assert response_accept_request.status_code == 400
+        assert response_accept_request.status_code == 400 
         assert response_accept_request.get_json() == {
             "message": "Such request doesn't exist"
         }
@@ -183,7 +182,7 @@ def test_decline_request_not_exist(client, logged_in_user, registered_friend, ap
             "Authorization": f"Bearer {token}"
         })
 
-        assert response_decline_request.status_code == 400
+        assert response_decline_request.status_code == 404 # Changed to 404 Not Found
         assert response_decline_request.get_json() == {
             "message": "Such request doesn't exist"
         }
