@@ -361,14 +361,12 @@ def delete_event(event_id):
 
 
 @main.route("/feed",methods=["GET"])
-@jwt_required()
 def feed():
 
     page = request.args.get("page", default=1, type=int)
     limit = request.args.get("limit", default=20, type=int)
     
     events=Event.query \
-        .filter(Event.date_and_time > datetime.now(timezone.utc)) \
         .order_by(Event.date_and_time.asc())
     
     pagination = events.paginate(page=page, per_page=limit, error_out=False)
