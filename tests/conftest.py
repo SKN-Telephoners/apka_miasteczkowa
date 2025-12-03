@@ -74,3 +74,19 @@ def registered_friend(client):
         token_path = auth_url.replace("http://localhost", "")
         client.post(token_path)
     return friend, payload["password"]
+
+@pytest.fixture
+def event(client, logged_in_user):
+    token = logged_in_user[1]
+
+    payload = {
+        "name": "event1",
+        "description": "very cool event",
+        "date": "01.01.2026",
+        "time": "21:37",
+        "location": "here"
+    }
+
+    client.post(f"/create_event", headers={"Authorization": f"Bearer {token}"}, json=payload)
+    event = Event.query.filter_by(name="event1").first()
+    return event
