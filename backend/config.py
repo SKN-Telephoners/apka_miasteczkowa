@@ -1,8 +1,10 @@
 from datetime import timedelta
+from backend.extensions import bcrypt
 
 class Config:
     SQLALCHEMY_DATABASE_URI = "postgresql://postgres:postgres@localhost/apka_miasteczkowa?sslmode=require"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    BCRYPT_LOG_ROUNDS = 12
     JWT_SECRET_KEY = "asdsadsdasdasdasd" #provide secret key
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=5)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
@@ -18,3 +20,4 @@ class TestConfig(Config):
     MAIL_BACKEND = 'flask_mail.backends.locmem.EmailBackend'
     SQLALCHEMY_DATABASE_URI = "postgresql://postgres:postgres@localhost/apka_miasteczkowa_test?sslmode=require"
     TESTING = True
+
