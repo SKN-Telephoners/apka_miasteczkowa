@@ -40,8 +40,8 @@ class TokenBlocklist(db.Model):
     jti = db.Column(db.String(36), nullable=False, unique=True)
     token_type = db.Column(db.String(18), nullable=False)
     user_id = db.Column(UUID(as_uuid=True), db.ForeignKey("app_user.user_id", ondelete='CASCADE'), nullable=False, index=True)
-    revoked_at = db.Column(db.DateTime)
-    expires = db.Column(db.DateTime, nullable=False)
+    revoked_at = db.Column(db.DateTime(timezone=True))
+    expires = db.Column(db.DateTime(timezone=True), nullable=False)
 
     user = db.relationship("User")
 
