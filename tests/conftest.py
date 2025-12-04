@@ -58,3 +58,15 @@ def registered_friend(client):
     client.post("/api/register", json=payload)
     friend = User.query.filter_by(username="friend").first()
     return friend, payload["password"]
+
+
+@pytest.fixture
+def create_event(client):
+    # cerate 21 events for tests
+    event_id=0
+    while(event_id!=21):
+        payload = {"name": event_id, "description": "Lore ipsum", "date":"1.1.2022", "time":"14:20", "location":"Poland"}
+        client.post("/create_event", json=payload)
+        event_id+=1
+
+
