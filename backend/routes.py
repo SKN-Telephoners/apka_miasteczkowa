@@ -419,6 +419,7 @@ def create_event():
     required_keys = {"name", "description", "date", "time", "location"}
 
     if not event_data or not required_keys.issubset(event_data.keys()):
+        print("dupa")
         return jsonify({"message": "Bad request"}), 400
     
     name = event_data.get("name", "").strip()
@@ -507,9 +508,14 @@ def feed():
 
     page = request.args.get("page", default=1, type=int)
     limit = request.args.get("limit", default=20, type=int)
+    sort=request.args.get("sort",default=1,type=int)
     
-    events=Event.query \
-        .order_by(Event.date_and_time.asc())
+    if sort==1:
+        events=Event.query \
+            .order_by(Event.date_and_time.asc())
+    elif sort==2:
+        events=Event.query \
+            .order_by(Event.date_and_time.desc())
     
     pagination = events.paginate(page=page, per_page=limit, error_out=False)
     
