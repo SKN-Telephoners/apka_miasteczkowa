@@ -8,7 +8,7 @@ import uuid
 from flask_mail import Message
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import or_
+from sqlalchemy import or_, and_
 
 MAX_EMAIL_LEN = 320
 MAX_USERNAME_LEN = 32
@@ -332,14 +332,26 @@ def create_friend_request(friend_id):
             "message": "You can't befriend yourself",
         }, 400
     
-    if (FriendRequest.query.filter_by(sender_id=user.user_id, receiver_id=friend_id).first() is not None
-        or FriendRequest.query.filter_by(sender_id=friend_id, receiver_id=user.user_id).first()):
+    existing_friend_request = FriendRequest.query.filter(
+        or_(
+            and_(FriendRequest.sender_id == user.user_id, FriendRequest.receiver_id == friend_id),
+            and_(FriendRequest.sender_id == friend_id, FriendRequest.receiver_id == user.user_id),
+        )
+    ).first()
+
+    if existing_friend_request is not None:
         return {
             "message": "Request already exists",
         }, 409
     
-    if (Friendship.query.filter_by(user_id=user.user_id, friend_id=friend_id).first() is not None
-        or Friendship.query.filter_by(user_id=friend_id, friend_id=user.user_id).first() is not None):
+    existing_friendship = Friendship.query.filter(
+        or_(
+            and_(Friendship.user_id == user.user_id, Friendship.friend_id == friend_id),
+            and_(Friendship.user_id == friend_id, Friendship.friend_id == user.user_id),
+        )
+    ).first()
+
+    if existing_friendship is not None:
         return {
             "message": "Friendship already exists",
         }, 409
@@ -359,6 +371,37 @@ def create_friend_request(friend_id):
     return {
         "message": "Friend request created",
     }, 200
+
+@main.route("/cancel_friend_request/<friend_id>", methods=["POST"])
+@jwt_required()
+@limiter.limit("300 per minute")
+def cancel_friend_request(friend_id):
+    user = get_current_user()
+
+    try:
+        friend_id = uuid.UUID(friend_id)
+    except ValueError:
+        return jsonify({"message": "Invalid friend ID format"}), 400
+
+    request = FriendRequest.query.filter_by(sender_id=user.user_id, receiver_id=friend_id).first()
+
+    if request is None:
+        return {
+            "message": "Such request doesn't exist",
+        }, 404
+
+    try:
+        db.session.delete(request)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        print(f"Database error: {e}")
+        return jsonify({"message": "Internal server error"}), 500
+    
+    return jsonify({
+        "message": "Friend request cancelled",
+        "friend_id": str(friend_id)
+    }), 200
 
 @main.route("/accept_friend_request/<friend_id>", methods=["POST"])
 @jwt_required()
