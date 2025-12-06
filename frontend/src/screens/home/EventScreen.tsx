@@ -11,7 +11,7 @@ import {
 import EventCard from "../../components/EventCard"
 import { Event } from "../../types";
 import InputField from "../../components/InputField";
-import { deleteEvent, getEvents, createEvent } from "../../services/events";
+import { getEvents } from "../../services/events";
 import { useNavigation } from "@react-navigation/native";
 
 const EventScreen = () => {
@@ -143,7 +143,7 @@ const EventScreen = () => {
                     value={searchQuery}
                 />
                 <TouchableOpacity onPress={() => navigation.navigate('AddEvent')} style={{ backgroundColor: '#045ddaff', alignItems: 'center', padding: 10, borderRadius: 25 }} >
-                    <Text style={{color: '#ffffff'}}>Dodaj wydarzenie</Text>
+                    <Text style={{ color: '#ffffff' }}>Dodaj wydarzenie</Text>
                 </TouchableOpacity>
 
             </View>
@@ -152,7 +152,7 @@ const EventScreen = () => {
             <FlatList
                 data={data}
                 renderItem={({ item }) => <EventCard item={item} />}
-                keyExtractor={(item: Event) => item.event_id!}
+                keyExtractor={(item: Event) => item.id!}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
                 }

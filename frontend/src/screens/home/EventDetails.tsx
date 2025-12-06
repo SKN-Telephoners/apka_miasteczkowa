@@ -66,7 +66,11 @@ const EventDetails = () => {
       <Text style={{ fontSize: 16, marginVertical: 10 }}>{event.description}</Text>
       {isOwner && (<View style={{ flexDirection: "row", marginVertical: 10 }}>
         <View style={{ marginHorizontal: 10 }}>
-          <TouchableOpacity style={{ backgroundColor: '#045ddaff', paddingVertical: 10, borderRadius: 25, paddingHorizontal: 20 }}>
+          <TouchableOpacity onPress={() => {
+            navigation.navigate("EditEvent", {
+              event: event
+            });
+          }} style={{ backgroundColor: '#045ddaff', paddingVertical: 10, borderRadius: 25, paddingHorizontal: 20 }}>
             <Text style={{ color: '#ffffff' }}>Edytuj wydarzenie</Text>
           </TouchableOpacity>
         </View>
