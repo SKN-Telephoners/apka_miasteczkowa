@@ -186,7 +186,7 @@ def invalid_token_callback(error):
     return jsonify(message="Incorrect token"), 401
 
 @jwt.expired_token_loader
-def expired_token_callback(expired_token):
+def expired_token_callback(jwt_header, jwt_payload):
     return jsonify(message="Token expired"), 401
 
 @jwt.user_lookup_loader
