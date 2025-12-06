@@ -4,6 +4,7 @@ import json
 from backend.helpers import is_token_revoked
 from flask_jwt_extended import decode_token
 
+
 # =============================================================================
 # Tests for user login
 # =============================================================================
@@ -241,3 +242,37 @@ def test_logout_with_access_token_in_header(client, registered_user):
     # Logout requires Refresh token now
     assert response.status_code == 401
     assert response.json['message'] == 'Incorrect token' # From your @jwt.invalid_token_loader
+
+def test_logout_invalid_access_token_in_body(client, registered_user, app):
+    with app.app_context():
+        user, password = registered_user
+        payload = {"username": user.username, "password": password}
+
+        from backend.helpers import is_token_revoked
+        from flask_jwt_extended import decode_token
+
+        response_login_1 = client.post("/api/login", json=payload)
+        data_login_1 = response_login_1.get_json()
+        
+        refresh_token_1 = data_login_1["refresh_token"]
+        initial_access_token_old = data_login_1["access_token"] 
+
+        headers_1 = {'Authorization': f'Bearer {refresh_token_1}'}
+        body_invalid_format = {'access_token': 'not.a.real.token'}
+
+        response_1 = client.delete('/api/logout', headers=headers_1, json=body_invalid_format)
+
+        assert response_1.status_code == 200
+        assert is_token_revoked(decode_token(refresh_token_1)) == True
+
+        response_login_2 = client.post("/api/login", json=payload)
+        data_login_2 = response_login_2.get_json()
+        refresh_token_2 = data_login_2["refresh_token"]
+        
+        headers_2 = {'Authorization': f'Bearer {refresh_token_2}'}
+        body_valid_format = {'access_token': initial_access_token_old} 
+
+        response_2 = client.delete('/api/logout', headers=headers_2, json=body_valid_format)
+
+        assert response_2.status_code == 200
+        assert is_token_revoked(decode_token(refresh_token_2)) == True

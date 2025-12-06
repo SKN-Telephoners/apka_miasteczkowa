@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify, url_for
 from backend.models import User, FriendRequest, Friendship, Event, Comment
 from backend.extensions import db, jwt, mail, limiter
 from flask_jwt_extended import jwt_required, create_access_token, create_refresh_token, get_jwt, get_jwt_identity, get_current_user, decode_token
-from backend.helpers import add_token_to_db, revoke_token, is_token_revoked
+from backend.helpers import add_token_to_db, revoke_token, is_token_revoked, revoke_all_user_tokens
 import re
 import uuid
 from flask_mail import Message
@@ -167,10 +167,7 @@ def revoke_access_token():
 def revoke_refresh_token():
     jti = get_jwt()["jti"]
     user_id = get_jwt_identity()
-    try:
-        revoke_token(jti, user_id)
-    except Exception:
-        db.session.rollback()
+    revoke_token(jti, user_id)
     return jsonify(message="Refresh token revoked")
 
 @auth.route("/api/logout", methods=["DELETE"])
@@ -190,17 +187,13 @@ def logout():
                 access_jti = access_payload["jti"]
                 revoke_token(access_jti, user_id)
         except Exception:
-            db.session.rollback()
+            pass
             
     return jsonify(message="Logged out successfully"), 200
 
 @jwt.token_in_blocklist_loader
 def check_if_token_revoked(jwt_header, jwt_payload):
-    try:
-        return is_token_revoked(jwt_payload)
-    except Exception:
-        db.session.rollback()
-        return True
+    return is_token_revoked(jwt_payload)
 
 @jwt.unauthorized_loader
 def unauthorized_callback(error):
@@ -211,7 +204,7 @@ def invalid_token_callback(error):
     return jsonify(message="Incorrect token"), 401
 
 @jwt.expired_token_loader
-def expired_token_callback(expired_token):
+def expired_token_callback(jwt_header, jwt_payload):
     return jsonify(message="Token expired"), 401
 
 @jwt.user_lookup_loader
@@ -237,12 +230,16 @@ def reset_password_request():
     #now there will be multiple active tokens for password resetting (we don't want that) - to be fixed
     if user:
         reset_token = create_access_token(
-            identity=user.email,
+            identity=user.user_id,
             expires_delta=timedelta(minutes=15),
             additional_claims={"type": "password_reset"}                              
         )
+        try:
+            add_token_to_db(reset_token)
+        except Exception as e:
+            print(f"Failed to log reset token for user {user.user_id}: {e}")
 
-        reset_url = url_for("main.reset_password", token=reset_token, _external=True) #this will have to be changed into deep link to app
+        reset_url = url_for("main.reset_password", token=reset_token, _external=True) #this will have to be changed into deep link for app
 
         msg = Message(
             'Reset password',
@@ -264,27 +261,21 @@ def reset_password(token):
     decoded = None
     try:
         decoded = decode_token(token)
-        is_revoked = False
-        try:
-            if is_token_revoked(decoded):
-                is_revoked = True
-        except Exception:
-            db.session.rollback()
-            is_revoked = False
-            
+        is_revoked = is_token_revoked(decoded) 
+
         if is_revoked:
              return jsonify({"message": "Link has already been used or expired"}), 400
         
         if decoded.get("type") != "password_reset":
             return jsonify({"message": "Invalid token type"}), 400
         
-        user_email = decoded["sub"]
+        user_id = decoded["sub"]
 
     except Exception:
-        db.session.rollback()
+
         return jsonify({"message": "Invalid or expired token"}), 400
     
-    user = User.query.filter_by(email=user_email).first()
+    user = User.query.filter_by(user_id=user_id).first()
 
     if not user:
         return jsonify({"message": "User not found"}), 404
@@ -301,12 +292,11 @@ def reset_password(token):
     user.update_password(new_password)
     db.session.commit()
 
-    if decoded:
-        try:
-            add_token_to_db(token)
-            revoke_token(decoded["jti"], decoded["sub"])
-        except Exception:
-            db.session.rollback()
+    try:
+        revoke_token(decoded["jti"], decoded["sub"])
+        revoke_all_user_tokens(user.user_id)
+    except Exception as e:
+        print(f"Failed to revoke all tokens after password reset: {e}")
 
     return jsonify({
         "message": "Password changed successfully"
