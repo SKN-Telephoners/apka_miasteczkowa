@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, url_for
-from backend.models import User, FriendRequest, Friendship, Event
+from backend.models import User, FriendRequest, Friendship, Event, Comment
 from backend.extensions import db, jwt, mail, limiter
 from flask_jwt_extended import jwt_required, create_access_token, create_refresh_token, get_jwt, get_jwt_identity, get_current_user, decode_token
 from backend.helpers import add_token_to_db, revoke_token, is_token_revoked, revoke_all_user_tokens
@@ -8,6 +8,7 @@ import uuid
 from flask_mail import Message
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import or_, and_
 
 MAX_EMAIL_LEN = 320
 MAX_USERNAME_LEN = 32
@@ -55,6 +56,20 @@ def register_user():
     db.session.add(new_user)
     db.session.commit()
     print("Dodano użytkownika do bazy!")
+
+    #send auth email
+
+    auth_token = create_access_token(identity=email)
+
+    auth_url=url_for("main.mail_auth", token=auth_token, _external=True)
+
+    msg = Message(
+            'Auth account',
+            recipients=[email],
+            body=f"Hello! Click the link to authorize your account: {auth_url}"
+        )
+
+    mail.send(msg)
     
     return {
         "message": "Registration successful",
@@ -83,6 +98,9 @@ def login_user():
     user = User.query.filter_by(username=username).first()
     if not user or not user.validate_password(password):
         return jsonify({"message": "Invalid username or password"}), 401
+    
+    if not user.is_confirmed:
+        return jsonify({"message":"At first, verify your account"})
     
     limiter.reset()
 
@@ -304,14 +322,26 @@ def create_friend_request(friend_id):
             "message": "You can't befriend yourself",
         }, 400
     
-    if (FriendRequest.query.filter_by(sender_id=user.user_id, receiver_id=friend_id).first() is not None
-        or FriendRequest.query.filter_by(sender_id=friend_id, receiver_id=user.user_id).first()):
+    existing_friend_request = FriendRequest.query.filter(
+        or_(
+            and_(FriendRequest.sender_id == user.user_id, FriendRequest.receiver_id == friend_id),
+            and_(FriendRequest.sender_id == friend_id, FriendRequest.receiver_id == user.user_id),
+        )
+    ).first()
+
+    if existing_friend_request is not None:
         return {
             "message": "Request already exists",
         }, 409
     
-    if (Friendship.query.filter_by(user_id=user.user_id, friend_id=friend_id).first() is not None
-        or Friendship.query.filter_by(user_id=friend_id, friend_id=user.user_id).first() is not None):
+    existing_friendship = Friendship.query.filter(
+        or_(
+            and_(Friendship.user_id == user.user_id, Friendship.friend_id == friend_id),
+            and_(Friendship.user_id == friend_id, Friendship.friend_id == user.user_id),
+        )
+    ).first()
+
+    if existing_friendship is not None:
         return {
             "message": "Friendship already exists",
         }, 409
@@ -331,6 +361,37 @@ def create_friend_request(friend_id):
     return {
         "message": "Friend request created",
     }, 200
+
+@main.route("/cancel_friend_request/<friend_id>", methods=["POST"])
+@jwt_required()
+@limiter.limit("300 per minute")
+def cancel_friend_request(friend_id):
+    user = get_current_user()
+
+    try:
+        friend_id = uuid.UUID(friend_id)
+    except ValueError:
+        return jsonify({"message": "Invalid friend ID format"}), 400
+
+    request = FriendRequest.query.filter_by(sender_id=user.user_id, receiver_id=friend_id).first()
+
+    if request is None:
+        return {
+            "message": "Such request doesn't exist",
+        }, 404
+
+    try:
+        db.session.delete(request)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        print(f"Database error: {e}")
+        return jsonify({"message": "Internal server error"}), 500
+    
+    return jsonify({
+        "message": "Friend request cancelled",
+        "friend_id": str(friend_id)
+    }), 200
 
 @main.route("/accept_friend_request/<friend_id>", methods=["POST"])
 @jwt_required()
@@ -399,6 +460,42 @@ def decline_friend_request(friend_id):
         "message": "Friend request declined",
     }, 200
 
+@main.route("/get_friends_list", methods=["GET"])
+@jwt_required()
+def get_friends_list():
+    user= get_current_user()
+    
+    friendships = Friendship.query.filter(
+        or_(
+            Friendship.user_id == user.user_id,
+            Friendship.friend_id == user.user_id
+        )
+    ).all()
+    if not friendships:
+        return jsonify({
+            "message": "Empty friends list",
+            "friends": []
+        }), 200
+    friends_id=[]
+    for friendship  in friendships:
+        if user.user_id==friendship.user_id :
+            friends_id.append(friendship.friend_id)
+        else:
+            friends_id.append(friendship.user_id)
+
+    friends = User.query.filter(User.user_id.in_(friends_id)).all()
+
+    friends_data = []
+    for friend in friends:
+        friends_data.append({
+            "id": friend.user_id,
+            "username": friend.username
+        })
+    return jsonify({
+        "message": "Friends list",
+        "friends": friends_data
+    }), 200
+    
 @main.route("/create_event", methods=["POST"])
 @limiter.limit("100 per minute")
 @jwt_required()
@@ -489,4 +586,189 @@ def delete_event(event_id):
 
     return jsonify ({
         "message": "Event deleted successfully"
+    }), 200
+
+@main.route("/mail_auth_request",methods=["POST"])
+def mail_auth_request():
+    user_data = request.get_json()
+    
+
+    if not user_data or not "email" in user_data.keys():
+        return jsonify({"message":"Bad request"}),400
+    
+    email=user_data["email"]
+
+    user = User.query.filter_by(email=email).first()
+
+    if not user:
+        return jsonify({"message": "There is no user with such email"}), 401
+
+    if user.is_confirmed:
+        return jsonify({"message": "User already confirmed"}), 400
+    
+    auth_token = create_access_token(identity=user.email)
+
+    auth_url=url_for("main.mail_auth", token=auth_token, _external=True)
+
+        
+    msg = Message(
+            'Auth account',
+            recipients=[email],
+            body=f"Hello! Click the link to authorize your account: {auth_url}"
+        )
+
+    mail.send(msg)
+
+    return{
+        "message": "Email sent successfully"
+    },200
+
+@main.route("/mail_auth/<token>",methods=["POST"])
+def mail_auth(token):
+    decoded = decode_token(token)
+    user_email = decoded["sub"]
+
+    user = User.query.filter_by(email=user_email).first()
+
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+
+    if user.is_confirmed:
+        return jsonify({"message": "User already confirmed"}), 400
+    
+    user.is_confirmed=True
+    db.session.commit()
+
+    return {
+        "message": "Verification succesful"
+    }, 200
+
+@main.route("/create_comment/<event_id>", methods=["POST"])
+@jwt_required()
+def create_comment(event_id):
+    user = get_current_user()
+    event_id = uuid.UUID(event_id)
+
+    event = Event.query.filter_by(event_id=event_id)
+
+    if event is None:
+        return {
+            "message": "Event doesn't exist"
+        }, 400
+    
+    comment_data = request.get_json()
+    required_keys = {"content"}
+    
+    if not comment_data or not required_keys.issubset(comment_data.keys()):
+        return jsonify({"message": "Bad request"}), 400
+    
+    new_comment = Comment(user_id=user.user_id, event_id=event_id, content=comment_data["content"])
+
+    db.session.add(new_comment)
+    db.session.commit()
+
+    return {
+        "message": "Comment created successfully"
+    }, 200
+
+@main.route("/delete_comment/<comment_id>", methods=["DELETE"])
+@jwt_required()
+def delete_comment(comment_id):
+    user = get_current_user()
+    comment_id = uuid.UUID(comment_id)
+    comment = Comment.query.filter_by(comment_id=comment_id).first()
+    if comment is None:
+        return {
+            "message": "Comment doesn't exist"
+        }, 400
+
+    if user.user_id != comment.user_id:
+        return {
+            "message": "You can delete your own comments only"
+        }, 401
+        
+    comment.soft_delete()
+    db.session.commit()
+
+    return {
+        "message": "Comment deleted successfully"
+    }, 200
+
+@main.route("/edit_comment/<comment_id>", methods=["POST", "GET"])
+@jwt_required()
+def edit_comment(comment_id):
+    user = get_current_user()
+    comment_id = uuid.UUID(comment_id)
+    comment = Comment.query.filter_by(comment_id=comment_id).first()
+
+    if comment is None:
+        return {
+            "message": "Comment doesn't exist"
+        }, 400
+
+    if user.user_id != comment.user_id:
+        return {
+            "message": "You can edit your own comments only"
+        }, 401
+        
+    data = request.get_json()
+    new_content = data["new_content"]
+    comment.content = new_content
+    comment.edited = True
+    db.session.commit()
+
+    return {
+        "message": "Comment edited successfully"
+    }, 200
+
+@main.route("/reply_to_comment/<parent_comment_id>", methods=["POST"])
+@jwt_required()
+def reply_to_comment(parent_comment_id):
+    user = get_current_user()
+    parent_comment_id = uuid.UUID(parent_comment_id)
+    parent_comment = Comment.query.filter_by(comment_id=parent_comment_id).first()
+
+    if parent_comment is None:
+        return {
+            "message": "Parent comment doesn't exist"
+        }, 400
+    
+    comment_data = request.get_json()
+    required_keys = {"content"}
+    
+    if not comment_data or not required_keys.issubset(comment_data.keys()):
+        return jsonify({"message": "Bad request"}), 400
+    
+    new_comment = Comment(
+        user_id=user.user_id,
+        event_id=parent_comment.event_id,
+        content=comment_data["content"],
+        parent_comment_id=parent_comment_id
+        )
+
+    db.session.add(new_comment)
+    db.session.commit()
+
+    return {
+        "message": "Comment created successfully"
+    }, 200
+
+@main.route("/get_comments_list/<event_id>", methods=["GET"])
+@jwt_required()
+def get_comments_list(event_id):
+
+    comments = Comment.query.filter_by(event_id=event_id).order_by(Comment.created_at.asc()).all()
+
+    if not comments:
+        return jsonify({
+            "message": "Empty comments list",
+            "comments": []
+        }), 200
+
+    top_level_comments = [c for c in comments if c.parent_comment_id is None]
+    comments_tree = [c.to_dict() for c in top_level_comments]
+
+    return jsonify({
+        "message": "Comments list",
+        "comments": comments_tree
     }), 200
