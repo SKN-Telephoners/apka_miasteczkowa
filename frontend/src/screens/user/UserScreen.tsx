@@ -2,14 +2,13 @@ import React from "react";
 import { View, Text, StyleSheet, Button, ScrollView } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 
-// Mock do poniedziałku
+// Mock do zmiany na wczoraj
 const MOCK_USER = {
   name: "Jan Kowalski",
   avatar: "[Avatar Janka]", // Placeholder
   bio: "Frontend Developer. Lubię TypeScript i szybkie kawy.",
   stats: {
-    followers: 120,
-    following: 55,
+    friends: 55,
     posts: 42,
   },
   friends: ["Anna Nowak", "Piotr Zieliński", "Ewa Lewandowska"],
@@ -51,8 +50,7 @@ const UserScreen = () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>📈 Statystyki</Text>
         <View style={styles.statsRow}>
-          <Text style={styles.statItem}>Obserwujący: **{MOCK_USER.stats.followers}**</Text>
-          <Text style={styles.statItem}>Obserwowani: **{MOCK_USER.stats.following}**</Text>
+          <Text style={styles.statItem}>Znajomi: **{MOCK_USER.stats.friends}**</Text>
           <Text style={styles.statItem}>Posty: **{MOCK_USER.stats.posts}**</Text>
         </View>
       </View>
