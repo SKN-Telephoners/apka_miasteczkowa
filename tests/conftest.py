@@ -74,4 +74,4 @@ def create_events(client,logged_in_user):
         response=client.post("/create_event", json=payload,headers=headers)
         assert response.status_code == 200
 
-
+    
