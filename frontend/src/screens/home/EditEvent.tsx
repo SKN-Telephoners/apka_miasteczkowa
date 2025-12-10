@@ -46,15 +46,15 @@ const EditEvent = () => {
     const [title, setTitle] = useState(event.name || "");
     const [description, setDescription] = useState(event.description || "");
     const [location, setLocation] = useState(event.location || "");
-    const [date, setDate] = useState(event.date || ""); // Keep as string "DD.MM.YYYY"
-    const [time, setTime] = useState(event.time || ""); // Keep as string "HH:mm"
-    const [dateObj, setDateObj] = useState<Date>(new Date()); // Will be set in useEffect
-    const [timeObj, setTimeObj] = useState<Date>(new Date()); // Will be set in useEffect
+    const [date, setDate] = useState(event.date || ""); 
+    const [time, setTime] = useState(event.time || "");
+    const [dateObj, setDateObj] = useState<Date>(new Date()); 
+    const [timeObj, setTimeObj] = useState<Date>(new Date()); 
 
     const [titleError, setTitleError] = useState("");
     const [locationError, setLocationError] = useState("");
 
-    // Initialize date objects when component mounts
+
     useEffect(() => {
         const { date: initialDate, time: initialTime } = parseEventDateTime();
         setDateObj(initialDate);
@@ -62,18 +62,36 @@ const EditEvent = () => {
     }, []);
 
     const validateTitle = (text: string): string | null => {
-        if (!text || text.trim() === "") {
-            return "Pole tytuł jest wymagane";
-        }
-        return null;
-    };
+    if (!text) {
+      return "Pole tytuł jest wymagane";
+    }
 
-    const validateLocation = (text: string): string | null => {
-        if (!text || text.trim() === "") {
-            return "Pole lokalizacja jest wymagane";
-        }
-        return null;
-    };
+    if (text.length < 3 || text.length > 32) {
+      return "Tytuł musi mieć 3-32 znaków";
+    }
+
+    return null;
+  };
+
+  const validateLocation = (text: string): string | null => {
+    if (!text) {
+      return "Pole lokalizacja jest wymagane";
+    }
+
+    if (text.length < 3 || text.length > 32) {
+      return "Lokalizacja może mieć maksymalnie 32 znaki";
+    }
+
+    return null;
+  };
+
+  const validateDescription = (text: string): string | null => {
+    if (text.length > 1000) {
+      return "Opis może mieć makysmalnie 1000 znaków";
+    }
+
+    return null;
+  };
 
     const validateDateTime = (date: string, time: string): string | null => {
         if (!date || !time) {
@@ -99,6 +117,7 @@ const EditEvent = () => {
     const validateInputs = () => {
         const titleValidation = validateTitle(title);
         const locationValidation = validateLocation(location);
+        const descriptionValidation = validateDescription(description);
         const dateTimeValidation = validateDateTime(date, time);
 
         setTitleError(titleValidation || "");
@@ -109,7 +128,7 @@ const EditEvent = () => {
             return false;
         }
 
-        return !titleValidation && !locationValidation;
+        return !titleValidation && !locationValidation && !descriptionValidation;
     };
 
     const handleEditEvent = async () => {
