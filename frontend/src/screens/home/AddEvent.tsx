@@ -23,6 +23,11 @@ const AddEvent = () => {
     if (!text) {
       return "Pole tytuł jest wymagane";
     }
+
+    if (text.length < 3 || text.length > 32) {
+      return "Tytuł musi mieć 3-32 znaków";
+    }
+
     return null;
   };
 
@@ -30,6 +35,19 @@ const AddEvent = () => {
     if (!text) {
       return "Pole lokalizacja jest wymagane";
     }
+
+    if (text.length < 3 || text.length > 32) {
+      return "Lokalizacja może mieć maksymalnie 32 znaki";
+    }
+
+    return null;
+  };
+
+  const validateDescription = (text: string): string | null => {
+    if (text.length > 1000) {
+      return "Opis może mieć makysmalnie 1000 znaków";
+    }
+
     return null;
   };
 
@@ -39,21 +57,22 @@ const AddEvent = () => {
     }
 
     const [day, month, year] = date.split('.').map(Number);
-      const [hours, minutes] = time.split(':').map(Number);
-      
-      const selectedDateTime = new Date(year, month - 1, day, hours, minutes);
-      
-      const now = new Date();
-      
-      if (selectedDateTime <= now) {
-        Alert.alert("Data i godzina muszą być w przyszłości");
-      }
+    const [hours, minutes] = time.split(':').map(Number);
+
+    const selectedDateTime = new Date(year, month - 1, day, hours, minutes);
+
+    const now = new Date();
+
+    if (selectedDateTime <= now) {
+      Alert.alert("Data i godzina muszą być w przyszłości");
+    }
     return null;
   };
 
   const validateInputs = () => {
     const titleValidation = validateTitle(title);
     const locationValidation = validateLocation(location);
+    const descriptionValidation = validateDescription(description);
     const dateTimeValidation = validateDateTime(date, time);
 
     setTitleError(titleValidation || "");
@@ -62,7 +81,8 @@ const AddEvent = () => {
     return (
       !titleValidation &&
       !locationValidation &&
-      !dateTimeValidation
+      !dateTimeValidation &&
+      !descriptionValidation
     );
   };
 
