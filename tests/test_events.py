@@ -127,3 +127,44 @@ def test_delete_invalid_event(client, logged_in_user, app):
         assert response_delete_event.get_json() == {
             "message": "Event doesn't exist"
         }
+
+
+def test_get_publicevent(client, logged_in_user, app):
+    with app.app_context():
+        user, token = logged_in_user
+
+      
+        past_date = "12:11:20250" 
+        
+        public_event = Event(
+            name="Publiczny Koncert",
+            typeof_event="public",
+            date_and_time=past_date,
+            user_id=user.id 
+            
+        )
+        
+        private_event = Event(
+            name="Prywatne Spotkanie",
+            typeof_event="private",
+            date_and_time=past_date,
+            user_id=user.id
+        )
+
+        db.session.add(public_event)
+        db.session.add(private_event)
+        db.session.commit()
+
+        # 2. Wywołanie endpointu (ACT)
+        response = client.get('/get_public_events', headers={
+            "Authorization": f"Bearer {token}"
+        })
+
+        assert response.status_code == 200
+        data = response.get_json()
+        
+        assert isinstance(data, list)
+        
+        assert len(data) == 1
+        assert data[0]["name"] == "Publiczny Koncert"
+        assert data[0]["typeof_event"] == "public"

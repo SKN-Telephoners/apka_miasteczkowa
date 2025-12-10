@@ -12,7 +12,8 @@ class User(db.Model):
     password_hash = db.Column(db.String(128), nullable=False)
     email = db.Column(db.String(320), nullable=False, unique=True)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
-    
+    major = db.column(db.String(64) , nullable=True , unique=False)
+
     __table_args__ = (
         CheckConstraint(r"email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'", name="email_format"),
     )
@@ -22,6 +23,8 @@ class User(db.Model):
         self.email = email # TODO! Add function that checks email using regex
         pass_hash = bcrypt.generate_password_hash(password).decode("utf-8")
         self.password_hash = pass_hash
+        # self.created_at = datetime.now(timezone.utc)
+
         
     def validate_password(self, password):
         return bcrypt.check_password_hash(self.password_hash, password)
@@ -30,7 +33,7 @@ class User(db.Model):
         pass_hash = bcrypt.generate_password_hash(password).decode("utf-8")
         self.password_hash = pass_hash
 
-    def __repr__(self):
+    def __repr__(self): 
         return f"User {self.username}"
     
 class TokenBlocklist(db.Model):
@@ -83,11 +86,15 @@ class Event(db.Model):
     
     event_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
     name = db.Column(db.String(32), nullable=False)
+    tags = db.Column(db.String(256) , nullable=True , unique = False)
     description = db.Column(db.String(1000))
     date_and_time = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
     location = db.Column(db.String(32), nullable=False)
     creator_id = db.Column(UUID(as_uuid=True), db.ForeignKey("app_user.user_id", ondelete='CASCADE'), nullable=False, index=True)
-    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)     
+
+    typeof_event = db.Column(db.string(32) , nullable = True, default = "private" )
+    photo = db.Column(db.string(32) , nullable = True, unique = True )
 
     __table_args__ = (
         CheckConstraint('date_and_time > CURRENT_TIMESTAMP', name='check_event_date_future'),

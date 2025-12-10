@@ -3,11 +3,13 @@ from backend.models import User, FriendRequest, Friendship, Event
 from backend.extensions import db, jwt, mail, limiter
 from flask_jwt_extended import jwt_required, create_access_token, create_refresh_token, get_jwt, get_jwt_identity, get_current_user, decode_token
 from backend.helpers import add_token_to_db, revoke_token, is_token_revoked
+from werkzeug.utils import secure_filename
 import re
 import uuid
+# from models import 
 from flask_mail import Message
 from datetime import datetime, timezone
-
+import datetime
 MAX_EMAIL_LEN = 320
 MAX_USERNAME_LEN = 32
 MIN_USERNAME_LEN = 3
@@ -310,23 +312,27 @@ def decline_friend_request(friend_id):
 @jwt_required()
 def create_event():
     user = get_current_user()
-
+    # user_id = get_jwt_identity()
     event_data = request.get_json()
-    required_keys = {"name", "description", "date", "time", "location"}
-
+    required_keys = {"name", "description", "date", "time", "location", "tags" , "typeof","photo"}
+    pic = request.files['photo']
+    if not pic :
+        return jsonify({"message" : "No photo uploaded"} ),400
     if not event_data or not required_keys.issubset(event_data.keys()):
         return jsonify({"message": "Bad request"}), 400
     
     name = event_data["name"]
+    tags = event_data["tags"]
     description = event_data["description"]
     date_and_time = datetime.strptime(event_data["date"] + " " + event_data["time"], "%d.%m.%Y %H:%M")
     date_and_time = date_and_time.replace(tzinfo=timezone.utc)
     location = event_data["location"]
-
+    created_at = datetime.datetime.now().date +  ':' + datetime.datetime.now().month + ':' + datetime.datetime.now().year
+    typeof_event= event_data["typeof"]
     if date_and_time <= datetime.now(timezone.utc):
             return {"message": "Event date must be in the future"}, 400
     
-    new_event = Event(name=name, description=description, date_and_time=date_and_time, location=location, creator_id=user.user_id)
+    new_event = Event(name=name, tags = tags ,  description=description, date_and_time=date_and_time, location=location, creator_id=user.user_id , created_at = created_at , typeof_event = typeof_event ,img = pic.read() )
     
     db.session.add(new_event)
     db.session.commit()
@@ -358,3 +364,66 @@ def delete_event(event_id):
     return {
         "message": "Event deleted successfully"
     }, 200
+@main.route('/get_public_events' , methods = ["GET"])
+@jwt_required()
+def get_public_events():
+    user = get_current_user()
+    current_time = datetime.datetime.now().day + ':' + datetime.datetime.now().month + ':'+ datetime.datetime.now().year
+    events = Event.query.filter(
+        Event.date_and_time < current_time,
+        Event.typeof_event == 'public'
+    ).all()
+    results= []
+    for e in events:
+        results.append({
+            "id" : e.event_id,
+            "name" : e.name,
+            "tags" : e.tags,
+            "date" : e.date_and_time,
+            "location" : e.location,
+            "typeof_event" : e.typeof
+        })
+    return jsonify(results) ,200
+@main.route('/edit-event/<int:event_id>' , methods = ["PUT"])
+@jwt_required()
+def edit_Event(event_id):
+    event = Event.get_or_404(event_id)
+    if not event:
+        return jsonify({"message" : "Nie znaleziono"}) ,404
+    user_data = request.get_json()
+    required_keys = ["name" , "location" ,"tags" ,"description"]
+    event.name = user_data.get("name" , event.name)
+    event.location = user_data.get("location" , event.location)
+    event.tags = user_data.get("tags", event.tags)
+    event.description = user_data.get("description" , event.description)
+    try:
+        db.session.commit()
+        return jsonify({"message": "Wydarzenie zaktualizowane pomyślnie", "id": event.event_id}), 200
+    except Exception as e :
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+        
+@main.route('/get-user-info/<int:user_id>' , methods = ["GET"])
+@jwt_required()
+def get_Info_About_User(user_id):
+    user = User.get_or_404(user_id)
+    username = user.username
+    major = user.major
+    
+    
+    return {"message" : "Znaleziono uzytkownika o tym id" , "major": major , "username" : username} , 200
+
+@main.route('/edit-user/<int:user_id>' ,methods = ['PUT'])
+@jwt_required()
+def update_user_data(user_id):
+    user = User.query.get_or_404(user_id)
+    user_data = request.get_json()
+    user.major = user_data.get("major" , user.major)
+    
+    try:
+        db.session.commit()
+        return jsonify({"message" : "Udało sie zaktualizowac dane"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
