@@ -1,7 +1,8 @@
 import pytest
 from backend.app import create_app
-from backend.extensions import db
+from backend.extensions import db, mail
 from backend.models import User, TokenBlocklist, Friendship, FriendRequest, Event
+from re import search
 
 @pytest.fixture
 def app():
@@ -35,9 +36,18 @@ def runner(app):
 
 @pytest.fixture
 def registered_user(client):
-    payload = {"username": "user1", "password": "secret", "email": "user1@gmail.com"}
+    # Updated password to meet new complexity requirements
+    payload = {"username": "user1", "password": "Secret123", "email": "user1@gmail.com"}
     client.post("/api/register", json=payload)
     user = User.query.filter_by(username="user1").first()
+    #confirm email
+    with mail.record_messages() as outbox:
+        response = client.post("/mail_auth_request", json={"email": user.email})
+        match = search(r'(http://.+/mail_auth/\S+)', outbox[0].body)
+        auth_url = match.group()
+        token_path = auth_url.replace("http://localhost", "")
+        client.post(token_path)
+
     return user, payload["password"]
 
 @pytest.fixture
@@ -52,7 +62,26 @@ def logged_in_user(registered_user, client):
 
 @pytest.fixture
 def registered_friend(client):
-    payload = {"username": "friend", "password": "friend_secret", "email": "friend@gmail.com"}
+    # Updated password to meet new complexity requirements
+    payload = {"username": "friend", "password": "FriendSecret123", "email": "friend@gmail.com"}
     client.post("/api/register", json=payload)
     friend = User.query.filter_by(username="friend").first()
+    #confirm email
+    with mail.record_messages() as outbox:
+        response = client.post("/mail_auth_request", json={"email": friend.email})
+        match = search(r'(http://.+/mail_auth/\S+)', outbox[0].body)
+        auth_url = match.group()
+        token_path = auth_url.replace("http://localhost", "")
+        client.post(token_path)
     return friend, payload["password"]
+
+@pytest.fixture
+def create_event(client,logged_in_user):
+    # cerate 21 events for tests
+    event_id=0
+    while(event_id!=21):
+        event_id+=1
+        future_date = (datetime.now(timezone.utc) + timedelta(days=event_id)).strftime("%d.%m.%Y")
+        payload = {"name": event_id, "description": "Lore ipsum", "date":future_date, "time":"14:20", "location":"Poland"}
+        client.post("/create_event", json=payload)
+        
