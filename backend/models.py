@@ -12,7 +12,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(128), nullable=False)
     email = db.Column(db.String(320), nullable=False, unique=True)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
-    major = db.column(db.String(64) , nullable=True , unique=False)
+    major = db.Column(db.String(64) , nullable = True , unique=False)
 
     __table_args__ = (
         CheckConstraint(r"email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'", name="email_format"),
@@ -93,8 +93,8 @@ class Event(db.Model):
     creator_id = db.Column(UUID(as_uuid=True), db.ForeignKey("app_user.user_id", ondelete='CASCADE'), nullable=False, index=True)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)     
 
-    typeof_event = db.Column(db.string(32) , nullable = True, default = "private" )
-    photo = db.Column(db.string(32) , nullable = True, unique = True )
+    typeof_event = db.Column(db.String(100) , nullable = True, default = "private")
+    photo = db.Column(db.String(32) , nullable = True, unique = True )
 
     __table_args__ = (
         CheckConstraint('date_and_time > CURRENT_TIMESTAMP', name='check_event_date_future'),
