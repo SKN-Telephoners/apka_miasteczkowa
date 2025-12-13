@@ -383,7 +383,7 @@ def cancel_friend_request(friend_id):
     try:
         db.session.delete(request)
         db.session.commit()
-    except Exception:
+    except Exception as e:
         db.session.rollback()
         print(f"Database error: {e}")
         return jsonify({"message": "Internal server error"}), 500
@@ -506,6 +506,7 @@ def create_event():
     required_keys = {"name", "description", "date", "time", "location"}
 
     if not event_data or not required_keys.issubset(event_data.keys()):
+        print("dupa")
         return jsonify({"message": "Bad request"}), 400
     
     name = event_data.get("name", "").strip()
@@ -587,6 +588,46 @@ def delete_event(event_id):
     return jsonify ({
         "message": "Event deleted successfully"
     }), 200
+
+
+@main.route("/feed",methods=["GET"])
+def feed():
+
+    page = request.args.get("page", default=1, type=int)
+    limit = request.args.get("limit", default=20, type=int)
+    sort=request.args.get("sort",default=1,type=int)
+    
+    if sort==1:
+        events=Event.query \
+            .order_by(Event.date_and_time.asc())
+    elif sort==2:
+        events=Event.query \
+            .order_by(Event.date_and_time.desc())
+    
+    pagination = events.paginate(page=page, per_page=limit, error_out=False)
+    
+    event_list=[
+        {
+            "id": event.event_id,
+            "name": event.name,
+            "description": event.description,
+            "date": event.date_and_time.strftime("%d.%m.%Y"),
+            "time": event.date_and_time.strftime("%H:%M"),
+            "location": event.location,
+            "creator_id": event.creator_id
+        }
+        for event in pagination.items
+    ]
+
+    return jsonify({
+        "data": event_list,
+        "pagination": {
+            "page": pagination.page,
+            "limit": limit,
+            "total": pagination.total,
+            "pages": pagination.pages
+        }
+    }) ,200
 
 @main.route("/mail_auth_request",methods=["POST"])
 def mail_auth_request():
