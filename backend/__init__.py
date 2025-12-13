@@ -1,8 +1,7 @@
 from flask import Flask, jsonify, make_response
 from backend.extensions import db, bcrypt, jwt, mail, limiter, CORS
 from backend.config import Config, TestConfig
-from backend.routes import main, auth
-from werkzeug.exceptions import HTTPException
+from backend.routes import register_blueprints
 
 def create_app(test_mode=False):
     app = Flask(__name__)
@@ -19,8 +18,7 @@ def create_app(test_mode=False):
     mail.init_app(app)
     limiter.init_app(app)
     
-    app.register_blueprint(main)
-    app.register_blueprint(auth)
+    register_blueprints(app)
     
     @app.errorhandler(429)
     def on_ratelimit(e):

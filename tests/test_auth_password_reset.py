@@ -1,8 +1,6 @@
 import pytest
 from re import search
-from urllib.parse import urlparse
-from backend.extensions import mail ,db 
-from backend.models import User
+from backend.extensions import mail
 
 # =============================================================================
 # Tests for password resetting
