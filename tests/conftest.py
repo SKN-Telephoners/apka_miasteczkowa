@@ -76,12 +76,17 @@ def registered_friend(client):
     return friend, payload["password"]
 
 @pytest.fixture
-def create_event(client,logged_in_user):
-    # cerate 21 events for tests
-    event_id=0
-    while(event_id!=21):
-        event_id+=1
-        future_date = (datetime.now(timezone.utc) + timedelta(days=event_id)).strftime("%d.%m.%Y")
-        payload = {"name": event_id, "description": "Lore ipsum", "date":future_date, "time":"14:20", "location":"Poland"}
-        client.post("/create_event", json=payload)
-        
+def event(client, logged_in_user):
+    token = logged_in_user[1]
+
+    payload = {
+        "name": "event1",
+        "description": "very cool event",
+        "date": "01.01.2026",
+        "time": "21:37",
+        "location": "here"
+    }
+
+    client.post(f"/create_event", headers={"Authorization": f"Bearer {token}"}, json=payload)
+    event = Event.query.filter_by(name="event1").first()
+    return event

@@ -1,6 +1,7 @@
 import pytest
 from re import search
-from backend.extensions import mail
+from backend.extensions import mail ,db 
+from backend.models import User
 
 # =============================================================================
 # Tests for password resetting
@@ -50,3 +51,5 @@ def test_password_reset_invalid_email(client, app):
 
             assert response.status_code == 200
             assert len(outbox) == 0
+
+
