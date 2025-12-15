@@ -7,7 +7,7 @@ import RegisterScreen from "../screens/auth/RegisterScreen";
 import ResetPasswordScreen from "../screens/auth/ResetPasswordScreen";
 import HomeScreen from "../screens/home/HomeScreen";
 import MapScreen from "../screens/home/MapScreen";
-import ProfileScreen from "../screens/home/ProfileScreen";
+import UserScreen from "../screens/user/UserScreen";
 import EventStack from "./EventStack";
 import { Ionicons } from "@expo/vector-icons";
 import type { ComponentProps } from "react";
@@ -71,7 +71,7 @@ const MainTabs = () => {
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Mapa" component={MapScreen} />
       <Tab.Screen name="Wydarzenia" component={EventStack} />
-      <Tab.Screen name="Profil" component={ProfileScreen} />
+      <Tab.Screen name="Profil" component={UserScreen} />
     </Tab.Navigator>
   );
 };
