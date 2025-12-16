@@ -1,22 +1,27 @@
-import { TouchableOpacity, Text, View, Alert, StyleSheet } from "react-native";
+import { TouchableOpacity, Text, View, StyleSheet } from "react-native";
 import React from "react";
 import { Event } from "../types";
+import { useNavigation } from "@react-navigation/native";
 
-interface EventCard {
-    item: Partial<Event>
-}
 
-const EventCard: React.FC<EventCard> = ({ item }: { item: Partial<Event> }) => {
+const EventCard = ({ item }: {item: Event}) => {
+    const navigation = useNavigation<any>();
     return (
-        <TouchableOpacity onPress={() => Alert.alert("Hello")}>
-            <View style={styles.container}>
-                <Text style={styles.title}>{item.name}</Text>
-                <View style={{ flexDirection: "row" }}>
-                    <Text style={{ fontSize: 16, marginRight: 10 }}>{item.date_and_time}</Text>
-                    <Text style={styles.location}>{item.location}</Text>
+        <View key={item.id}>
+            <TouchableOpacity onPress={() => {
+                navigation.navigate('EventDetails', {
+                    event: item
+                });
+            }}>
+                <View style={styles.container}>
+                    <Text style={styles.title}>{item.name}</Text>
+                    <View style={{ flexDirection: "row" }}>
+                        <Text style={{ fontSize: 16, marginRight: 10 }}>{item.date}</Text>
+                        <Text style={styles.location}>{item.location}</Text>
+                    </View>
                 </View>
-            </View>
-        </TouchableOpacity>
+            </TouchableOpacity>
+        </View >
     )
 }
 
