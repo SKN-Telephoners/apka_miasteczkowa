@@ -5,7 +5,7 @@ import { Comment } from "../types/comment";
 
 
 const CommentCard = ({ item }: { item: Comment }) => {
-    
+
     const date = new Date(item.created_at);
 
     const formatTime = (timeObj: Date): string => {
@@ -13,7 +13,7 @@ const CommentCard = ({ item }: { item: Comment }) => {
         const minutes = String(timeObj.getMinutes()).padStart(2, '0');
         return hours + ':' + minutes;
     };
-    
+
     const formatDate = (dateObj: Date): string => {
         const day = String(dateObj.getDate()).padStart(2, '0');
         const month = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -25,12 +25,12 @@ const CommentCard = ({ item }: { item: Comment }) => {
     return (
         <View key={item.comment_id}>
             <View style={styles.container}>
-                <Text style={styles.username}>{item.user_id}</Text>
-                <View style={{ flexDirection: "row" }}>
-                    <Text style={{ fontSize: 18, marginRight: 10 }}>{formatDate(date) + " " + formatTime(date)}</Text>
-                    {item.edited && <Text style={styles.edited}>Edytowano</Text>}
+                <View style={{ flexDirection: "row", alignItems: "baseline"  }}>
+                    <Text style={styles.username}>mock username</Text>
+                    <Text style={{ fontSize: 14, marginLeft: 10}}>{formatDate(date) + " " + formatTime(date)}</Text>  
                 </View>
-                <Text style={{ fontSize: 16 }}>{item.content}</Text>
+                {item.edited && <Text style={styles.edited}>Edytowano</Text>}
+                <Text style={{ fontSize: 18 }}>{item.content}</Text>
             </View>
         </View >
     )
@@ -47,13 +47,13 @@ const styles = StyleSheet.create({
     },
 
     username: {
-        fontSize: 24,
+        fontSize: 18,
         fontWeight: "bold",
     },
 
 
     edited: {
-        fontSize: 18,
+        fontSize: 14,
         fontStyle: "italic",
     },
 

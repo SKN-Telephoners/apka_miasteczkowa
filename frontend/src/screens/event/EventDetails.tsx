@@ -74,37 +74,51 @@ const EventDetails = () => {
 
   return (
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-      <Text style={{ fontSize: 28, fontWeight: "bold" }}>{event.name}</Text>
-      <Text style={{ fontSize: 18, marginVertical: 10 }}>Lokalizacja: {event.location}</Text>
-      <Text style={{ fontSize: 18, marginVertical: 10 }}>Data: {event.date}</Text>
-      <Text style={{ fontSize: 18, marginVertical: 10 }}>Godzina: {event.time}</Text>
-      {isOwner && (<View style={{ flexDirection: "row", marginVertical: 10 }}>
-        <View style={{ marginHorizontal: 10 }}>
-          <TouchableOpacity onPress={() => {
-            navigation.navigate("EditEvent", {
-              event: event
-            });
-          }} style={{ backgroundColor: '#045ddaff', paddingVertical: 10, borderRadius: 25, paddingHorizontal: 20 }}>
-            <Text style={{ color: '#ffffff' }}>Edytuj wydarzenie</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={{ marginHorizontal: 10 }}>
-          <TouchableOpacity onPress={() => createTwoButtonAlert()} style={{ backgroundColor: '#d71010ff', paddingVertical: 10, borderRadius: 25, paddingHorizontal: 20 }}>
-            <Text style={{ color: '#ffffff' }}>Usuń wydarzenie</Text>
-          </TouchableOpacity>
-        </View>
-      </View>)}
-      <Text style={{ fontSize: 16, marginVertical: 10 }}>{event.description}</Text>
-      <Text style={{ fontSize: 16, marginVertical: 10, fontWeight: "bold" }}>Komentarze</Text>
       <FlatList
         data={comments}
+        keyExtractor={(item: Comment) => item.comment_id}
         renderItem={({ item }) => <CommentCard item={item} />}
-        keyExtractor={(item: Comment) => item.comment_id!}
-        removeClippedSubviews={true}
+        removeClippedSubviews
+        ListHeaderComponent={
+          <View style={{ alignItems: "center" }}>
+            <Text style={{ fontSize: 28, fontWeight: "bold" }}>{event.name}</Text>
 
+            <Text style={{ fontSize: 18, marginVertical: 10 }}>
+              Lokalizacja: {event.location}
+            </Text>
+
+            <Text style={{ fontSize: 18, marginVertical: 10 }}>
+              Data: {event.date}
+            </Text>
+
+            <Text style={{ fontSize: 18, marginVertical: 10 }}>
+              Godzina: {event.time}
+            </Text>
+
+            {isOwner && (<View style={{ flexDirection: "row", marginVertical: 10 }}>
+              <View style={{ marginHorizontal: 10 }}>
+                <TouchableOpacity onPress={() => {
+                  navigation.navigate("EditEvent", {
+                    event: event
+                  });
+                }} style={{ backgroundColor: '#045ddaff', paddingVertical: 10, borderRadius: 25, paddingHorizontal: 20 }}>
+                  <Text style={{ color: '#ffffff' }}>Edytuj wydarzenie</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={{ marginHorizontal: 10 }}>
+                <TouchableOpacity onPress={() => createTwoButtonAlert()} style={{ backgroundColor: '#d71010ff', paddingVertical: 10, borderRadius: 25, paddingHorizontal: 20 }}>
+                  <Text style={{ color: '#ffffff' }}>Usuń wydarzenie</Text>
+                </TouchableOpacity>
+              </View>
+            </View>)}
+            <Text style={{ fontSize: 16, marginVertical: 10 }}>{event.description}</Text>
+            <Text style={{ fontSize: 16, marginVertical: 10, fontWeight: "bold" }}>Komentarze</Text>
+          </View>
+        }
       />
 
     </View>
+
   );
 };
 
