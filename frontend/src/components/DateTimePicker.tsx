@@ -1,7 +1,6 @@
-import { TouchableOpacity, Text, View, StyleSheet, Button } from "react-native";
+import { TouchableOpacity, Text, View } from "react-native";
 import React, { useState, useEffect } from "react";
-import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
-
+import DateTimePickerNative, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 
 interface DatePickerProps {
     onDateSelected: (date: string, time: string) => void;
@@ -15,8 +14,12 @@ const DatePicker: React.FC<DatePickerProps> = ({
     initialTime
 }) => {
 
+    // --- IMPORTANT CHANGE: Initialize state directly with props ---
+    // This ensures the state is set *once* when the component mounts.
     const [eventDate, setEventDate] = useState(initialDate);
     const [eventTime, setEventTime] = useState(initialTime);
+    // -------------------------------------------------------------
+
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showTimePicker, setShowTimePicker] = useState(false);
 
@@ -57,13 +60,12 @@ const DatePicker: React.FC<DatePickerProps> = ({
             <View style={{ marginHorizontal: 10 }}>
                 <TouchableOpacity onPress={() => setShowDatePicker(true)} style={{ backgroundColor: '#045ddaff', paddingVertical: 10, borderRadius: 25, paddingHorizontal: 25 }}>
                     <Text style={{ color: '#ffffff' }}>Wybierz datę</Text>
-                    
                 </TouchableOpacity>
                 <Text style={{ color: '#000000', paddingVertical: 10, alignSelf: "center", fontWeight: "bold"}}>
                         {eventDate.toLocaleDateString('pl-PL')}
-                    </Text>
+                </Text>
                 {showDatePicker && (
-                    <DateTimePicker
+                    <DateTimePickerNative
                         value={eventDate}
                         mode="date"
                         is24Hour={true}
@@ -85,7 +87,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
                         })}
                     </Text>
                 {showTimePicker && (
-                    <DateTimePicker
+                    <DateTimePickerNative
                         value={eventTime}
                         mode="time"
                         is24Hour={true}
