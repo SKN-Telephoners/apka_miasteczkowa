@@ -49,24 +49,6 @@ const styles = StyleSheet.create({
         color: "#045ddaff",
     },
 
-    searchBox: {
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        marginVertical: 10,
-        backgroundColor: "#fdfafaff",
-        borderColor: "#ccc",
-        borderWidth: 1,
-        borderRadius: 25,
-    },
-
-    filterButton: {
-        padding: 10,
-        marginRight: 260,
-        backgroundColor: "#fdfafaff",
-        borderRadius: 25,
-        flexDirection: "row",
-        alignItems: "center",
-    },
 });
 
 export default EventCard;

@@ -1,10 +1,13 @@
 import React from "react";
-import { View, Text, TouchableOpacity, Alert, ViewComponent } from "react-native";
+import { View, Text, TouchableOpacity, Alert, FlatList } from "react-native";
 import { useRoute } from "@react-navigation/native";
 import { tokenStorage } from "../../utils/storage";
 import { useState, useEffect } from "react";
 import { deleteEvent } from "../../services/events";
+import { getComments } from "../../services/comments";
 import { useNavigation } from "@react-navigation/native";
+import { Comment } from "../../types/comment";
+import CommentCard from "../../components/CommentCard";
 
 
 const EventDetails = () => {
@@ -14,6 +17,7 @@ const EventDetails = () => {
 
   const [userID, setUserID] = useState(null);
   const [isOwner, setIsOwner] = useState(false);
+  const [comments, setComments] = useState([]);
 
   const navigation = useNavigation<any>();
 
@@ -27,12 +31,22 @@ const EventDetails = () => {
   }, []);
 
   useEffect(() => {
+    const fetchComments = async () => {
+      const data = await getComments(event.id);
+      setComments(data.comments);
+    };
+
+    fetchComments();
+  }, []);
+
+  useEffect(() => {
     if (userID && event.creator_id === userID) {
       setIsOwner(true);
     } else {
       setIsOwner(false);
     }
   }, [userID, event.creator_id]);
+  console.log(comments);
 
   const deleteGoBack = async () => {
     try {
@@ -57,13 +71,13 @@ const EventDetails = () => {
       { text: 'Anuluj' },
     ]);
 
+
   return (
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
       <Text style={{ fontSize: 28, fontWeight: "bold" }}>{event.name}</Text>
       <Text style={{ fontSize: 18, marginVertical: 10 }}>Lokalizacja: {event.location}</Text>
       <Text style={{ fontSize: 18, marginVertical: 10 }}>Data: {event.date}</Text>
       <Text style={{ fontSize: 18, marginVertical: 10 }}>Godzina: {event.time}</Text>
-      <Text style={{ fontSize: 16, marginVertical: 10 }}>{event.description}</Text>
       {isOwner && (<View style={{ flexDirection: "row", marginVertical: 10 }}>
         <View style={{ marginHorizontal: 10 }}>
           <TouchableOpacity onPress={() => {
@@ -80,6 +94,16 @@ const EventDetails = () => {
           </TouchableOpacity>
         </View>
       </View>)}
+      <Text style={{ fontSize: 16, marginVertical: 10 }}>{event.description}</Text>
+      <Text style={{ fontSize: 16, marginVertical: 10, fontWeight: "bold" }}>Komentarze</Text>
+      <FlatList
+        data={comments}
+        renderItem={({ item }) => <CommentCard item={item} />}
+        keyExtractor={(item: Comment) => item.comment_id!}
+        removeClippedSubviews={true}
+
+      />
+
     </View>
   );
 };

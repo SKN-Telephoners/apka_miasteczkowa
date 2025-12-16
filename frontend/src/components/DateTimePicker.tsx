@@ -14,11 +14,8 @@ const DatePicker: React.FC<DatePickerProps> = ({
     initialTime
 }) => {
 
-    // --- IMPORTANT CHANGE: Initialize state directly with props ---
-    // This ensures the state is set *once* when the component mounts.
     const [eventDate, setEventDate] = useState(initialDate);
     const [eventTime, setEventTime] = useState(initialTime);
-    // -------------------------------------------------------------
 
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showTimePicker, setShowTimePicker] = useState(false);
