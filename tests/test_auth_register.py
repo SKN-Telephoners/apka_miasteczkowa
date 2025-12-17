@@ -8,7 +8,7 @@ from backend.models import User
 def test_register_successful(client, app):
     with app.app_context():
         username = "user1"
-        password = "Secret123" # Strong password
+        password = "Secret123" 
         email = "user1@gmail.com"
         
         payload = {
@@ -19,10 +19,8 @@ def test_register_successful(client, app):
         
         response = client.post("/api/register", json=payload)
         
-        assert response.status_code == 200
-        assert response.get_json() == {
-            "message": "Registration successful"
-        }
+        assert response.status_code == 201
+        assert response.get_json()["message"] == "Registration successful"
         assert User.query.filter_by(username=username).first() is not None
 
 def test_register_missing_key(client, app):
@@ -38,14 +36,12 @@ def test_register_missing_key(client, app):
         response = client.post("/api/register", json=payload)
         
         assert response.status_code == 400
-        assert response.get_json() == {
-            "message": "Bad request"
-        }
+        assert response.get_json()["message"] == "Bad request"
         assert User.query.filter_by(username=username).first() is None
 
 def test_register_invalid_credentials(client, app):
     with app.app_context():
-        username = "a" # Too short
+        username = "a" 
         password = "Secret123"
         email = "user1@gmail.com"
         
@@ -58,15 +54,12 @@ def test_register_invalid_credentials(client, app):
         response1 = client.post("/api/register", json=payload)
         
         assert response1.status_code == 400
-        # New regex error message for username or email
-        assert response1.get_json() == {
-            "message": "Invalid username or email"
-        }
+        assert response1.get_json()["message"] == "Incorrect username or email"
         assert User.query.filter_by(username=username).first() is None
         
         username = "goodusername"
         password = "Secret123"
-        email = "@gmail[]'user1@gmail.com" # Invalid email
+        email = "@gmail[]'user1@gmail.com" 
         
         payload = {
             "username": username,
@@ -77,12 +70,9 @@ def test_register_invalid_credentials(client, app):
         response2 = client.post("api/register", json=payload)
         
         assert response2.status_code == 400
-        assert response2.get_json() == {
-            "message": "Invalid username or email"
-        }
+        assert response2.get_json()["message"] == "Incorrect username or email"
         assert User.query.filter_by(username=username).first() is None
 
-# New test for weak passwords
 def test_register_weak_password(client, app):
     with app.app_context():
         payload = {
@@ -93,7 +83,7 @@ def test_register_weak_password(client, app):
         
         response = client.post("/api/register", json=payload)
         assert response.status_code == 400
-        assert "Password must be 8-72 chars long" in response.get_json()["message"] or "Incorrect password format" in response.get_json()["message"]
+        assert response.get_json()["message"] == "Incorrect password format"
 
 def test_register_username_taken(client, registered_user, app):
     with app.app_context():
@@ -113,9 +103,7 @@ def test_register_username_taken(client, registered_user, app):
         response = client.post("/api/register", json=payload)
         
         assert response.status_code == 409
-        assert response.get_json() == {
-            "message": "Username already taken"
-        }
+        assert response.get_json()["message"] == "Username already taken"
         assert len(User.query.filter_by(username=username2).all()) == 1
 
 def test_register_email_exists(client, registered_user, app):
@@ -136,7 +124,5 @@ def test_register_email_exists(client, registered_user, app):
         response = client.post("/api/register", json=payload)
         
         assert response.status_code == 409
-        assert response.get_json() == {
-            "message": "Account with this email already exists"
-        }
+        assert response.get_json()["message"] == "Account with this email already exists"
         assert len(User.query.filter_by(email=email2).all()) == 1

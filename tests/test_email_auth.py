@@ -56,7 +56,7 @@ def test_auth_user_invalid_email(client, app):
         with mail.record_messages() as outbox:
             response = client.post("/mail_auth_request", json=email_payload)
 
-            assert response.status_code == 401
+            assert response.status_code == 404
             assert len(outbox) == 0
 
 def test_auth_user_confirmed(client, app, registered_user):

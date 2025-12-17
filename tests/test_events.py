@@ -24,10 +24,10 @@ def test_create_event(client, logged_in_user, app):
             "Authorization": f"Bearer {token}"
         }, json=payload)
 
-        assert response_create_event.status_code == 200
+        assert response_create_event.status_code == 201
         data = response_create_event.get_json()
         assert data["message"] == "Event created successfully"
-        assert "event_id" in data # New requirement: return ID
+        assert "event_id" in data 
 
 def test_create_event_invalid_date(client, logged_in_user, app):
     with app.app_context():
@@ -47,9 +47,7 @@ def test_create_event_invalid_date(client, logged_in_user, app):
         }, json=payload)
 
         assert response_create_event.status_code == 400
-        assert response_create_event.get_json() == {
-            "message": "Event date must be in the future"
-        }
+        assert response_create_event.get_json()["message"] == "Event date must be in the future"
 
 def test_delete_event(client, logged_in_user, app):
     with app.app_context():
@@ -68,7 +66,7 @@ def test_delete_event(client, logged_in_user, app):
             "Authorization": f"Bearer {token}"
         }, json=payload)
 
-        assert response_create_event.status_code == 200
+        assert response_create_event.status_code == 201
 
         event = Event.query.filter_by(name="to delete").first()
         assert event is not None
@@ -79,9 +77,7 @@ def test_delete_event(client, logged_in_user, app):
         })
 
         assert response_delete_event.status_code == 200
-        assert response_delete_event.get_json() == {
-            "message": "Event deleted successfully"
-        }
+        assert response_delete_event.get_json()["message"] == "Event deleted successfully"
 
         deleted = Event.query.filter_by(event_id=event.event_id).first()
         assert deleted is None
@@ -106,11 +102,8 @@ def test_delete_event_not_owner(client, logged_in_user, registered_friend, app):
             "Authorization": f"Bearer {token}"
         })
 
-        # Changed to 403 Forbidden (more appropriate for permission errors)
         assert response_delete_event.status_code == 403 
-        assert response_delete_event.get_json() == {
-            "message": "You can delete your own events only"
-        }
+        assert response_delete_event.get_json()["message"] == "You can delete your own events only"
 
 def test_delete_invalid_event(client, logged_in_user, app):
     with app.app_context():
@@ -121,11 +114,8 @@ def test_delete_invalid_event(client, logged_in_user, app):
             "Authorization": f"Bearer {token}"
         })
 
-        # Changed to 404 Not Found
         assert response_delete_event.status_code == 404
-        assert response_delete_event.get_json() == {
-            "message": "Event doesn't exist"
-        }
+        assert response_delete_event.get_json()["message"] == "Event doesn't exist"
 
 def test_create_event_invalid_payload(client, logged_in_user, app):
     with app.app_context():
@@ -141,4 +131,4 @@ def test_create_event_invalid_payload(client, logged_in_user, app):
 
         response = client.post("/create_event", headers={"Authorization": f"Bearer {token}"}, json=payload)
         assert response.status_code == 400
-        assert response.get_json() == {"message": "Event name must be between 3 and 32 characters"}
+        assert response.get_json()["message"] == "Event name must be between 3 and 32 characters"

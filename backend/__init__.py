@@ -3,6 +3,7 @@ from backend.extensions import db, bcrypt, jwt, mail, limiter, CORS
 from backend.config import Config, TestConfig
 from backend.routes import main, auth
 from werkzeug.exceptions import HTTPException
+import logging
 
 def create_app(test_mode=False):
     app = Flask(__name__)
@@ -21,6 +22,8 @@ def create_app(test_mode=False):
     
     app.register_blueprint(main)
     app.register_blueprint(auth)
+
+    logging.basicConfig(level=logging.INFO)
     
     @app.errorhandler(429)
     def on_ratelimit(e):

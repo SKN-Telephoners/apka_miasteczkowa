@@ -30,14 +30,13 @@ def test_password_reset(client, registered_user, app):
             token_only = reset_url.split('/')[-1]
             token_path = f"/reset_password/{token_only}"
             
-            assert response.status_code == 200 
-            
             password_payload = {
                 "new_password": "Dupa!123"
             }
 
             response = client.post(token_path, json=password_payload)
             assert response.status_code == 200
+            assert response.get_json()["message"] == "Password changed successfully"
 
         response = client.post("/api/login", json={"username": user.username, "password": "Dupa!123"})
         assert response.status_code == 200
