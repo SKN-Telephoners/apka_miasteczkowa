@@ -5,6 +5,7 @@ from backend.constants import Constants
 from backend.responses import ResponseTypes, make_api_response
 from flask_jwt_extended import jwt_required, create_access_token, create_refresh_token, get_jwt, get_jwt_identity, get_current_user, decode_token
 from backend.helpers import add_token_to_db, revoke_token, is_token_revoked, revoke_all_user_tokens
+from backend.tasks import send_email_async
 import re
 import uuid
 from flask_mail import Message
@@ -234,14 +235,10 @@ def reset_password_request():
             current_app.logger.error(f"Failed to log reset token for user {user.user_id}: {e}")
 
         reset_url = url_for("main.reset_password", token=reset_token, _external=True) #this will have to be changed into deep link for app
-
-        msg = Message(
-            'Reset password',
-            recipients=[email],
-            body=f"Hello! Click the link to reset your password: {reset_url}"
-        )
+        email_body = f"Hello! Click the link to reset your password: {reset_url}"
+        
         try:
-            mail.send(msg)
+            send_email_async.delay('Reset password', email, email_body)
         except Exception as e:
             current_app.logger.error(f"Error sending email with password reset: {e}")
 
