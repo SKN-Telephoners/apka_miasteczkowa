@@ -7,6 +7,7 @@ from .email_routes import email_bp
 from . import tokens
 
 __all__ = [
+    "tokens"
     "auth_bp",
     "users_bp",
     "friends_bp",

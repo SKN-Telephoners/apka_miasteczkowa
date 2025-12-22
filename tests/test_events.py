@@ -20,7 +20,7 @@ def test_create_event(client, logged_in_user, app):
             "location": "here"
         }
 
-        response_create_event = client.post(f"/create_event", headers={
+        response_create_event = client.post(f"/api/events/create", headers={
             "Authorization": f"Bearer {token}"
         }, json=payload)
 
@@ -42,7 +42,7 @@ def test_create_event_invalid_date(client, logged_in_user, app):
             "location": "here"
         }
 
-        response_create_event = client.post(f"/create_event", headers={
+        response_create_event = client.post(f"/api/events/create", headers={
             "Authorization": f"Bearer {token}"
         }, json=payload)
 
@@ -64,7 +64,7 @@ def test_delete_event(client, logged_in_user, app):
             "location": "here"
         }
 
-        response_create_event = client.post(f"/create_event", headers={
+        response_create_event = client.post(f"/api/events/create", headers={
             "Authorization": f"Bearer {token}"
         }, json=payload)
 
@@ -74,7 +74,7 @@ def test_delete_event(client, logged_in_user, app):
         assert event is not None
 
         #delete event
-        response_delete_event = client.delete(f"/delete_event/{event.event_id}", headers={
+        response_delete_event = client.delete(f"/api/events/delete/{event.event_id}", headers={
             "Authorization": f"Bearer {token}"
         })
 
@@ -102,7 +102,7 @@ def test_delete_event_not_owner(client, logged_in_user, registered_friend, app):
         db.session.commit()
 
         # attempt delete
-        response_delete_event = client.delete(f"/delete_event/{event.event_id}", headers={
+        response_delete_event = client.delete(f"/api/events/delete/{event.event_id}", headers={
             "Authorization": f"Bearer {token}"
         })
 
@@ -117,7 +117,7 @@ def test_delete_invalid_event(client, logged_in_user, app):
         user, token = logged_in_user
 
         # attempt delete
-        response_delete_event = client.delete(f"/delete_event/{uuid.uuid4()}", headers={
+        response_delete_event = client.delete(f"/api/events/delete/{uuid.uuid4()}", headers={
             "Authorization": f"Bearer {token}"
         })
 
@@ -139,6 +139,6 @@ def test_create_event_invalid_payload(client, logged_in_user, app):
             "location": "valid loc"
         }
 
-        response = client.post("/create_event", headers={"Authorization": f"Bearer {token}"}, json=payload)
+        response = client.post("/api/events/create", headers={"Authorization": f"Bearer {token}"}, json=payload)
         assert response.status_code == 400
         assert response.get_json() == {"message": "Event name must be between 3 and 32 characters"}

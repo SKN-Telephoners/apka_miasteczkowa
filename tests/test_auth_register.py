@@ -17,7 +17,7 @@ def test_register_successful(client, app):
             "email": email
         }
         
-        response = client.post("/api/register", json=payload)
+        response = client.post("/api/auth/register", json=payload)
         
         assert response.status_code == 200
         assert response.get_json() == {
@@ -35,7 +35,7 @@ def test_register_missing_key(client, app):
             "email": email
         }
         
-        response = client.post("/api/register", json=payload)
+        response = client.post("/api/auth/register", json=payload)
         
         assert response.status_code == 400
         assert response.get_json() == {
@@ -55,7 +55,7 @@ def test_register_invalid_credentials(client, app):
             "email": email
         }
         
-        response1 = client.post("/api/register", json=payload)
+        response1 = client.post("/api/auth/register", json=payload)
         
         assert response1.status_code == 400
         # New regex error message for username or email
@@ -74,7 +74,7 @@ def test_register_invalid_credentials(client, app):
             "email": email
         }
         
-        response2 = client.post("api/register", json=payload)
+        response2 = client.post("api/auth/register", json=payload)
         
         assert response2.status_code == 400
         assert response2.get_json() == {
@@ -91,7 +91,7 @@ def test_register_weak_password(client, app):
             "email": "valid@gmail.com"
         }
         
-        response = client.post("/api/register", json=payload)
+        response = client.post("/api/auth/register", json=payload)
         assert response.status_code == 400
         assert "Password must be 8-72 chars long" in response.get_json()["message"] or "Incorrect password format" in response.get_json()["message"]
 
@@ -110,7 +110,7 @@ def test_register_username_taken(client, registered_user, app):
             "email": email2
         }
         
-        response = client.post("/api/register", json=payload)
+        response = client.post("/api/auth/register", json=payload)
         
         assert response.status_code == 409
         assert response.get_json() == {
@@ -133,7 +133,7 @@ def test_register_email_exists(client, registered_user, app):
             "email": email2
         }
         
-        response = client.post("/api/register", json=payload)
+        response = client.post("/api/auth/register", json=payload)
         
         assert response.status_code == 409
         assert response.get_json() == {

@@ -85,7 +85,7 @@ def reset_password_request():
         except Exception as e:
             print(f"Failed to log reset token for user {user.user_id}: {e}")
 
-        reset_url = url_for("main.reset_password", token=reset_token, _external=True) #this will have to be changed into deep link for app
+        reset_url = url_for("email.reset_password", token=reset_token, _external=True) #this will have to be changed into deep link for app
 
         msg = Message(
             'Reset password',
