@@ -40,7 +40,11 @@ yarn-error.*
 apka_miasteczkowa/
 
 venv/
+.venv/
 backend/.venv
 
 backend/__pycache__/
 tests/__pycache__/
+backend/routes/__pycache__/
+backend/models/__pycache__/
+.pytest_cache/

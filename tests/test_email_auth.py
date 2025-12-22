@@ -25,21 +25,22 @@ def test_auth_user(client, app):
         }
 
         with mail.record_messages() as outbox:
-            response = client.post("/mail_auth_request", json=email_payload)
+            response = client.post("/api/email/verify_request", json=email_payload)
 
             assert response.status_code == 200
             assert len(outbox) == 1
             assert outbox[0].subject == 'Auth account'
 
-            match = search(r'(http://.+/mail_auth/\S+)', outbox[0].body)
+            match = search(r'(https?://.+/api/email/verify/\S+)', outbox[0].body)
             assert match, "No auth URL found in email body"
 
             auth_url = match.group()
             token_path = auth_url.replace("http://localhost", "")
+            token_path = auth_url.replace("https://localhost", "")
             
             assert response.status_code == 200 
 
-            response = client.post(token_path)
+            response = client.get(token_path)
             assert response.status_code == 200
             assert response.get_json()["message"] == "Verification succesful"
 
@@ -54,7 +55,7 @@ def test_auth_user_invalid_email(client, app):
         }
 
         with mail.record_messages() as outbox:
-            response = client.post("/mail_auth_request", json=email_payload)
+            response = client.post("/api/email/verify_request", json=email_payload)
 
             assert response.status_code == 401
             assert len(outbox) == 0
@@ -70,7 +71,7 @@ def test_auth_user_confirmed(client, app, registered_user):
         }
 
         with mail.record_messages() as outbox:
-            response = client.post("/mail_auth_request", json=email_payload)
+            response = client.post("/api/email/verify_request", json=email_payload)
 
             assert response.status_code == 400
             assert response.get_json()["message"] == "User already confirmed"

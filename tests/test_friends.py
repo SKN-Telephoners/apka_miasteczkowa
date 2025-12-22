@@ -13,7 +13,7 @@ def test_cancel_friend_request(client, logged_in_user, registered_friend, app):
         friend = registered_friend[0]
 
         #create friend request
-        response_create_request = client.post(f"/create_friend_request/{friend.user_id}", headers={
+        response_create_request = client.post(f"/api/friends/request/{friend.user_id}/create", headers={
             "Authorization": f"Bearer {token}"
         })
 
@@ -25,7 +25,7 @@ def test_cancel_friend_request(client, logged_in_user, registered_friend, app):
         assert FriendRequest.query.filter_by(sender_id=user.user_id, receiver_id=friend.user_id).first() is not None
 
         #cancel friend request
-        response_cancel_request = client.post(f"/cancel_friend_request/{friend.user_id}", headers={
+        response_cancel_request = client.post(f"/api/friends/request/{friend.user_id}/cancel", headers={
             "Authorization": f"Bearer {token}"
         })
 
@@ -45,7 +45,7 @@ def test_cancel_friend_request_not_exist(client, logged_in_user, app):
         random_id = uuid.uuid4()
 
         #cancel friend request
-        response_cancel_request = client.post(f"/cancel_friend_request/{uuid.uuid4()}", headers={
+        response_cancel_request = client.post(f"/api/friends/request/{uuid.uuid4()}/cancel", headers={
             "Authorization": f"Bearer {token}"
         })
 
@@ -65,7 +65,7 @@ def test_accept_friend_request(client, logged_in_user, registered_friend, app):
         friend, friend_password = registered_friend
 
         #create friend request
-        response_create_request = client.post(f"/create_friend_request/{friend.user_id}", headers={
+        response_create_request = client.post(f"/api/friends/request/{friend.user_id}/create", headers={
             "Authorization": f"Bearer {token}"
         })
 
@@ -77,14 +77,14 @@ def test_accept_friend_request(client, logged_in_user, registered_friend, app):
         assert FriendRequest.query.filter_by(sender_id=user.user_id, receiver_id=friend.user_id).first() is not None
         
         #friend logs in
-        response_friend_login = client.post("/api/login", json={"username": friend.username, "password": friend_password})
+        response_friend_login = client.post("/api/auth/login", json={"username": friend.username, "password": friend_password})
         assert response_friend_login.status_code == 200
 
         friend_data = json.loads(response_friend_login.data)
         friend_token = friend_data["access_token"]
 
         #accept friend request
-        response_accept_request = client.post(f"/accept_friend_request/{user.user_id}", headers={
+        response_accept_request = client.post(f"/api/friends/request/{user.user_id}/accept", headers={
             "Authorization": f"Bearer {friend_token}"
         })
 
@@ -103,7 +103,7 @@ def test_decline_friend_request(client, logged_in_user, registered_friend, app):
         friend, friend_password = registered_friend
 
         #create friend request
-        response_create_request = client.post(f"/create_friend_request/{friend.user_id}", headers={
+        response_create_request = client.post(f"/api/friends/request/{friend.user_id}/create", headers={
             "Authorization": f"Bearer {token}"
         })
 
@@ -115,14 +115,14 @@ def test_decline_friend_request(client, logged_in_user, registered_friend, app):
         assert FriendRequest.query.filter_by(sender_id=user.user_id, receiver_id=friend.user_id).first() is not None
         
         #friend logs in
-        response_friend_login = client.post("/api/login", json={"username": friend.username, "password": friend_password})
+        response_friend_login = client.post("/api/auth/login", json={"username": friend.username, "password": friend_password})
         assert response_friend_login.status_code == 200
 
         friend_data = json.loads(response_friend_login.data)
         friend_token = friend_data["access_token"]
 
         #decline friend request
-        response_decline_request = client.post(f"/decline_friend_request/{user.user_id}", headers={
+        response_decline_request = client.post(f"/api/friends/request/{user.user_id}/decline", headers={
             "Authorization": f"Bearer {friend_token}"
         })
 
@@ -142,7 +142,7 @@ def test_friend_not_exist(client, logged_in_user, app):
 
         #create friend request
         friend_id = uuid.uuid4()
-        response_create_request = client.post(f"/create_friend_request/{friend_id}", headers={
+        response_create_request = client.post(f"/api/friends/request/{friend_id}/create", headers={
             "Authorization": f"Bearer {token}"
         })
 
@@ -153,7 +153,7 @@ def test_befriend_yourself(client, logged_in_user, app):
     with app.app_context():
         user, token = logged_in_user
         #create friend request
-        response_create_request = client.post(f"/create_friend_request/{user.user_id}", headers={
+        response_create_request = client.post(f"/api/friends/request/{user.user_id}/create", headers={
             "Authorization": f"Bearer {token}"
         })
 
@@ -170,7 +170,7 @@ def test_request_exists(client, logged_in_user, registered_friend, app):
         db.session.commit()
 
         #create friend request
-        response_create_request = client.post(f"/create_friend_request/{friend.user_id}", headers={
+        response_create_request = client.post(f"/api/friends/request/{friend.user_id}/create", headers={
             "Authorization": f"Bearer {token}"
         })
 
@@ -195,7 +195,7 @@ def test_friendship_exists(client, logged_in_user, registered_friend, app):
         db.session.commit()
 
         #create friend request
-        response_create_request = client.post(f"/create_friend_request/{friend.user_id}", headers={
+        response_create_request = client.post(f"/api/friends/request/{friend.user_id}/create", headers={
             "Authorization": f"Bearer {token}"
         })
 
@@ -212,7 +212,7 @@ def test_accept_request_not_exist(client, logged_in_user, registered_friend, app
         friend = registered_friend[0]
 
         #accept friend request
-        response_accept_request = client.post(f"/accept_friend_request/{friend.user_id}", headers={
+        response_accept_request = client.post(f"/api/friends/request/{friend.user_id}/accept", headers={
             "Authorization": f"Bearer {token}"
         })
 
@@ -230,7 +230,7 @@ def test_decline_request_not_exist(client, logged_in_user, registered_friend, ap
         friend = registered_friend[0]
 
         #decline friend request
-        response_decline_request = client.post(f"/decline_friend_request/{friend.user_id}", headers={
+        response_decline_request = client.post(f"/api/friends/request/{friend.user_id}/decline", headers={
             "Authorization": f"Bearer {token}"
         })
 
@@ -255,7 +255,7 @@ def test_get_not_empty_friends_list(client, logged_in_user, registered_friend, a
         db.session.add(new_friendship)
         db.session.commit()
 
-        response = client.get("/get_friends_list", headers={
+        response = client.get("/api/friends/list", headers={
             "Authorization": f"Bearer {token}"
         })
         assert response.status_code == 200
@@ -273,7 +273,7 @@ def test_get_empty_friends_list(client, logged_in_user, app):
     with app.app_context():
         user, token = logged_in_user
 
-        response = client.get("/get_friends_list", headers={
+        response = client.get("/api/friends/list", headers={
             "Authorization": f"Bearer {token}"
         })
         assert response.status_code == 200

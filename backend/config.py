@@ -1,7 +1,7 @@
 from datetime import timedelta
-from backend.extensions import bcrypt
 
 class Config:
+    PUBLIC_URL = "https://example.com"
     SQLALCHEMY_DATABASE_URI = "postgresql://postgres:postgres@localhost/apka_miasteczkowa?sslmode=require"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     BCRYPT_LOG_ROUNDS = 12

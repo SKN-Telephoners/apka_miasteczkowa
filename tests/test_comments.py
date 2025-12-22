@@ -12,7 +12,7 @@ def comment(client, logged_in_user, event):
 
     payload = {"content": "Jebać UJ!"}
 
-    client.post(f"/create_comment/{event.event_id}", headers={"Authorization": f"Bearer {token}"}, json=payload)
+    client.post(f"/api/comments/create/{event.event_id}", headers={"Authorization": f"Bearer {token}"}, json=payload)
     comment = Comment.query.filter_by(user_id=user.user_id).first()
     return comment
 
@@ -24,7 +24,7 @@ def test_create_comment(client, app, logged_in_user, event):
             "content": "Jebać UJ!",
         }
 
-        response_create_comment = client.post(f"/create_comment/{event.event_id}", headers={
+        response_create_comment = client.post(f"/api/comments/create/{event.event_id}", headers={
             "Authorization": f"Bearer {token}"
         }, json=payload)
 
@@ -39,7 +39,7 @@ def test_create_comment_no_content(client, app, logged_in_user, event):
     with app.app_context():
         user, token = logged_in_user
 
-        response_create_comment = client.post(f"/create_comment/{event.event_id}", headers={
+        response_create_comment = client.post(f"/api/comments/create/{event.event_id}", headers={
             "Authorization": f"Bearer {token}"
         }, json = {"comment": ""})
 
@@ -57,7 +57,7 @@ def test_delete_comment(client, app, logged_in_user, comment):
         assert len(Comment.query.filter_by(user_id=user.user_id).all()) == 1
         comment = Comment.query.filter_by(user_id=user.user_id).first()
 
-        response_delete_comment = client.delete(f"/delete_comment/{comment.comment_id}", headers={
+        response_delete_comment = client.delete(f"/api/comments/delete/{comment.comment_id}", headers={
             "Authorization": f"Bearer {token}"
         })
 
@@ -75,7 +75,7 @@ def test_delete_comment_not_exist(client, app, logged_in_user):
     with app.app_context():
         token = logged_in_user[1]
 
-        response_delete_comment = client.delete(f"/delete_comment/{uuid.uuid4()}", headers={
+        response_delete_comment = client.delete(f"/api/comments/delete/{uuid.uuid4()}", headers={
             "Authorization": f"Bearer {token}"
         })
 
@@ -98,7 +98,7 @@ def test_delete_comment_not_owner(client, logged_in_user, registered_friend, eve
         db.session.commit()
 
         # attempt delete
-        response_delete_comment = client.delete(f"/delete_comment/{comment.comment_id}", headers={
+        response_delete_comment = client.delete(f"/api/comments/delete/{comment.comment_id}", headers={
             "Authorization": f"Bearer {token}"
         })
 
@@ -116,7 +116,7 @@ def test_edit_comment(client, app, logged_in_user, comment):
     with app.app_context():
         token = logged_in_user[1]
 
-        response_edit_comment = client.post(f"/edit_comment/{comment.comment_id}", headers={
+        response_edit_comment = client.put(f"/api/comments/edit/{comment.comment_id}", headers={
             "Authorization": f"Bearer {token}"
         }, json = {"new_content": "Jebać UKEN!"})
 
@@ -133,7 +133,7 @@ def test_edit_comment(client, app, logged_in_user, comment):
 def test_edit_comment_not_exist(client, app, logged_in_user):
     with app.app_context():
         token = logged_in_user[1]
-        response_edit_comment = client.post(f"/edit_comment/{uuid.uuid4()}", headers={
+        response_edit_comment = client.put(f"/api/comments/edit/{uuid.uuid4()}", headers={
             "Authorization": f"Bearer {token}"
         })
 
@@ -156,7 +156,7 @@ def test_edit_comment_not_owner(client, logged_in_user, registered_friend, event
         db.session.commit()
 
         # attempt edit
-        response_edit_comment = client.post(f"/edit_comment/{comment.comment_id}", headers={
+        response_edit_comment = client.put(f"/api/comments/edit/{comment.comment_id}", headers={
             "Authorization": f"Bearer {token}"
         })
 
@@ -173,7 +173,7 @@ def test_reply_to_comment(client, logged_in_user, comment, app):
             "content": "rel",
         }
 
-        response_reply_to_comment = client.post(f"/reply_to_comment/{comment.comment_id}", headers={
+        response_reply_to_comment = client.post(f"/api/comments/reply/{comment.comment_id}", headers={
             "Authorization": f"Bearer {token}"
         }, json=payload)
 
@@ -189,7 +189,7 @@ def test_reply_to_comment(client, logged_in_user, comment, app):
 def test_reply_to_comment_not_exist(client, app, logged_in_user):
     with app.app_context():
         token = logged_in_user[1]
-        response_reply_to_comment = client.post(f"/reply_to_comment/{uuid.uuid4()}", headers={
+        response_reply_to_comment = client.post(f"/api/comments/reply/{uuid.uuid4()}", headers={
             "Authorization": f"Bearer {token}"
         })
 
@@ -202,7 +202,7 @@ def test_get_comments_empty(client, logged_in_user, event, app):
     with app.app_context():
         token = logged_in_user[1]
 
-        response = client.get(f"/get_comments_list/{event.event_id}", headers={
+        response = client.get(f"/api/comments/event/{event.event_id}", headers={
             "Authorization": f"Bearer {token}"
         })
 
@@ -221,7 +221,7 @@ def test_get_comments_parent_only(client, logged_in_user, event, app):
         db.session.add_all([c1, c2])
         db.session.commit()
 
-        response = client.get(f"/get_comments_list/{event.event_id}", headers={
+        response = client.get(f"/api/comments/event/{event.event_id}", headers={
             "Authorization": f"Bearer {token}"
         })
         data = response.get_json()
@@ -245,7 +245,7 @@ def test_get_comments_thread_structure(client, logged_in_user, event, app):
         assert parent.parent_comment_id == None
         assert reply.parent_comment_id == parent.comment_id
 
-        response = client.get(f"/get_comments_list/{event.event_id}", headers={
+        response = client.get(f"/api/comments/event/{event.event_id}", headers={
             "Authorization": f"Bearer {token}"
         })
         data = response.get_json()
@@ -271,7 +271,7 @@ def test_get_comments_deleted(client, logged_in_user, event, app):
         comment.soft_delete()
         db.session.commit()
 
-        response = client.get(f"/get_comments_list/{event.event_id}", headers={
+        response = client.get(f"/api/comments/event/{event.event_id}", headers={
             "Authorization": f"Bearer {token}"
         })
         data = response.get_json()
