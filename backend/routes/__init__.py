@@ -1,8 +1,8 @@
 from .auth_routes import auth_bp
-from .users_routes import users_bp
-from .friendships_routes import friends_bp
-from .events_routes import events_bp
-from .comments_routes import comments_bp
+from .user_routes import users_bp
+from .friendship_routes import friends_bp
+from .event_routes import events_bp
+from .comment_routes import comments_bp
 from .email_routes import email_bp
 from . import tokens
 
