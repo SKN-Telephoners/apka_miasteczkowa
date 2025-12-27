@@ -12,16 +12,22 @@ class User(db.Model):
     password_hash = db.Column(db.String(128), nullable=False)
     email = db.Column(db.String(320), nullable=False, unique=True)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+    course = db.Column(db.String(100), nullable=True)
+    year = db.Column(db.Integer, nullable=True) 
+    academy = db.Column(db.String(10), nullable=True)
+    academic_circle = db.Column(db.String(100), nullable=True)
     
     __table_args__ = (
         CheckConstraint(r"email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'", name="email_format"),
+    
+        CheckConstraint("year BETWEEN 1 AND 6 OR year IS NULL", name="year_format"),
     )
     
     def __init__(self, username, password, email):
         self.username = username
         self.email = email # TODO! Add function that checks email using regex
         pass_hash = bcrypt.generate_password_hash(password).decode("utf-8")
-        self.password_hash = pass_hash
+        self.password_hash = pass_hash 
         
     def validate_password(self, password):
         return bcrypt.check_password_hash(self.password_hash, password)
@@ -32,7 +38,7 @@ class User(db.Model):
 
     def __repr__(self):
         return f"User {self.username}"
-    
+           
 class TokenBlocklist(db.Model):
     __tablename__ = "token_blocklist"
 

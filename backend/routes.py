@@ -8,7 +8,9 @@ import uuid
 from flask_mail import Message
 from datetime import datetime, timezone
 from sqlalchemy import or_
-
+from datetime import date
+import os
+import json
 
 MAX_EMAIL_LEN = 320
 MAX_USERNAME_LEN = 32
@@ -41,7 +43,7 @@ def register_user():
     ):
         return jsonify({"message": "Invalid username or email"}), 400
     
-    new_user = User(username=username, password=password, email=email)
+    new_user = User(username=username, password=password, email=email) 
     if User.query.filter_by(username=username).first() is not None:
         return jsonify({"message": "Username already taken"}), 409
     if User.query.filter_by(email=email).first() is not None:
@@ -175,7 +177,72 @@ def expired_token_callback(expired_token):
 def load_user(jwt_header, jwt_payload):
     user_id = jwt_payload["sub"]
     return db.session.get(User, user_id)
-  
+
+@auth.route("/user/user_update", methods=["POST"]) #Ogólny pomysł jak to ma działać to użytkownik ma memu swojego profilu i może edytować w nim
+@jwt_required()                                    #swoje dane które są w nim wyświetlane cały czas
+def update_user_course_or_academy():
+
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))   # To daje ścieżke do plików z bazą kierunków akademii itd
+    DATA_DIR = os.path.normpath(os.path.join(BASE_DIR, "keys")) # tu jest ważne żeby zmienić w razie włżenia tych plików to innych folderów pozmieniać
+
+    
+    with open(os.path.join(DATA_DIR, "academy.json"), encoding="utf-8") as f:
+        academy_data = json.load(f)
+    with open(os.path.join(DATA_DIR, "courses.json"), encoding="utf-8") as r:
+        courses_data = json.load(r)
+    with open(os.path.join(DATA_DIR, "academic_circle.json") , encoding="utf-8") as a:
+        academic_circle_data = json.load(a)
+      
+    user_data = request.get_json() #To ma wyświetlać co jest w menu zmiany użytkownika
+
+    academy = user_data.get("academy")
+    course = user_data.get("course")
+    academic_circle = user_data.get("academic_circle")
+    year = user_data.get("year")
+ 
+
+    if (academy != "AGH" and course) or (academy != "AGH" and academic_circle): #Ta część ma sprawdzać zgodność tego co jest w menu z plikami
+        return jsonify ({"message": "Only AGH members can change course and academic circle"}), 404
+
+    if academy not in academy_data and academy != None:
+        return jsonify({"message": "Such academy doesn't exist"}), 404
+
+    if course not in courses_data and course != None:
+        return jsonify({"message": "Such course doesn't exist"}), 404
+
+    if academic_circle not in academic_circle_data and academic_circle != None:
+        return jsonify({"message": "Such circle dosen't exist"}), 404
+
+    if academy:                    #Ta część podmienia wartości w tym menu
+        academy = (academy)
+
+    if academy is None:
+        academy = (None)
+   
+    if academy == "AGH" and course:
+        course = (course)
+
+    if course is None:
+        course = (None)
+            
+    if academy == "AGH" and academic_circle:   
+        academic_circle = (academic_circle)      
+    
+    if acdemic_circle = None:
+        academic_circle = (None)
+
+    if year: 
+        year_pattern = r"^[1-6]$"
+        if not re.match(year_pattern, year):
+            return jsonify({"message": "Invalid year"}), 404
+        year = (year)
+
+    if year = None:
+        year = (None)
+    
+    db.session.commit()
+    return jsonify({"message": "User updated successfully"}), 200
+
 @main.route("/reset_password_request", methods=["POST"])
 @limiter.limit("500 per hour")   # for tests, 500 password resets for IP per hour, change before deployment to 5
 def reset_password_request():
