@@ -4,13 +4,13 @@ from backend.extensions import db, jwt, mail, limiter
 from backend.constants import Constants
 from backend.responses import ResponseTypes, make_api_response
 from flask_jwt_extended import jwt_required, create_access_token, create_refresh_token, get_jwt, get_jwt_identity, get_current_user, decode_token
-from backend.helpers import add_token_to_db, revoke_token, is_token_revoked, revoke_all_user_tokens
+from backend.helpers import add_token_to_db, revoke_token, is_token_revoked, revoke_all_user_tokens, validate_uuid
 from backend.tasks import send_email_async
 import re
 import uuid
 from flask_mail import Message
 from datetime import datetime, timezone, timedelta
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy import or_, and_
 
 main = Blueprint("main", __name__)
@@ -292,9 +292,8 @@ def reset_password(token):
 @limiter.limit("300 per minute") #chenge to 30 before deployment
 def create_friend_request(friend_id):
     user = get_current_user()
-    try:
-        friend_id = uuid.UUID(friend_id)
-    except ValueError:
+    friend_id = validate_uuid(friend_id)
+    if friend_id is None:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid friend ID format")
     
     if User.query.filter_by(user_id=friend_id).first() is None:
@@ -330,7 +329,7 @@ def create_friend_request(friend_id):
     except IntegrityError:
         db.session.rollback()
         return make_api_response(ResponseTypes.CONFLICT, message="Request already exists")
-    except Exception as e:
+    except SQLAlchemyError as e:
         db.session.rollback()
         current_app.logger.error(f"Database error: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
@@ -343,9 +342,8 @@ def create_friend_request(friend_id):
 def cancel_friend_request(friend_id):
     user = get_current_user()
 
-    try:
-        friend_id = uuid.UUID(friend_id)
-    except ValueError:
+    friend_id = validate_uuid(friend_id)
+    if friend_id is None:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid friend ID format")
 
     request = FriendRequest.query.filter_by(sender_id=user.user_id, receiver_id=friend_id).first()
@@ -356,7 +354,7 @@ def cancel_friend_request(friend_id):
     try:
         db.session.delete(request)
         db.session.commit()
-    except Exception as e:
+    except SQLAlchemyError as e:
         db.session.rollback()
         current_app.logger.error(f"Database error: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
@@ -368,9 +366,8 @@ def cancel_friend_request(friend_id):
 @limiter.limit("300 per minute") #change before deployment to 30
 def accept_friend_request(friend_id):
     user = get_current_user()
-    try:
-        friend_id = uuid.UUID(friend_id)
-    except ValueError:
+    friend_id = validate_uuid(friend_id)
+    if friend_id is None:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid friend ID format")
 
     request = FriendRequest.query.filter_by(sender_id=friend_id, receiver_id=user.user_id).first()
@@ -390,7 +387,7 @@ def accept_friend_request(friend_id):
     except IntegrityError:
         db.session.rollback()
         return make_api_response(ResponseTypes.CONFLICT, message="Friendship already exists")
-    except Exception as e:
+    except SQLAlchemyError as e:
         db.session.rollback()
         current_app.logger.error(f"Database error: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
@@ -402,9 +399,8 @@ def accept_friend_request(friend_id):
 @limiter.limit("300 per minute") #change before deployment to 30
 def decline_friend_request(friend_id):
     user = get_current_user()
-    try:
-        friend_id = uuid.UUID(friend_id)
-    except Exception:
+    friend_id = validate_uuid(friend_id)
+    if friend_id is None:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid friend ID format")
     request = FriendRequest.query.filter_by(sender_id=friend_id, receiver_id=user.user_id).first()
 
@@ -414,7 +410,7 @@ def decline_friend_request(friend_id):
     try:
         db.session.delete(request)
         db.session.commit()
-    except Exception as e:
+    except SQLAlchemyError as e:
         db.session.rollback()
         current_app.logger.error(f"Database error: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
@@ -426,52 +422,59 @@ def decline_friend_request(friend_id):
 def get_friends_list():
     user= get_current_user()
     
-    friendships = Friendship.query.filter(
-        or_(
-            Friendship.user_id == user.user_id,
-            Friendship.friend_id == user.user_id
-        )
-    ).all()
-    if not friendships:
-        return make_api_response(ResponseTypes.SUCCESS, message="Empty friends list", data={"friends": []})
-    friends_id=[]
-    for friendship in friendships:
-        if user.user_id==friendship.user_id:
-            friends_id.append(friendship.friend_id)
-        else:
-            friends_id.append(friendship.user_id)
-
-    friends = User.query.filter(User.user_id.in_(friends_id)).all()
-
-    friends_data = []
-    for friend in friends:
-        friends_data.append({
-            "id": friend.user_id,
-            "username": friend.username
-        })
-    return make_api_response(ResponseTypes.SUCCESS, message="Friends list", data={"friends": friends_data})
+    try: 
+        friendships = Friendship.query.filter(
+            or_(
+                Friendship.user_id == user.user_id,
+                Friendship.friend_id == user.user_id
+            )
+        ).all()
+        if not friendships:
+            return make_api_response(ResponseTypes.SUCCESS, message="Empty friends list", data={"friends": []})
     
+        friends_id=[]
+        for friendship in friendships:
+            if user.user_id==friendship.user_id:
+                friends_id.append(friendship.friend_id)
+            else:
+                friends_id.append(friendship.user_id)
+        friends = User.query.filter(User.user_id.in_(friends_id)).all()
+
+        friends_data = []
+        for friend in friends:
+            friends_data.append({
+                "id": str(friend.user_id),
+                "username": friend.username
+            })
+        return make_api_response(ResponseTypes.SUCCESS, message="Friends list", data={"friends": friends_data})
+    except SQLAlchemyError as e:
+        current_app.logger.error(f"Database error: {e}")
+        return make_api_response(ResponseTypes.SERVER_ERROR)
+
 @main.route("/create_event", methods=["POST"])
 @limiter.limit("100 per minute")
 @jwt_required()
 def create_event():
     user = get_current_user()
-
     event_data = request.get_json()
+
+    if not event_data:
+        return make_api_response(ResponseTypes.BAD_REQUEST, message="Invalid JSON")
+    
     required_keys = {"name", "description", "date", "time", "location"}
 
-    if not event_data or not required_keys.issubset(event_data.keys()):
+    if not required_keys.issubset(event_data.keys()):
         current_app.logger.error("dupa")
-        return make_api_response(ResponseTypes.BAD_REQUEST)
+        return make_api_response(ResponseTypes.BAD_REQUEST, message="Missing fields")
     
-    name = event_data.get("name", "").strip()
-    description = event_data.get("description", "").strip()
-    date_str = event_data.get("date")
-    time_str = event_data.get("time")
-    location = event_data.get("location", "").strip()
+    name = str(event_data.get("name", "")).strip()
+    description = str(event_data.get("description", "")).strip()
+    date_str = str(event_data.get("date", "")).strip()
+    time_str = str(event_data.get("time", "")).strip()
+    location = str(event_data.get("location", "")).strip()
 
     if not (Constants.MIN_EVENT_NAME <= len(name) <= Constants.MAX_EVENT_NAME):
-        return make_api_response(ResponseTypes.INVALID_DATA, message="Event name must be between 3 and 32 characters")
+        return make_api_response(ResponseTypes.INVALID_DATA, message=f"Event name must be between {Constants.MIN_EVENT_NAME} and {Constants.MAX_EVENT_NAME} characters")
         
     if len(location) > Constants.MAX_LOCATION_LEN:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Location name is too long")
@@ -490,33 +493,33 @@ def create_event():
     except ValueError:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid date format. Use DD.MM.YYYY and HH:MM")
 
-    
-    new_event = Event(
-        name=name,
-        description=description,
-        date_and_time=date_and_time,
-        location=location,
-        creator_id=user.user_id
-    )
     try:
+        new_event = Event(
+            name=name,
+            description=description,
+            date_and_time=date_and_time,
+            location=location,
+            creator_id=user.user_id
+        )
         db.session.add(new_event)
         db.session.commit()
-    except Exception as e:
+    except SQLAlchemyError as e:
         db.session.rollback()
         current_app.logger.error(f"Database error: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
-    return make_api_response(ResponseTypes.CREATED, message="Event created successfully", data={"event_id": new_event.event_id})
+    return make_api_response(ResponseTypes.CREATED, message="Event created successfully", data={"event_id": str(new_event.event_id)})
 
 @main.route("/delete_event/<event_id>", methods=["DELETE"])
+@limiter.limit("100 per minute")
 @jwt_required()
 def delete_event(event_id):
     user = get_current_user()
-    try:
-        event_id = uuid.UUID(event_id)
-    except Exception:
-        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid event ID format")
-    
+    e_uuid = validate_uuid(event_id)
+
+    if not e_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Event ID")
+
     event = Event.query.filter_by(event_id=event_id).first()
 
     if event is None:
@@ -527,7 +530,7 @@ def delete_event(event_id):
     try:
         db.session.delete(event)
         db.session.commit()
-    except Exception as e:
+    except SQLAlchemyError as e:
         db.session.rollback()
         current_app.logger.error(f"Database error: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
@@ -536,47 +539,53 @@ def delete_event(event_id):
 
 
 @main.route("/feed",methods=["GET"])
+@limiter.limit("600 per minute")
 def feed():
+    try:
+        page = request.args.get("page", default=1, type=int)
+        limit = request.args.get("limit", default=20, type=int)
+        sort=request.args.get("sort", default=1, type=int)
 
-    page = request.args.get("page", default=1, type=int)
-    limit = request.args.get("limit", default=20, type=int)
-    sort=request.args.get("sort",default=1,type=int)
+        events = Event.query
+        if sort==1:
+            events=events.order_by(Event.date_and_time.asc())
+        elif sort==2:
+            events=events.order_by(Event.date_and_time.desc())
+        else:
+            events = events.order_by(Event.date_and_time.asc())
     
-    if sort==1:
-        events=Event.query \
-            .order_by(Event.date_and_time.asc())
-    elif sort==2:
-        events=Event.query \
-            .order_by(Event.date_and_time.desc())
+        pagination = events.paginate(page=page, per_page=limit, error_out=False)
     
-    pagination = events.paginate(page=page, per_page=limit, error_out=False)
-    
-    event_list=[
-        {
-            "id": event.event_id,
-            "name": event.name,
-            "description": event.description,
-            "date": event.date_and_time.strftime("%d.%m.%Y"),
-            "time": event.date_and_time.strftime("%H:%M"),
-            "location": event.location,
-            "creator_id": event.creator_id
-        }
-        for event in pagination.items
-    ]
+        event_list=[
+            {
+                "id": str(event.event_id),
+                "name": event.name,
+                "description": event.description,
+                "date": event.date_and_time.strftime("%d.%m.%Y"),
+                "time": event.date_and_time.strftime("%H:%M"),
+                "location": event.location,
+                "creator_id": str(event.creator_id)
+            }
+            for event in pagination.items
+        ]
 
-    return make_api_response(ResponseTypes.SUCCESS, data={
-        "data": event_list,
-        "pagination": {
-            "page": pagination.page,
-            "limit": limit,
-            "total": pagination.total,
-            "pages": pagination.pages
-        }
-    })
+        return make_api_response(ResponseTypes.SUCCESS, data={
+            "data": event_list,
+            "pagination": {
+                "page": pagination.page,
+                "limit": limit,
+                "total": pagination.total,
+                "pages": pagination.pages
+            }
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error in feed: {e}")
+        return make_api_response(ResponseTypes.SERVER_ERROR)
 
 @main.route("/mail_auth_request",methods=["POST"])
+@limiter.limit("5000 per hour")
 def mail_auth_request():
-    user_data = request.get_json()
+    user_data = request.get_json(silent=True)
     
     if not user_data or not "email" in user_data.keys():
         return make_api_response(ResponseTypes.BAD_REQUEST)
@@ -585,73 +594,91 @@ def mail_auth_request():
 
     user = User.query.filter_by(email=email).first()
 
-    if not user:
-        return make_api_response(ResponseTypes.NOT_FOUND, message="There is no user with such email")
+    if user and not user.is_confirmed:
+        try:
+            auth_token = create_access_token(identity=user.email, expires_delta=timedelta(hours=24))
+            auth_url = url_for("main.mail_auth", token=auth_token, _external=True)
 
-    if user.is_confirmed:
-        return make_api_response(ResponseTypes.BAD_REQUEST, message="User already confirmed")
-    
-    auth_token = create_access_token(identity=user.email)
+            msg = Message(
+                'Auth account',
+                recipients=[email],
+                body=f"Hello! Click the link to authorize your account: {auth_url}"
+            )
+            mail.send(msg)
+        except Exception as e:
+            current_app.logger.error(f"Mail send error: {e}")
 
-    auth_url=url_for("main.mail_auth", token=auth_token, _external=True)
-        
-    msg = Message(
-            'Auth account',
-            recipients=[email],
-            body=f"Hello! Click the link to authorize your account: {auth_url}"
-        )
-
-    mail.send(msg)
-    return make_api_response(ResponseTypes.SUCCESS, message="Email sent successfully")
+    return make_api_response(ResponseTypes.SUCCESS, message="If the account exists and is not verified, an email has been sent")
 
 @main.route("/mail_auth/<token>",methods=["POST"])
+@limiter.limit("100 per hour")
 def mail_auth(token):
-    decoded = decode_token(token)
-    user_email = decoded["sub"]
+    try:
+        decoded = decode_token(token)
+        user_email = decoded["sub"]
 
-    user = User.query.filter_by(email=user_email).first()
+        user = User.query.filter_by(email=user_email).first()
 
-    if not user:
-        return make_api_response(ResponseTypes.NOT_FOUND, message="User not found")
+        if not user:
+            return make_api_response(ResponseTypes.NOT_FOUND, message="Verification failed")
 
-    if user.is_confirmed:
-        return make_api_response(ResponseTypes.BAD_REQUEST, message="User already confirmed")
+        if user.is_confirmed:
+            return make_api_response(ResponseTypes.BAD_REQUEST, message="Account already varified")
     
-    user.is_confirmed=True
-    db.session.commit()
+        user.is_confirmed=True
+        db.session.commit()
 
-    return make_api_response(ResponseTypes.SUCCESS, message="Verification succesful")
+        return make_api_response(ResponseTypes.SUCCESS, message="Verification succesful")
+    except Exception as e:
+        current_app.logger.erro(f"Mail auth token error: {e}")
+        return make_api_response(ResponseTypes.BAD_REQUEST, message="Invalid or expired link")
 
 @main.route("/create_comment/<event_id>", methods=["POST"])
 @jwt_required()
+@limiter.limit("600 per minute")
 def create_comment(event_id):
     user = get_current_user()
-    event_id = uuid.UUID(event_id)
+    e_uuid = validate_uuid(event_id)
+    if not e_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid event ID")
 
     event = Event.query.filter_by(event_id=event_id)
 
     if event is None:
         return make_api_response(ResponseTypes.NOT_FOUND, message="Event doesn't exist")
     
-    comment_data = request.get_json()
+    comment_data = request.get_json(silent=True)
     required_keys = {"content"}
     
     if not comment_data or not required_keys.issubset(comment_data.keys()):
-        return make_api_response(ResponseTypes.BAD_REQUEST)
-    new_comment = Comment(user_id=user.user_id, event_id=event_id, content=comment_data["content"])
+        return make_api_response(ResponseTypes.BAD_REQUEST, message="Missing content")
+    
+    content = str(comment_data["content"]).strip()
+    if not content:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Content cannot be empty")
+    
+    if len(content) > Constants.MAX_COMMENT_LEN:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Comment too long")
+    
+    try:
+        new_comment = Comment(user_id=user.user_id, event_id=event_id, content=comment_data["content"])
 
-    db.session.add(new_comment)
-    db.session.commit()
-
+        db.session.add(new_comment)
+        db.session.commit()
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        current_app.logger.error(f"Database error create_commnet: {e}")
+        return make_api_response(ResponseTypes.SERVER_ERROR)
+    
     return make_api_response(ResponseTypes.CREATED, message="Comment created successfully")
 
 @main.route("/delete_comment/<comment_id>", methods=["DELETE"])
 @jwt_required()
+@limiter.limit("90 per minute")
 def delete_comment(comment_id):
     user = get_current_user()
-    try:
-        comment_id = uuid.UUID(comment_id)
-    except ValueError:
+    c_uuid = validate_uuid(comment_id)
+    if not c_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid UUID format")
     
     comment = Comment.query.filter_by(comment_id=comment_id).first()
@@ -660,9 +687,14 @@ def delete_comment(comment_id):
 
     if user.user_id != comment.user_id:
         return make_api_response(ResponseTypes.FORBIDDEN, message="You can delete your own comments only")
-        
-    comment.soft_delete()
-    db.session.commit()
+
+    try: 
+        comment.soft_delete()
+        db.session.commit()
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        current_app.logger.error(f"Database error delete_comment: {e}")
+        return make_api_response(ResponseTypes.SERVER_ERROR)
 
     return make_api_response(ResponseTypes.SUCCESS, message="Comment deleted successfully")
 
@@ -670,7 +702,10 @@ def delete_comment(comment_id):
 @jwt_required()
 def edit_comment(comment_id):
     user = get_current_user()
-    comment_id = uuid.UUID(comment_id)
+    c_uuid = validate_uuid(comment_id)
+    if not c_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid UUID format")
+    
     comment = Comment.query.filter_by(comment_id=comment_id).first()
 
     if comment is None:
@@ -679,51 +714,87 @@ def edit_comment(comment_id):
     if user.user_id != comment.user_id:
         return make_api_response(ResponseTypes.FORBIDDEN, message="You can edit your own comments only")
         
-    data = request.get_json()
-    new_content = data["new_content"]
-    comment.content = new_content
-    comment.edited = True
-    db.session.commit()
+    data = request.get_json(silent=True)
+    if not data or "new_content" not in data:
+        return make_api_response(ResponseTypes.BAD_REQUEST, message="Missing new_content")
+    new_content = str(data["new_content"]).strip()
+
+    if not new_content:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Content cannot be enpty")
+    
+    if len(new_content) > Constants.MAX_COMMENT_LEN:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Comment too long")
+    
+    try:
+        comment.content = new_content
+        comment.edited = True
+        db.session.commit()
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        current_app.logger.error(f"Database error edit_comment: {e}")
+        return make_api_response(ResponseTypes.SERVER_ERROR)
 
     return make_api_response(ResponseTypes.SUCCESS, message="Comment edited successfully")
 
 @main.route("/reply_to_comment/<parent_comment_id>", methods=["POST"])
 @jwt_required()
+@limiter.limit("90 per minute")
 def reply_to_comment(parent_comment_id):
     user = get_current_user()
-    parent_comment_id = uuid.UUID(parent_comment_id)
+    p_uuid = validate_uuid(parent_comment_id)
+    if not p_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid parent comment ID")
     parent_comment = Comment.query.filter_by(comment_id=parent_comment_id).first()
 
     if parent_comment is None:
         return make_api_response(ResponseTypes.NOT_FOUND, message="Parent comment doesn't exist")
     
-    comment_data = request.get_json()
+    comment_data = request.get_json(silent=True)
     required_keys = {"content"}
     
     if not comment_data or not required_keys.issubset(comment_data.keys()):
-        return make_api_response(ResponseTypes.BAD_REQUEST)
+        return make_api_response(ResponseTypes.BAD_REQUEST, message="Missing content")
     
-    new_comment = Comment(
-        user_id=user.user_id,
-        event_id=parent_comment.event_id,
-        content=comment_data["content"],
-        parent_comment_id=parent_comment_id
-        )
+    content = str(comment_data["content"]).strip()
+    if not content:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Content cannot be empty")
+    
+    if len(content) > Constants.MAX_COMMENT_LEN:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Comment too long")
+    
+    try:
+        new_comment = Comment(
+            user_id=user.user_id,
+            event_id=parent_comment.event_id,
+            content=comment_data["content"],
+            parent_comment_id=parent_comment_id
+            )
 
-    db.session.add(new_comment)
-    db.session.commit()
+        db.session.add(new_comment)
+        db.session.commit()
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        current_app.logger.error(f"Database error reply_to_comment: {e}")
+        return make_api_response(ResponseTypes.SERVER_ERROR)
 
-    return make_api_response(ResponseTypes.CREATED, message="Comment created successfully")
+    return make_api_response(ResponseTypes.CREATED, message="Reply created successfully")
 
 @main.route("/get_comments_list/<event_id>", methods=["GET"])
 @jwt_required()
 def get_comments_list(event_id):
+    e_uuid = validate_uuid(event_id)
+    if not e_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid event ID")
+    
+    try:
+        comments = Comment.query.filter_by(event_id=event_id).order_by(Comment.created_at.asc()).all()
 
-    comments = Comment.query.filter_by(event_id=event_id).order_by(Comment.created_at.asc()).all()
+        if not comments:
+            return make_api_response(ResponseTypes.SUCCESS, message="Empty comments list", data={"comments": []})
+        top_level_comments = [c for c in comments if c.parent_comment_id is None]
+        comments_tree = [c.to_dict() for c in top_level_comments]
 
-    if not comments:
-        return make_api_response(ResponseTypes.SUCCESS, message="Empty comments list", data={"comments": []})
-    top_level_comments = [c for c in comments if c.parent_comment_id is None]
-    comments_tree = [c.to_dict() for c in top_level_comments]
-
-    return make_api_response(ResponseTypes.SUCCESS, message="Comments list", data={"comments": comments_tree})
+        return make_api_response(ResponseTypes.SUCCESS, message="Comments list", data={"comments": comments_tree})
+    except SQLAlchemyError as e:
+        current_app.logger.error(f"Database error get_comment_list: {e}")
+        return make_api_response(ResponseTypes.SERVER_ERROR)

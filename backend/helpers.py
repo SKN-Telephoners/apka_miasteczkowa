@@ -3,6 +3,7 @@ from backend.extensions import db
 from flask_jwt_extended import decode_token
 from backend.models import TokenBlocklist
 from sqlalchemy.exc import NoResultFound
+import uuid
 
 def add_token_to_db(encoded_token):
     decoded_token = decode_token(encoded_token)
@@ -62,3 +63,9 @@ def revoke_all_user_tokens(user_id):
         db.session.rollback()
         print(f"Error revoking all tokens from user: {user_id}: {e}")
         raise
+
+def validate_uuid(uuid_string):
+    try:
+        return uuid.UUID(uuid_string)
+    except (ValueError, TypeError):
+        return None

@@ -56,12 +56,16 @@ def test_auth_user_invalid_email(client, app):
         with mail.record_messages() as outbox:
             response = client.post("/mail_auth_request", json=email_payload)
 
-            assert response.status_code == 404
+            assert response.status_code == 200
+            assert response.get_json()["message"] == "If the account exists and is not verified, an email has been sent"
             assert len(outbox) == 0
 
 def test_auth_user_confirmed(client, app, registered_user):
     with app.app_context():
         user = registered_user[0]
+        user.is_confirmed = True
+
+        db.session.commit()
 
         assert user.is_confirmed is True
 
@@ -72,6 +76,6 @@ def test_auth_user_confirmed(client, app, registered_user):
         with mail.record_messages() as outbox:
             response = client.post("/mail_auth_request", json=email_payload)
 
-            assert response.status_code == 400
-            assert response.get_json()["message"] == "User already confirmed"
+            assert response.status_code == 200
+            assert response.get_json()["message"] == "If the account exists and is not verified, an email has been sent"
             assert len(outbox) == 0
