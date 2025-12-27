@@ -76,20 +76,6 @@ def registered_friend(client):
         client.get(token_path)
     return friend, payload["password"]
 
-
-@pytest.fixture
-def create_events(client,logged_in_user):
-    # cerate 21 events for tests
-    headers = {"Authorization": f"Bearer {logged_in_user[1]}"}
-
-    event_id=0
-    while(event_id!=22):
-        event_id+=1
-        event_time = datetime.now(timezone.utc) + timedelta(days=event_id)
-        payload = {"name": str(event_id)+"ssss", "description": "Lore ipsum", "date": event_time.strftime("%d.%m.%Y"), "time":event_time.strftime("%H:%M"), "location":"Poland"}
-        response=client.post("/create_event", json=payload,headers=headers)
-        assert response.status_code == 200
-
 @pytest.fixture
 def event(client, logged_in_user):
     token = logged_in_user[1]
