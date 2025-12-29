@@ -1,13 +1,18 @@
-import { Text, View, StyleSheet, TouchableOpacity, Alert, TextInput } from "react-native";
-import { useState } from "react";
+import {
+    Text, View, StyleSheet,
+    TouchableOpacity, Alert,
+    TextInput, Modal, Pressable,
+    UIManager, findNodeHandle
+} from "react-native";
+import { useState, useRef } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { Comment } from "../types/comment";
-import { editComment } from "../services/comments";
+import { editComment, deleteComment } from "../services/comments";
 
 
 
-const CommentCard = ({ item, level = 0, userID }: { item: Comment, level?: number, userID: string }) => {
+const CommentCard = ({ item, level = 0, userID, onDeleted }: { item: Comment, level?: number, userID: string, onDeleted: () => void }) => {
 
     const date = new Date(item.created_at);
     const [showReplies, setShowReplies] = useState(false);
@@ -15,8 +20,17 @@ const CommentCard = ({ item, level = 0, userID }: { item: Comment, level?: numbe
     const [commentValue, setCommentValue] = useState(item.content);
     const [isEditing, setIsEditing] = useState(false);
     const [isEdited, setIsEdited] = useState(item.edited);
+    const [menuVisible, setMenuVisible] = useState(false);
 
     const [displayContent, setDisplayContent] = useState(item.content);
+
+    const menuButtonRef = useRef<View>(null);
+
+    const [menuPosition, setMenuPosition] = useState({
+        x: 0,
+        y: 0,
+    });
+
 
     const formatTime = (timeObj: Date): string => {
         const hours = String(timeObj.getHours()).padStart(2, '0');
@@ -48,42 +62,73 @@ const CommentCard = ({ item, level = 0, userID }: { item: Comment, level?: numbe
         }
     };
 
+    const handleDeleteComment = async () => {
+        try {
+            await deleteComment(item.comment_id);
+            Alert.alert("Komentarz usunięty");
+            onDeleted();
+        } catch (error: any) {
+            Alert.alert("Błąd usuwania komentarza", error.message);
+        }
+    };
+
     return (
         <View key={item.comment_id}>
             <View style={[styles.container, { marginLeft: item.parent_comment_id ? level * 16 : 0 }]}>
-                <View style={{ flexDirection: "row", alignItems: "baseline" }}>
-                    <Text style={styles.username}>mock username</Text>
-                    <Text style={{ fontSize: 14 }}>
-                        {formatDate(date)} {formatTime(date)}
-                    </Text>
+                <View style={styles.header}>
+                    <View style={{ flexDirection: "row", alignItems: "baseline" }}>
+                        <Text style={styles.username}>mock username</Text>
+                        <Text style={{ fontSize: 14 }}>
+                            {formatDate(date)} {formatTime(date)}
+                        </Text>
+                    </View>
+
+                    {item.user_id === userID && (
+                        <TouchableOpacity
+                            ref={menuButtonRef}
+                            onPress={() => {
+                                if (!menuButtonRef.current) return;
+
+                                const handle = findNodeHandle(menuButtonRef.current);
+                                if (!handle) return;
+
+                                UIManager.measureInWindow(
+                                    handle,
+                                    (x, y, width, height) => {
+                                        setMenuPosition({
+                                            x: x + width,
+                                            y: y + height,
+                                        });
+                                        setMenuVisible(true);
+                                    }
+                                );
+                            }}
+                        >
+                            <Ionicons name="ellipsis-vertical" size={18} color="#59595aff" />
+                        </TouchableOpacity>
+
+                    )}
                 </View>
 
                 {isEdited && <Text style={styles.edited}>Edytowano</Text>}
 
 
                 {isEditing ? (
-                    <TextInput
-                        style={{
-                            fontSize: 14,
-                            marginHorizontal: 10,
-                            marginTop: 10,
-                            borderBottomWidth: 1,
-                            padding: 10,
-                            borderColor: '#59595aff',
-                            marginBottom: 5
-                        }}
-                        value={commentValue}
-                        onChangeText={setCommentValue}
-                        multiline
-                    />
-                ) : (
-                    <Text style={{ fontSize: 14, marginHorizontal: 10, marginTop: 10 }}>
-                        {displayContent}
-                    </Text>
-                )}
-
-                {item.user_id === userID && (
                     <View>
+                        <TextInput
+                            style={{
+                                fontSize: 14,
+                                marginHorizontal: 10,
+                                marginTop: 10,
+                                borderBottomWidth: 1,
+                                padding: 10,
+                                borderColor: '#59595aff',
+                                marginBottom: 5
+                            }}
+                            value={commentValue}
+                            onChangeText={setCommentValue}
+                            multiline
+                        />
                         <TouchableOpacity
                             onPress={() => {
                                 if (isEditing) {
@@ -105,6 +150,10 @@ const CommentCard = ({ item, level = 0, userID }: { item: Comment, level?: numbe
                             />
                         </TouchableOpacity>
                     </View>
+                ) : (
+                    <Text style={{ fontSize: 14, marginHorizontal: 10, marginTop: 10 }}>
+                        {displayContent}
+                    </Text>
                 )}
 
                 {item.replies?.length > 0 && (
@@ -122,10 +171,57 @@ const CommentCard = ({ item, level = 0, userID }: { item: Comment, level?: numbe
 
                         {showReplies &&
                             item.replies.map(reply => (
-                                <CommentCard key={reply.comment_id} item={reply} level={level + 1} userID={userID} />
+                                <CommentCard key={reply.comment_id} item={reply} level={level + 1} userID={userID} onDeleted={onDeleted} />
                             ))}
                     </>
                 )}
+
+                <Modal
+                    transparent
+                    visible={menuVisible}
+                    animationType="fade"
+                    onRequestClose={() => setMenuVisible(false)}
+                >
+                    <Pressable
+                        style={styles.menuBackdrop}
+                        onPress={() => setMenuVisible(false)}
+                    >
+                        <View
+                            style={[
+                                styles.menu,
+                                {
+                                    top: menuPosition.y,
+                                    left: menuPosition.x - 120,
+                                },
+                            ]}
+                        >
+                            <TouchableOpacity
+                                style={styles.menuItem}
+                                onPress={() => {
+                                    setMenuVisible(false);
+                                    setIsEditing(true);
+                                }}
+                            >
+                                <Ionicons name="pencil" size={14} color="#045ddaff" />
+                                <Text style={styles.menuEdit}>Edytuj</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.menuItem}
+                                onPress={() => {
+                                    setMenuVisible(false);
+                                    handleDeleteComment();
+                                }}
+                            >
+                                <Ionicons name="trash" size={14} color="#d71010ff" />
+                                <Text style={styles.menuDelete}>Usuń</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </Pressable>
+                </Modal>
+
+
+
 
             </View>
         </View>
@@ -165,6 +261,46 @@ const styles = StyleSheet.create({
         marginHorizontal: 15,
         padding: 5
     },
+    header: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+    },
+
+    menuBackdrop: {
+        flex: 1,
+    },
+
+    menu: {
+        position: "absolute",
+        width: 130,
+        backgroundColor: "#fff",
+        borderRadius: 12,
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        elevation: 8,
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+    },
+
+    menuItem: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 8,
+        gap: 8,
+    },
+
+
+    menuEdit: {
+        fontSize: 14,
+        color: "#045ddaff",
+    },
+
+    menuDelete: {
+        fontSize: 14,
+        color: "#d71010ff",
+    },
+
 
 });
 

@@ -4,7 +4,7 @@ import { useRoute } from "@react-navigation/native";
 import { tokenStorage } from "../../utils/storage";
 import { useState, useEffect } from "react";
 import { deleteEvent } from "../../services/events";
-import { getComments, createComment} from "../../services/comments";
+import { getComments, createComment } from "../../services/comments";
 import { useNavigation } from "@react-navigation/native";
 import { Comment } from "../../types/comment";
 import CommentCard from "../../components/CommentCard";
@@ -41,6 +41,11 @@ const EventDetails = () => {
 
     fetchComments();
   }, []);
+
+  const refreshComments = async () => {
+    const data = await getComments(event.id);
+    setComments(data.comments);
+  };
 
   const handleAddComment = async () => {
     if (!commentValue) {
@@ -107,7 +112,7 @@ const EventDetails = () => {
       <FlatList
         data={comments}
         keyExtractor={(item: Comment) => item.comment_id}
-        renderItem={({ item }) => { return (<CommentCard item={item} userID={userID} />); }}
+        renderItem={({ item }) => { return (<CommentCard item={item} userID={userID} onDeleted={refreshComments} />); }}
         removeClippedSubviews
         ListHeaderComponent={
           <View>
