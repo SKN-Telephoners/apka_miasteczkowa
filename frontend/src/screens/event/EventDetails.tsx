@@ -46,7 +46,6 @@ const EventDetails = () => {
       setIsOwner(false);
     }
   }, [userID, event.creator_id]);
-  console.log(comments);
 
   const deleteGoBack = async () => {
     try {
@@ -77,11 +76,11 @@ const EventDetails = () => {
       <FlatList
         data={comments}
         keyExtractor={(item: Comment) => item.comment_id}
-        renderItem={({ item }) => <CommentCard item={item} />}
+        renderItem={({ item }) => {return(<CommentCard item={item} />);}}
         removeClippedSubviews
         ListHeaderComponent={
           <View style={{ alignItems: "center" }}>
-            <Text style={{ fontSize: 28, fontWeight: "bold" }}>{event.name}</Text>
+            <Text style={{ fontSize: 28, fontWeight: "bold", marginTop: 10 }}>{event.name}</Text>
 
             <Text style={{ fontSize: 18, marginVertical: 10 }}>
               Lokalizacja: {event.location}
@@ -111,7 +110,7 @@ const EventDetails = () => {
                 </TouchableOpacity>
               </View>
             </View>)}
-            <Text style={{ fontSize: 16, marginVertical: 10 }}>{event.description}</Text>
+            <Text style={{ fontSize: 16, marginVertical: 10, marginHorizontal: 20 }}>{event.description}</Text>
             <Text style={{ fontSize: 16, marginVertical: 10, fontWeight: "bold" }}>Komentarze</Text>
           </View>
         }

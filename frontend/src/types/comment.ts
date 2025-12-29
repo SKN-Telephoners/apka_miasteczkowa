@@ -6,4 +6,5 @@ export interface Comment {
   created_at: string
   content: string
   edited: boolean
+  replies: Comment[];
 }
