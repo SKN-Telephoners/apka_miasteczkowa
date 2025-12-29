@@ -1,9 +1,23 @@
 import api from "./api";
 
+type ApiMessage = { message?: string };
+
 export const getComments = async (eventId: string) => {
     try {
         const response = await api.get(`/get_comments_list/${eventId}`);
         return response.data;
+    }
+    // error handling 
+    catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || "Network error";
+        throw new Error(msg);
+    }
+};
+
+export const createComment = async (eventId: string, content: string): Promise<string> => {
+    try {
+        const response = await api.post<ApiMessage>(`/create_comment/${eventId}`, {content});
+        return response.data.message ?? "Comment created";
     }
     // error handling 
     catch (err: any) {
