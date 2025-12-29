@@ -4,7 +4,7 @@ import { useRoute } from "@react-navigation/native";
 import { tokenStorage } from "../../utils/storage";
 import { useState, useEffect } from "react";
 import { deleteEvent } from "../../services/events";
-import { getComments, createComment } from "../../services/comments";
+import { getComments, createComment} from "../../services/comments";
 import { useNavigation } from "@react-navigation/native";
 import { Comment } from "../../types/comment";
 import CommentCard from "../../components/CommentCard";
@@ -16,7 +16,7 @@ const EventDetails = () => {
 
   const { event } = route.params;
 
-  const [userID, setUserID] = useState(null);
+  const [userID, setUserID] = useState('');
   const [isOwner, setIsOwner] = useState(false);
   const [comments, setComments] = useState([]);
 
@@ -107,7 +107,7 @@ const EventDetails = () => {
       <FlatList
         data={comments}
         keyExtractor={(item: Comment) => item.comment_id}
-        renderItem={({ item }) => { return (<CommentCard item={item} />); }}
+        renderItem={({ item }) => { return (<CommentCard item={item} userID={userID} />); }}
         removeClippedSubviews
         ListHeaderComponent={
           <View>
