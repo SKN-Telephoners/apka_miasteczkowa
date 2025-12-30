@@ -51,3 +51,17 @@ export const deleteComment = async (commentId: string): Promise<string> => {
         throw new Error(msg);
     }
 };
+
+export const replyToComment = async (parentCommentId: string, content: string): Promise<string> => {
+    try {
+        const response = await api.post<ApiMessage>(`/reply_to_comment/${parentCommentId}`, {
+            content: content
+        });
+        return response.data.message ?? "Created a response";
+    }
+    // error handling 
+    catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || "Network error";
+        throw new Error(msg);
+    }
+}

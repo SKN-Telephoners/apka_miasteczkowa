@@ -8,11 +8,24 @@ import { useState, useRef } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { Comment } from "../types/comment";
-import { editComment, deleteComment } from "../services/comments";
+import { editComment, deleteComment, replyToComment } from "../services/comments";
 
 
 
-const CommentCard = ({ item, level = 0, userID, onDeleted }: { item: Comment, level?: number, userID: string, onDeleted: () => void }) => {
+const CommentCard = ({
+    item,
+    level = 0,
+    userID,
+    onDeleted,
+    onReply,
+}: {
+    item: Comment;
+    level?: number;
+    userID: string;
+    onDeleted: () => void;
+    onReply: (comment: Comment) => void;
+}) => {
+
 
     const date = new Date(item.created_at);
     const [showReplies, setShowReplies] = useState(false);
@@ -47,7 +60,7 @@ const CommentCard = ({ item, level = 0, userID, onDeleted }: { item: Comment, le
 
 
     const handleEditComment = async () => {
-        if (!commentValue) {
+        if (!commentValue || commentValue.trim() === '') {
             Alert.alert("Komentarz nie może być pusty");
             return;
         }
@@ -156,6 +169,16 @@ const CommentCard = ({ item, level = 0, userID, onDeleted }: { item: Comment, le
                     </Text>
                 )}
 
+                <TouchableOpacity onPress={() => {
+                    setIsEditing(false);
+                    onReply(item);
+                }}>
+                    <Text style={{ fontSize: 12, marginHorizontal: 10, marginTop: 10, color: '#59595aff' }}>
+                        <Ionicons name="return-down-forward-sharp" size={10} /> Odpowiedz
+                    </Text>
+                </TouchableOpacity>
+
+
                 {item.replies?.length > 0 && (
                     <>
                         <TouchableOpacity
@@ -171,7 +194,13 @@ const CommentCard = ({ item, level = 0, userID, onDeleted }: { item: Comment, le
 
                         {showReplies &&
                             item.replies.map(reply => (
-                                <CommentCard key={reply.comment_id} item={reply} level={level + 1} userID={userID} onDeleted={onDeleted} />
+                                <CommentCard
+                                    key={reply.comment_id}
+                                    item={reply}
+                                    level={level + 1}
+                                    userID={userID}
+                                    onDeleted={onDeleted}
+                                    onReply={onReply} />
                             ))}
                     </>
                 )}
