@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { StatusBar, ActivityIndicator, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "./contexts/AuthContext";
+import { EventProvider } from "./contexts/EventContext";
 import AppNavigator from "./navigation/AppNavigator";
 import { tokenStorage } from "./utils/storage";
 
