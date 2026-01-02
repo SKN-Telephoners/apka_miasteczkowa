@@ -1,9 +1,9 @@
+//API; Pamiętać o API!;
+
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// Import funkcji API i Storage
-// Zastąpić je naszymi implementacjami!
-import api from '../services/api';
-import { User, Request, FriendsContextType } from '../types/friends'; 
+import * as friendsService from '../services/friends';
+import { User, Request } from '../types/friends';
 
 interface FriendsContextType {
   friends: User[];
@@ -26,10 +26,10 @@ const CONTEXT_DEFAULT_VALUE: FriendsContextType = {
   loading: true, // Zaczynamy od ładowania, aby pobrać cache
   error: null,
   // Zastępcze funkcje dla typowania:
-  fetchFriends: async () => {},
-  sendFriendRequest: async () => {},
-  acceptRequest: async () => {},
-  declineRequest: async () => {},
+  fetchFriends: async () => { },
+  sendFriendRequest: async () => { },
+  acceptRequest: async () => { },
+  declineRequest: async () => { },
   searchUsers: async () => [],
 };
 
@@ -55,17 +55,18 @@ export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const fetchFriends = useCallback(async (isInitialLoad: boolean = false) => {
     setError(null);
     if (!isInitialLoad) {
-      setLoading(true); 
+      setLoading(true);
     }
-    
+
     try {
-      // Symulacja pobierania danych (do zmiany na nasze funkcje API)
-      const data = await api.getFriendsData(); // Zakładamy, że to zwraca { friends, incomingRequests, outgoingRequests }
-      
+      const response = await friendsService.getFriendsList() as any;
+      const data = response || { friends: [], incomingRequests: [], outgoingRequests: [] };
+
+
       setFriends(data.friends);
       setIncomingRequests(data.incomingRequests);
       setOutgoingRequests(data.outgoingRequests);
-      
+
       // Synchronizacja cache po pomyślnym pobraniu
       await saveCache(data);
 
@@ -80,11 +81,9 @@ export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const sendFriendRequest = useCallback(async (userId: string) => {
     try {
       setLoading(true);
-      const newRequest = await api.sendRequest(userId); 
-      
-      setOutgoingRequests(prev => [...prev, newRequest]);
-      
-      await saveCache({ friends, incomingRequests, outgoingRequests: [...outgoingRequests, newRequest] });
+      await friendsService.addFriend(userId);
+      await fetchFriends(); // Odświeżenie listy po akcji
+
     } catch (err) {
       setError("Nie udało się wysłać zaproszenia.");
     } finally {
@@ -95,17 +94,9 @@ export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const acceptRequest = useCallback(async (requestId: string) => {
     try {
       setLoading(true);
-      const acceptedFriend = await api.acceptRequest(requestId); 
-      
-      setIncomingRequests(prev => prev.filter(req => req.id !== requestId));
+      await friendsService.acceptFriend(requestId);
+      await fetchFriends(); // Odświeżenie listy po akcji
 
-      setFriends(prev => [...prev, acceptedFriend]);
-      
-      await saveCache({ 
-        friends: [...friends, acceptedFriend], 
-        incomingRequests: incomingRequests.filter(req => req.id !== requestId), 
-        outgoingRequests 
-      });
 
     } catch (err) {
       setError("Nie udało się zaakceptować zaproszenia.");
@@ -118,17 +109,9 @@ export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const declineRequest = useCallback(async (requestId: string) => {
     try {
       setLoading(true);
-      await api.declineRequest(requestId); 
-      
-  
-      setIncomingRequests(prev => prev.filter(req => req.id !== requestId));
-      
+      await friendsService.rejectFriend(requestId);
+      await fetchFriends(); // Odświeżenie listy po akcji
 
-      await saveCache({ 
-        friends, 
-        incomingRequests: incomingRequests.filter(req => req.id !== requestId), 
-        outgoingRequests 
-      });
     } catch (err) {
       setError("Nie udało się odrzucić zaproszenia.");
     } finally {
@@ -139,11 +122,10 @@ export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const searchUsers = useCallback(async (query: string): Promise<User[]> => {
     try {
-      return await api.searchUsers(query);
+      return await friendsService.searchUsers(query);
     } catch (err) {
       console.error("Error searching users:", err);
-      // Można ustawić error w stanie kontekstu, ale często lepiej obsłużyć go lokalnie w komponencie wyszukiwania.
-      return []; 
+      return [];
     }
   }, []);
 
@@ -160,7 +142,7 @@ export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({ child
       } catch (e) {
         console.error("Failed to load friends cache", e);
       } finally {
-        fetchFriends(true); 
+        fetchFriends(true);
       }
     };
 
