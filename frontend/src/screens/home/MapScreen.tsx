@@ -1,55 +1,30 @@
-import MapLibreRN from "@maplibre/maplibre-react-native";
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
+import { MapView, Camera, setAccessToken } from "@maplibre/maplibre-react-native";
 
-const MapScreen = () => {
+setAccessToken(null);
+
+export default function MapScreen() {
   return (
-    <View style={styles.container}>
-      <MapLibreRN.MapView
+    <View style={styles.page}>
+      <MapView
         style={styles.map}
-        // This styleURL defines the "Look and Feel" (e.g., Streets, Satellite, Dark Mode)
-        // It points to vector data hosted by MapTiler (OSM data)
+        // Use the vector style. Note: "streets" (no version) is safest.
         styleURL="https://api.maptiler.com/maps/streets/style.json?key=6TeNoAO6gd5SoLzdLgGf"
-        // Optional: Start at a specific location
-        logoEnabled={false} // Disable default logo (check attribution rules)
+        logoEnabled={false}
       >
-        <MapLibreRN.Camera
+        <Camera
           zoomLevel={14}
-          centerCoordinate={[19.9449, 50.0647]} // Longitude, Latitude (Example: Kraków)
+          centerCoordinate={[19.9449, 50.0647]}
           animationMode="flyTo"
           animationDuration={2000}
         />
-
-        {/* Example Marker */}
-        <MapLibreRN.PointAnnotation
-          id="marker-1"
-          coordinate={[19.9449, 50.0647]}
-        >
-          <View style={styles.marker}>
-            <Text style={styles.markerText}>📍</Text>
-          </View>
-        </MapLibreRN.PointAnnotation>
-      </MapLibreRN.MapView>
+      </MapView>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  map: {
-    flex: 1,
-  },
-  marker: {
-    width: 40,
-    height: 40,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  markerText: {
-    fontSize: 20,
-  },
+  page: { flex: 1 },
+  map: { flex: 1 },
 });
-
-export default MapScreen;
