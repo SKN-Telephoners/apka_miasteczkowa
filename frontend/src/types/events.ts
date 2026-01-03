@@ -1,8 +1,9 @@
 export type Event = {
-    event_id: string
+    id: string
     name: string
     description: string
-    date_and_time: string
+    date: string;
+    time: string;
     location: string
     creator_id: string
     created_at: string
