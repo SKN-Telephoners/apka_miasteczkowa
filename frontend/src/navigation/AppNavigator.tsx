@@ -8,7 +8,6 @@ import ResetPasswordScreen from "../screens/auth/ResetPasswordScreen";
 import HomeScreen from "../screens/home/HomeScreen";
 import MapScreen from "../screens/home/MapScreen";
 import EventScreen from "../screens/home/EventScreen";
-import UserScreen from "../screens/user/UserScreen";
 import { Ionicons } from "@expo/vector-icons";
 import type { ComponentProps } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -36,10 +35,12 @@ const getIconName = (routeName: string): ComponentProps<typeof Ionicons>['name']
     'Wydarzenia': 'locate',
     'Profil': 'person'
   };
-  
+
   return iconMap[routeName] ?? 'home';
 };
 
+
+import ProfileStack from "./ProfileStack";
 
 // for authenticated users
 const MainTabs = () => {
@@ -71,7 +72,7 @@ const MainTabs = () => {
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Mapa" component={MapScreen} />
       <Tab.Screen name="Wydarzenia" component={EventScreen} />
-      <Tab.Screen name="Profil" component={UserScreen} />
+      <Tab.Screen name="Profil" component={ProfileStack} />
     </Tab.Navigator>
   );
 };

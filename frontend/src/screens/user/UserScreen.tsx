@@ -1,46 +1,39 @@
 import React from "react";
-import { View, Text, StyleSheet, Button, ScrollView } from "react-native";
+import { View, Text, StyleSheet, Button, ScrollView, TouchableOpacity } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
+import { useFriends } from "../../contexts/FriendsContext";
+import { useNavigation } from "@react-navigation/native";
 
-// Mock do zmiany na wczoraj
-const MOCK_USER = {
-  name: "Jan Kowalski",
-  avatar: "[Avatar Janka]", // Placeholder
-  bio: "Frontend Developer. Lubię TypeScript i szybkie kawy.",
-  stats: {
-    friends: 55,
-    posts: 42,
-  },
-  friends: ["Anna Nowak", "Piotr Zieliński", "Ewa Lewandowska"],
-  recentPosts: [
-    "Wydarzenie 1: Spotkanie z ekipą (05.11)",
-    "Wydarzenie 2: Hackathon (20.10)",
-  ],
+// Mock do zmiany na wczoraj, jeśli backend obsłuży te pola
+const MOCK_EXTRAS = {
+  avatar: "👤", // Placeholder avatara
+  bio: "Status: Zew Miasteczka za 3,50!", // Domyślne bio
 };
 
 const UserScreen = () => {
-  // Funkcja do wylogowania
-  const { logout } = useAuth();
-  
-  // Funkcja placeholder dla edycji
+  const { user, logout } = useAuth();
+  const { friends } = useFriends();
+  const navigation = useNavigation<any>(); // Typowanie any dla uproszczenia w tym pliku, idealnie powinno być StackNavigationProp
+
   const handleEditProfile = () => {
-    console.log("Przejście do Edycji Profilu...");
-    // Tutaj będzie nawigacja do edytora
+    navigation.navigate("EditProfile");
   };
 
-  // Funkcja placeholder dla przejścia do profilu znajomego
   const goToFriendProfile = (friendName: string) => {
     console.log(`Przejście do profilu: ${friendName}`);
-    // Jeszcze nawigacja
+    // TODO: Zaimplementować widok profilu innego użytkownika
   };
 
   return (
     <ScrollView style={styles.container}>
       {/* 1. Nagłówek i Avartar */}
       <View style={styles.header}>
-        <Text style={styles.avatarPlaceholder}>{MOCK_USER.avatar}</Text>
-        <Text style={styles.userName}>{MOCK_USER.name}</Text>
-        <Text style={styles.userBio}>{MOCK_USER.bio}</Text>
+        <Text style={styles.avatarPlaceholder}>{MOCK_EXTRAS.avatar}</Text>
+        {/* Wyświetlamy prawdziwe dane z tokena/bazy */}
+        <Text style={styles.userName}>{user?.username || "Użytkownik"}</Text>
+        <Text style={styles.userEmail}>{user?.email}</Text>
+        <Text style={styles.userBio}>{MOCK_EXTRAS.bio}</Text>
+
         <View style={styles.buttonRow}>
           <Button title="Edytuj Profil" onPress={handleEditProfile} />
         </View>
@@ -50,37 +43,38 @@ const UserScreen = () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>📈 Statystyki</Text>
         <View style={styles.statsRow}>
-          <Text style={styles.statItem}>Znajomi: **{MOCK_USER.stats.friends}**</Text>
-          <Text style={styles.statItem}>Posty: **{MOCK_USER.stats.posts}**</Text>
+          {/* Liczba znajomych brana z kontekstu */}
+          <Text style={styles.statItem}>Znajomi: **{friends.length}**</Text>
+          <Text style={styles.statItem}>Posty: **0** (Wkrótce)</Text>
         </View>
       </View>
 
       {/* 3. Lista Postów */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>📜 Twoje Posty</Text>
-        {MOCK_USER.recentPosts.map((post, index) => (
-          <Text key={index} style={styles.listItem} onPress={() => console.log(`Post: ${post}`)}>
-            - {post}
-          </Text>
-        ))}
+        <Text style={styles.infoText}>Historia postów jest w trakcie budowy przez backend.</Text>
       </View>
 
       {/* 4. Lista Znajomych */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>🤝 Znajomi</Text>
-        {MOCK_USER.friends.map((friend, index) => (
-          <Text key={index} style={styles.listItem} onPress={() => goToFriendProfile(friend)}>
-            ➡️ {friend}
-          </Text>
-        ))}
+        <Text style={styles.sectionTitle}>🤝 Znajomi ({friends.length})</Text>
+        {friends.length > 0 ? (
+          friends.map((friend, index) => (
+            <TouchableOpacity key={friend.id || index} onPress={() => goToFriendProfile(friend.username)}>
+              <Text style={styles.listItem}>➡️ {friend.username}</Text>
+            </TouchableOpacity>
+          ))
+        ) : (
+          <Text style={styles.infoText}>Brak znajomych. Dodaj kogoś!</Text>
+        )}
       </View>
 
       {/* 5. Funkcjonalność Wylogowania */}
       <View style={styles.section}>
-        <Button title="Logout" onPress={logout} color="red" />
+        <Button title="Wyloguj" onPress={logout} color="red" />
       </View>
-      
-      <View style={{ height: 50 }} /> {/* Dodatkowy margines na dole */}
+
+      <View style={{ height: 50 }} />
     </ScrollView>
   );
 };
@@ -100,13 +94,17 @@ const styles = StyleSheet.create({
     borderBottomColor: "#eee",
   },
   avatarPlaceholder: {
-    fontSize: 24,
+    fontSize: 50,
     marginBottom: 10,
-    fontWeight: 'bold',
   },
   userName: {
     fontSize: 22,
     fontWeight: "bold",
+    marginBottom: 2,
+  },
+  userEmail: {
+    fontSize: 14,
+    color: "#888",
     marginBottom: 5,
   },
   userBio: {
@@ -114,6 +112,7 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
     marginBottom: 10,
+    fontStyle: 'italic',
   },
   section: {
     marginBottom: 25,
@@ -131,13 +130,18 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
   },
   statItem: {
-    fontSize: 14,
+    fontSize: 16,
     textAlign: "center",
   },
   listItem: {
     fontSize: 16,
-    paddingVertical: 5,
-    color: "#007AFF", // Kolor linku
+    paddingVertical: 8,
+    color: "#007AFF",
+  },
+  infoText: {
+    fontSize: 14,
+    color: "#999",
+    fontStyle: "italic",
   },
   buttonRow: {
     marginTop: 10,
