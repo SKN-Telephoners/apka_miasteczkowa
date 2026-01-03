@@ -3,19 +3,19 @@ import { createStackNavigator } from '@react-navigation/stack';
 import UserScreen from '../screens/user/UserScreen';
 import EditProfileScreen from '../screens/user/EditProfileScreen';
 
-const ProfileStack = createStackNavigator();
+const Stack = createStackNavigator();
 
-const ProfileNavigator = () => {
+const ProfileStack = () => {
     return (
-        <ProfileStack.Navigator screenOptions={{ headerShown: false }}>
-            <ProfileStack.Screen name="UserProfile" component={UserScreen} />
-            <ProfileStack.Screen
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="UserProfile" component={UserScreen} />
+            <Stack.Screen
                 name="EditProfile"
                 component={EditProfileScreen}
                 options={{ headerShown: true, title: "Edycja Profilu" }}
             />
-        </ProfileStack.Navigator>
+        </Stack.Navigator>
     );
 };
 
-export default ProfileNavigator;
+export default ProfileStack;
