@@ -2,7 +2,6 @@ import pytest
 from backend.app import create_app
 from backend.extensions import db, mail
 from backend.models import User, TokenBlocklist, Friendship, FriendRequest, Event
-from datetime import datetime, timezone, timedelta
 from re import search
 
 @pytest.fixture
