@@ -2,7 +2,6 @@ import pytest
 from backend.app import create_app
 from backend.extensions import db, mail
 from backend.models import User, TokenBlocklist, Friendship, FriendRequest, Event
-from datetime import datetime, timezone, timedelta
 from re import search
 
 @pytest.fixture
@@ -83,7 +82,7 @@ def event(client, logged_in_user):
     payload = {
         "name": "event1",
         "description": "very cool event",
-        "date": "01.01.2026",
+        "date": "01.01.2050",
         "time": "21:37",
         "location": "here"
     }

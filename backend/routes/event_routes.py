@@ -99,6 +99,82 @@ def delete_event(event_id):
         "message": "Event deleted successfully"
     }), 200
 
+@events_bp.route("/edit/<event_id>", methods=["PUT"])
+@limiter.limit("100 per minute")
+@jwt_required()
+def edit_event(event_id):
+    user = get_current_user()
+
+    try:
+        event_id = uuid.UUID(event_id)
+    except Exception:
+        return jsonify({"message": "Invalid event ID format"}), 400
+
+    event = Event.query.filter_by(event_id=event_id).first()
+
+    if event is None:
+        return jsonify({"message": "Event doesn't exist"}), 404
+
+    if user.user_id != event.creator_id:
+        return jsonify({"message": "You can edit your own events only"}), 403
+
+    event_data = request.get_json()
+    if not event_data:
+        return jsonify({"message": "Bad request"}), 400
+
+    name = event_data.get("name", "")
+    description = event_data.get("description", "")
+    date_str = event_data.get("date")
+    time_str = event_data.get("time")
+    location = event_data.get("location", "")
+
+    if name is not None:
+        name = name.strip()
+        if not (3 <= len(name) <= 32):
+            return jsonify({"message": "Event name must be between 3 and 32 characters"}), 400
+        event.name = name
+
+    if description is not None:
+        description = description.strip()
+        if len(description) > 1000:
+            return jsonify({"message": "Description is too long (max 1000 characters)"}), 400
+        event.description = description
+
+    if location is not None:
+        location = location.strip()
+        if len(location) > 32:
+            return jsonify({"message": "Location name is too long (max 32 characters)"}), 400
+        event.location = location
+
+    if date_str is not None or time_str is not None:
+        if not date_str or not time_str:
+            return jsonify({"message": "Both date and time are required"}), 400
+
+        try:
+            dt_string = f"{date_str} {time_str}"
+            date_and_time = datetime.strptime(dt_string, "%d.%m.%Y %H:%M")
+            date_and_time = date_and_time.replace(tzinfo=timezone.utc)
+
+            if date_and_time <= datetime.now(timezone.utc):
+                return jsonify({"message": "Event date must be in the future"}), 400
+
+            event.date_and_time = date_and_time
+        except ValueError:
+            return jsonify({"message": "Invalid date format. Use DD.MM.YYYY and HH:MM"}), 400
+    
+    event.edited = True
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Database error: {e}")
+        return jsonify({"message": "Internal server error"}), 500
+
+    return jsonify({
+        "message": "Event edited successfully"
+    }), 200
+
 @events_bp.route("/feed", methods=["GET"])
 def feed():
     page = request.args.get("page", default=1, type=int)
