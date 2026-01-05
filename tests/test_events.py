@@ -15,7 +15,7 @@ def test_create_event(client, logged_in_user, app):
         payload = {
             "name": "event1",
             "description": "very cool event",
-            "date": "01.01.2026",
+            "date": "01.01.2050",
             "time": "21:37",
             "location": "here"
         }
@@ -59,7 +59,7 @@ def test_delete_event(client, logged_in_user, app):
         payload = {
             "name": "to delete",
             "description": "very cool event",
-            "date": "01.01.2026",
+            "date": "01.01.2050",
             "time": "21:37",
             "location": "here"
         }
@@ -94,7 +94,7 @@ def test_delete_event_not_owner(client, logged_in_user, registered_friend, app):
         event = Event(
             name="event1",
             description="private",
-            date_and_time=datetime(2026, 1, 1, 21, 37),
+            date_and_time=datetime(2050, 1, 1, 21, 37),
             location="here",
             creator_id=friend.user_id #other user
         )
@@ -134,7 +134,7 @@ def test_create_event_invalid_payload(client, logged_in_user, app):
         payload = {
             "name": "e", 
             "description": "valid desc",
-            "date": "01.01.2026",
+            "date": "01.01.2050",
             "time": "21:37",
             "location": "valid loc"
         }
