@@ -35,6 +35,7 @@ class Comment(db.Model):
             "comment_id": str(self.comment_id),
             "user_id": str(self.user_id) if not self.deleted else None,
             "content": self.content if not self.deleted else "[deleted]",
+            "edited": self.edited,
             "deleted": self.deleted,
             "created_at": self.created_at.isoformat(),
             "parent_comment_id": (str(self.parent_comment_id) if self.parent_comment_id else None),
