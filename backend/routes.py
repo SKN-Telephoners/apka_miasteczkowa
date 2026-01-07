@@ -228,7 +228,7 @@ def update_user_course_or_academy():
     if academy == "AGH" and academic_circle:   
         academic_circle = (academic_circle)      
     
-    if acdemic_circle = None:
+    if academic_circle is None:
         academic_circle = (None)
 
     if year: 
@@ -237,7 +237,7 @@ def update_user_course_or_academy():
             return jsonify({"message": "Invalid year"}), 404
         year = (year)
 
-    if year = None:
+    if year is None:
         year = (None)
     
     db.session.commit()
