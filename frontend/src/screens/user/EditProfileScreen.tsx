@@ -44,7 +44,7 @@ const EditProfileScreen = () => {
                     style={styles.input}
                     value={username}
                     onChangeText={setUsername}
-                    editable={false} // Często nazwa użytkownika jest niezmienialna, zależy od wymagań
+                    editable={false}
                 />
                 <Text style={styles.hint}>Nazwa użytkownika jest stała.</Text>
 

@@ -13,7 +13,7 @@ const MOCK_EXTRAS = {
 const UserScreen = () => {
   const { user, logout } = useAuth();
   const { friends } = useFriends();
-  const navigation = useNavigation<any>(); // Typowanie any dla uproszczenia w tym pliku, idealnie powinno być StackNavigationProp
+  const navigation = useNavigation<any>(); // Typowanie any dla uproszczenia
 
   const handleEditProfile = () => {
     navigation.navigate("EditProfile");
