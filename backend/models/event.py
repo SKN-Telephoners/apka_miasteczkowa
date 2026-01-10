@@ -20,3 +20,18 @@ class Event(db.Model):
     )
 
     creator = db.relationship("User", foreign_keys=[creator_id])
+
+class Invite(db.Model):
+    __tablename__ = "event_invite"
+    
+    invite_id=db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
+    event_id=db.Column(UUID(as_uuid=True), db.ForeignKey("event.event_id", ondelete='CASCADE'), nullable=False, index=True)
+    user_id=db.Column(UUID(as_uuid=True), db.ForeignKey("app_user.user_id", ondelete='CASCADE'), nullable=False, index=True)
+
+
+    __table_args__ = (
+        db.UniqueConstraint("event_id", "user_id", name="unique_event_invite"),
+    )
+
+    event = db.relationship("Event", foreign_keys=[event_id])
+    user = db.relationship("User", foreign_keys=[user_id])
