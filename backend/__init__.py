@@ -3,6 +3,7 @@ from backend.extensions import db, bcrypt, jwt, mail, limiter, CORS, celery_init
 from backend.config import Config, TestConfig
 from backend.routes import main, auth
 from werkzeug.exceptions import HTTPException
+from flask_talisman import Talisman
 import logging
 
 def create_app(test_mode=False):
@@ -26,6 +27,23 @@ def create_app(test_mode=False):
     app.register_blueprint(auth)
 
     logging.basicConfig(level=logging.INFO)
+
+    csp = {
+        'default-src': "'none'",
+        'frame-ancestors': "'none'",
+        'form-action': "'none'"
+    }
+
+    Talisman(
+        app,
+        content_security_policy=csp,
+        force_https=not test_mode,
+        session_cookie_secure=not test_mode,
+        session_cookie_http_only=True,
+        strict_transport_security=True,
+        strict_transport_security_max_age=3153600, #1 rok
+        referrer_policy='no-referrer'
+    )
     
     @app.errorhandler(429)
     def on_ratelimit(e):
