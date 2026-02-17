@@ -94,10 +94,12 @@ def create_events(client, logged_in_user):
 def event(client, logged_in_user):
     token = logged_in_user[1]
 
+    future_date = (datetime.now(timezone.utc) + timedelta(days=1))
+
     payload = {
         "name": "event1",
         "description": "very cool event",
-        "date": "01.01.2026",
+        "date": future_date.strftime("%d.%m.%Y"),
         "time": "21:37",
         "location": "here"
     }

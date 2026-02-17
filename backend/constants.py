@@ -12,4 +12,6 @@ class Constants:
     USERNAME_PATTERN = r"^[A-Za-z0-9_.'-]+$"
     PASSWORD_PATTERN = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,72}$"
     RESET_PASSWORD_EXPIRES = 15
+    PAGINATION_DEFAULT_LIMIT = 20
+    MAX_PAGINATION_LIMIT = 50
     

@@ -4,7 +4,7 @@ from backend.extensions import db, jwt, mail, limiter
 from backend.constants import Constants
 from backend.responses import ResponseTypes, make_api_response
 from flask_jwt_extended import jwt_required, create_access_token, create_refresh_token, get_jwt, get_jwt_identity, get_current_user, decode_token
-from backend.helpers import add_token_to_db, revoke_token, is_token_revoked, revoke_all_user_tokens, validate_uuid
+from backend.helpers import add_token_to_db, revoke_token, is_token_revoked, revoke_all_user_tokens, validate_uuid, sanitize_input
 from backend.tasks import send_email_async
 import re
 import uuid
@@ -27,9 +27,9 @@ def register_user():
     if not user_data or not required_keys.issubset(user_data.keys()):
         return make_api_response(ResponseTypes.BAD_REQUEST)
     
-    username = user_data["username"]
+    username = sanitize_input(user_data["username"])
     password = user_data["password"]
-    email = user_data["email"]
+    email = sanitize_input(user_data["email"]).lower()
 
     if (
         not re.match(Constants.EMAIL_PATTERN, email)
@@ -467,11 +467,11 @@ def create_event():
         current_app.logger.error("dupa")
         return make_api_response(ResponseTypes.BAD_REQUEST, message="Missing fields")
     
-    name = str(event_data.get("name", "")).strip()
-    description = str(event_data.get("description", "")).strip()
+    name = sanitize_input(str(event_data.get("name", ""))).strip()
+    description = sanitize_input(str(event_data.get("description", ""))).strip()
     date_str = str(event_data.get("date", "")).strip()
     time_str = str(event_data.get("time", "")).strip()
-    location = str(event_data.get("location", "")).strip()
+    location = sanitize_input(str(event_data.get("location", ""))).strip()
 
     if not (Constants.MIN_EVENT_NAME <= len(name) <= Constants.MAX_EVENT_NAME):
         return make_api_response(ResponseTypes.INVALID_DATA, message=f"Event name must be between {Constants.MIN_EVENT_NAME} and {Constants.MAX_EVENT_NAME} characters")
@@ -526,6 +526,7 @@ def delete_event(event_id):
         return make_api_response(ResponseTypes.NOT_FOUND, message="Event doesn't exist")
 
     if user.user_id != event.creator_id:
+        current_app.logger.warning(f"Użytkownik {user.user_id} próbował usunąć event {event_id} bez uprawnień do niego")
         return make_api_response(ResponseTypes.FORBIDDEN, message="You can delete your own events only")
     try:
         db.session.delete(event)
@@ -543,8 +544,16 @@ def delete_event(event_id):
 def feed():
     try:
         page = request.args.get("page", default=1, type=int)
-        limit = request.args.get("limit", default=20, type=int)
+        limit = request.args.get("limit", default=Constants.PAGINATION_DEFAULT_LIMIT, type=int)
         sort=request.args.get("sort", default=1, type=int)
+
+        #walidacja danych wejściowych
+        if page < 1:
+            page = 1
+        if limit < 1:
+            limit = Constants.PAGINATION_DEFAULT_LIMIT
+        if limit > Constants.MAX_PAGINATION_LIMIT:
+            limit = Constants.MAX_PAGINATION_LIMIT
 
         events = Event.query
         if sort==1:
@@ -642,9 +651,9 @@ def create_comment(event_id):
     if not e_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid event ID")
 
-    event = Event.query.filter_by(event_id=event_id)
+    event = db.session.get(Event, e_uuid)
 
-    if event is None:
+    if not event:
         return make_api_response(ResponseTypes.NOT_FOUND, message="Event doesn't exist")
     
     comment_data = request.get_json(silent=True)
@@ -653,7 +662,7 @@ def create_comment(event_id):
     if not comment_data or not required_keys.issubset(comment_data.keys()):
         return make_api_response(ResponseTypes.BAD_REQUEST, message="Missing content")
     
-    content = str(comment_data["content"]).strip()
+    content = sanitize_input(str(comment_data["content"])).strip()
     if not content:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Content cannot be empty")
     
@@ -698,7 +707,7 @@ def delete_comment(comment_id):
 
     return make_api_response(ResponseTypes.SUCCESS, message="Comment deleted successfully")
 
-@main.route("/edit_comment/<comment_id>", methods=["POST", "GET"])
+@main.route("/edit_comment/<comment_id>", methods=["POST"])
 @jwt_required()
 def edit_comment(comment_id):
     user = get_current_user()
@@ -708,12 +717,16 @@ def edit_comment(comment_id):
     
     comment = Comment.query.filter_by(comment_id=comment_id).first()
 
-    if comment is None:
+    if not comment:
         return make_api_response(ResponseTypes.NOT_FOUND, message="Comment doesn't exist")
 
     if user.user_id != comment.user_id:
+        current_app.logger.warning(f"Użytkownik {user.user_id} próbował edytować komentarz {comment_id} użytkownika {comment.user_id}")
         return make_api_response(ResponseTypes.FORBIDDEN, message="You can edit your own comments only")
         
+    if comment.deleted:
+        return make_api_response(ResponseTypes.BAD_REQUEST, message="Cannot edit a deleted comment")
+    
     data = request.get_json(silent=True)
     if not data or "new_content" not in data:
         return make_api_response(ResponseTypes.BAD_REQUEST, message="Missing new_content")

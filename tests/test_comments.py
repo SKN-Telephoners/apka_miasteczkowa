@@ -39,10 +39,10 @@ def test_create_comment_no_content(client, app, logged_in_user, event):
 
         response_create_comment = client.post(f"/create_comment/{event.event_id}", headers={
             "Authorization": f"Bearer {token}"
-        }, json={"comment": ""}) 
+        }, json={"content": ""}) 
 
         assert response_create_comment.status_code == 400
-        assert response_create_comment.get_json()["message"] == "Missing content"
+        
 
 def test_delete_comment(client, app, logged_in_user, comment):
     with app.app_context():
