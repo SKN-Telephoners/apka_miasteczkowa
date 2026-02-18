@@ -8,8 +8,8 @@ from backend.helpers import add_token_to_db, revoke_token, sanitize_input
 import re
 from flask_mail import Message
 
-auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 public_url = "example address"
+auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 @auth_bp.route("/register",methods=["POST"])
 @limiter.limit("500 per hour")   # for tests, 500 registers for IP per hour, change before deployment to 5
