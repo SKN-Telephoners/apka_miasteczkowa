@@ -118,7 +118,7 @@ def delete_comment(comment_id):
 
     return make_api_response(ResponseTypes.SUCCESS, message="Comment deleted successfully")
 
-@comments_bp.route("/edit/<comment_id>", methods=["PUT"])
+@comments_bp.route("/edit/<comment_id>", methods=["POST"])
 @jwt_required()
 def edit_comment(comment_id):
     user = get_current_user()
@@ -134,7 +134,7 @@ def edit_comment(comment_id):
     if user.user_id != comment.user_id:
         current_app.logger.warning(f"Użytkownik {user.user_id} próbował edytować komentarz {comment_id} użytkownika {comment.user_id}")
         return make_api_response(ResponseTypes.FORBIDDEN, message="You can edit your own comments only")
-    
+
     if comment.deleted:
         return make_api_response(ResponseTypes.BAD_REQUEST, message="Cannot edit a deleted comment")
         
@@ -147,8 +147,7 @@ def edit_comment(comment_id):
         return make_api_response(ResponseTypes.INVALID_DATA, message="Content cannot be enpty")
     
     if len(new_content) > Constants.MAX_COMMENT_LEN:
-        return make_api_response(ResponseTypes.INVALID_DATA, message="Comment too long")
-
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Comment too long")    
     try:
         comment.content = new_content
         comment.edited = True
@@ -166,9 +165,7 @@ def get_comments_list(event_id):
     e_uuid = validate_uuid(event_id)
     if not e_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid event ID")
-
-    comments = Comment.query.filter_by(event_id=event_id).order_by(Comment.created_at.asc()).all()
-
+    
     try:
         comments = Comment.query.filter_by(event_id=event_id).order_by(Comment.created_at.asc()).all()
 

@@ -14,8 +14,7 @@ email_bp = Blueprint("email", __name__, url_prefix="/api/email")
 
 @email_bp.route("/verify_request",methods=["POST"])
 def verify_request():
-    user_data = request.get_json()
-
+    user_data = request.get_json(silent=True)    
     if not user_data or not "email" in user_data.keys():
         return make_api_response(ResponseTypes.BAD_REQUEST)
     
@@ -60,7 +59,7 @@ def verify(token):
     except Exception as e:
         current_app.logger.erro(f"Mail auth token error: {e}")
         return make_api_response(ResponseTypes.BAD_REQUEST, message="Invalid or expired link")
-
+    
 @email_bp.route("/reset_password_request", methods=["POST"])
 @limiter.limit("500 per hour")   # for tests, 500 password resets for IP per hour, change before deployment to 5
 def reset_password_request():

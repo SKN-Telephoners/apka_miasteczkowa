@@ -9,6 +9,7 @@ import re
 from flask_mail import Message
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
+public_url = "example address"
 
 @auth_bp.route("/register",methods=["POST"])
 @limiter.limit("500 per hour")   # for tests, 500 registers for IP per hour, change before deployment to 5
@@ -40,6 +41,7 @@ def register_user():
     if User.query.filter_by(email=email).first() is not None:
         return make_api_response(ResponseTypes.CONFLICT, message="Account with this email already exists")
 
+    db.session.add(new_user)
     #send auth email
     auth_token = create_access_token(identity=email)
     auth_url = url_for("email.verify", token=auth_token, _external=True)
@@ -86,7 +88,7 @@ def login_user():
     if not user or not user.validate_password(password):
         return make_api_response(ResponseTypes.INVALID_CREDENTIALS)
     if not user.is_confirmed:
-        return make_api_response(ResponseTypes.ACCOUNT_NOT_VERIFIED)
+       return make_api_response(ResponseTypes.ACCOUNT_NOT_VERIFIED)
     
     limiter.reset()
 
@@ -143,7 +145,7 @@ def logout():
             
     return make_api_response(ResponseTypes.LOGOUT_SUCCESS)
 
-@auth_bp.route("/revoke_access", methods=["DELETE"])
+@auth_bp.route("/revoke_access", methods=["GET", "DELETE"])
 @jwt_required()
 def revoke_access_token():
     jti = get_jwt()["jti"]
