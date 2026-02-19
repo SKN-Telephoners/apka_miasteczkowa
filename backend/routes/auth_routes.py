@@ -1,3 +1,4 @@
+from datetime import timedelta
 from flask import Blueprint, request, url_for
 from backend.models import User
 from backend.extensions import db, mail, limiter
@@ -42,8 +43,14 @@ def register_user():
         return make_api_response(ResponseTypes.CONFLICT, message="Account with this email already exists")
 
     db.session.add(new_user)
+    db.session.flush()
     #send auth email
-    auth_token = create_access_token(identity=email)
+    auth_token = create_access_token(
+        identity=new_user.user_id,
+        expires_delta=timedelta(hours=24),
+        additional_claims={"type": "email_verification"}
+        )
+    add_token_to_db(auth_token)
     auth_url = url_for("email.verify", token=auth_token, _external=True)
 
     msg = Message(
@@ -118,7 +125,7 @@ def refresh():
 
     add_token_to_db(new_access_token)
     add_token_to_db(new_refresh_token)
-    
+
     return make_api_response(ResponseTypes.SUCCESS, data={
         "access_token": new_access_token,
         "refresh_token": new_refresh_token
