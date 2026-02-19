@@ -3,6 +3,8 @@ from backend.extensions import db
 from flask_jwt_extended import decode_token
 from backend.models import TokenBlocklist
 from sqlalchemy.exc import NoResultFound
+import uuid
+import bleach
 
 def add_token_to_db(encoded_token):
     decoded_token = decode_token(encoded_token)
@@ -47,9 +49,9 @@ def is_token_revoked(jwt_payload):
         if token is None:
             return True
         return token.revoked_at is not None
-    except NoResultFound:
-        #change before deployment to line: "return True" for security purpouses 
-        raise Exception(f"Could not find token {jti}")
+    except Exception as e:
+        print(f"Database error in is_token_revoked: {e}")
+        return True
 
 def revoke_all_user_tokens(user_id):
     try:
@@ -62,3 +64,14 @@ def revoke_all_user_tokens(user_id):
         db.session.rollback()
         print(f"Error revoking all tokens from user: {user_id}: {e}")
         raise
+
+def validate_uuid(uuid_string):
+    try:
+        return uuid.UUID(uuid_string)
+    except (ValueError, TypeError):
+        return None
+    
+def sanitize_input(text):
+    if not text:
+        return text
+    return bleach.clean(text, tags=[], attributes=[], strip=True)

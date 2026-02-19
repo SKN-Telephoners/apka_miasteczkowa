@@ -10,7 +10,7 @@ class Event(db.Model):
     event_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
     name = db.Column(db.String(32), nullable=False)
     description = db.Column(db.String(1000))
-    date_and_time = db.Column(db.DateTime(timezone=True), default=datetime.now(timezone.utc), nullable=False)
+    date_and_time = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
     location = db.Column(db.String(32), nullable=False)
     creator_id = db.Column(UUID(as_uuid=True), db.ForeignKey("app_user.user_id", ondelete='CASCADE'), nullable=False, index=True)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)

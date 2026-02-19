@@ -1,5 +1,6 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint
 from flask_jwt_extended import jwt_required, get_current_user
+from backend.responses import ResponseTypes, make_api_response
 
 users_bp = Blueprint("users", __name__, url_prefix="/api/users")
 
@@ -9,11 +10,10 @@ def get_user_info():
     user = get_current_user()
 
     if not user:
-        return jsonify({"message": "User not found"}), 404
+        return make_api_response(ResponseTypes.NOT_FOUND, message="User not found")
 
-    return {
+    return make_api_response(ResponseTypes.SUCCESS, data={
         "user": {
             "username": user.username,
             "email": user.email
-        },
-    }, 200
+        }})
