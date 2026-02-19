@@ -2,8 +2,10 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 16.10 (Ubuntu 16.10-0ubuntu0.24.04.1)
--- Dumped by pg_dump version 16.10 (Ubuntu 16.10-0ubuntu0.24.04.1)
+\restrict UNI903pW0XC68tzQCXCzGmUfFl5Or7blLoHMqOKiaRk21Ymdv9JvhQdu1x0vasH
+
+-- Dumped from database version 16.11 (Ubuntu 16.11-0ubuntu0.24.04.1)
+-- Dumped by pg_dump version 16.11 (Ubuntu 16.11-0ubuntu0.24.04.1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -44,7 +46,6 @@ CREATE TABLE public.app_user (
     password_hash character varying(128) NOT NULL,
     email character varying(320) NOT NULL,
     created_at timestamp without time zone DEFAULT now(),
-    is_confirmed BOOLEAN DEFAULT FALSE NOT NULL,
     CONSTRAINT email_format CHECK (((email)::text ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'::text))
 );
 
@@ -62,7 +63,8 @@ CREATE TABLE public.comments (
     event_id uuid NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     content character varying(1000) NOT NULL,
-    edited boolean DEFAULT false NOT NULL
+    edited boolean DEFAULT false NOT NULL,
+    deleted boolean DEFAULT false
 );
 
 
@@ -73,14 +75,14 @@ ALTER TABLE public.comments OWNER TO postgres;
 --
 
 CREATE TABLE public.event (
-    event_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    event_id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
     name character varying(32) NOT NULL,
     description character varying(1000),
-    date_and_time timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    date_and_time timestamp with time zone DEFAULT (now() AT TIME ZONE 'UTC'::text) NOT NULL,
     location character varying(32) NOT NULL,
     creator_id uuid NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_at timestamp with time zone DEFAULT (now() AT TIME ZONE 'UTC'::text) NOT NULL,
+    edited boolean DEFAULT false NOT NULL,
     CONSTRAINT check_event_date_future CHECK ((date_and_time > CURRENT_TIMESTAMP))
 );
 
@@ -230,19 +232,11 @@ CREATE INDEX idx_event_creator_id ON public.event USING btree (creator_id);
 
 
 --
--- Name: comments comments_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.comments
-    ADD CONSTRAINT comments_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.event(event_id) ON DELETE CASCADE;
-
-
---
 -- Name: comments comments_parent_comment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.comments
-    ADD CONSTRAINT comments_parent_comment_id_fkey FOREIGN KEY (parent_comment_id) REFERENCES public.comments(comment_id) ON DELETE CASCADE;
+    ADD CONSTRAINT comments_parent_comment_id_fkey FOREIGN KEY (parent_comment_id) REFERENCES public.comments(comment_id) ON DELETE SET NULL;
 
 
 --
@@ -286,14 +280,6 @@ ALTER TABLE ONLY public.friend_requests
 
 
 --
--- Name: token_blocklist fk_user; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.token_blocklist
-    ADD CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES public.app_user(user_id) ON DELETE CASCADE;
-
-
---
 -- Name: friendships fk_user; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -302,5 +288,16 @@ ALTER TABLE ONLY public.friendships
 
 
 --
+-- Name: token_blocklist fk_user; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.token_blocklist
+    ADD CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES public.app_user(user_id) ON DELETE CASCADE;
+
+
+--
 -- PostgreSQL database dump complete
 --
+
+\unrestrict UNI903pW0XC68tzQCXCzGmUfFl5Or7blLoHMqOKiaRk21Ymdv9JvhQdu1x0vasH
+

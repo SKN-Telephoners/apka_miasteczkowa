@@ -5,6 +5,7 @@ from backend.routes import main, auth
 from werkzeug.exceptions import HTTPException
 from flask_talisman import Talisman
 import logging
+from backend.routes import register_blueprints
 
 def create_app(test_mode=False):
     app = Flask(__name__)

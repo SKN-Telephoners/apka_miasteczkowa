@@ -125,7 +125,7 @@ def refresh():
 
     add_token_to_db(new_access_token)
     add_token_to_db(new_refresh_token)
-
+    
     return make_api_response(ResponseTypes.SUCCESS, data={
         "access_token": new_access_token,
         "refresh_token": new_refresh_token
