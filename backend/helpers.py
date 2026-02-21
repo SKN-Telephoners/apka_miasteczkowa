@@ -53,11 +53,15 @@ def is_token_revoked(jwt_payload):
         print(f"Database error in is_token_revoked: {e}")
         return True
 
-def revoke_all_user_tokens(user_id):
+def revoke_all_user_tokens(user_id, token_type=None):
     try:
-        tokens = TokenBlocklist.query.filter_by(user_id=user_id, revoked_at=None).all()
+        query = TokenBlocklist.query.filter_by(user_id=user_id, revoked_at=None)
+        if token_type:
+            query = query.filter_by(token_type=token_type)
+
+        tokens = query.all()
         for token in tokens:
-            token.revoked_at = datetime.datetime.now(datetime.timezone.utc)
+            token.revoked_at = datetime.now(datetime.timezone.utc)
         db.session.commit()
         return True
     except Exception as e:

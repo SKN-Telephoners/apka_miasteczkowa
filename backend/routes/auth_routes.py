@@ -1,3 +1,4 @@
+from datetime import timedelta
 from flask import Blueprint, request, url_for
 from backend.models import User
 from backend.extensions import db, mail, limiter
@@ -8,8 +9,8 @@ from backend.helpers import add_token_to_db, revoke_token, sanitize_input
 import re
 from flask_mail import Message
 
-public_url = "example address"
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
+public_url = "example address"
 
 @auth_bp.route("/register",methods=["POST"])
 @limiter.limit("500 per hour")   # for tests, 500 registers for IP per hour, change before deployment to 5
@@ -42,8 +43,14 @@ def register_user():
         return make_api_response(ResponseTypes.CONFLICT, message="Account with this email already exists")
 
     db.session.add(new_user)
+    db.session.flush()
     #send auth email
-    auth_token = create_access_token(identity=email)
+    auth_token = create_access_token(
+        identity=new_user.user_id,
+        expires_delta=timedelta(hours=24),
+        additional_claims={"type": "email_verification"}
+        )
+    add_token_to_db(auth_token)
     auth_url = url_for("email.verify", token=auth_token, _external=True)
 
     msg = Message(

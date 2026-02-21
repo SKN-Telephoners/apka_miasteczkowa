@@ -13,6 +13,8 @@ class User(db.Model):
     email = db.Column(db.String(320), nullable=False, unique=True)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
     is_confirmed = db.Column(db.Boolean, default=False)
+    password_changed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    confirmed_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
         CheckConstraint(r"email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'", name="email_format"),
