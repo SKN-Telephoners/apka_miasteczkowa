@@ -1,7 +1,6 @@
 from flask import Flask, jsonify, make_response
 from backend.extensions import db, bcrypt, jwt, mail, limiter, CORS, celery_init_app
 from backend.config import Config, TestConfig
-from backend.routes import main, auth
 from werkzeug.exceptions import HTTPException
 from flask_talisman import Talisman
 import logging
@@ -22,9 +21,6 @@ def create_app(test_mode=False):
     mail.init_app(app)
     limiter.init_app(app)
     celery_init_app(app)
-    
-    app.register_blueprint(main)
-    app.register_blueprint(auth)
 
     logging.basicConfig(level=logging.INFO)
 
