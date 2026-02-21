@@ -51,6 +51,9 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
   };
 
   const validatePassword = (text: string): string | null => {
+
+    // TODO: add password upper limit 32 chars
+
     const password_pattern = new RegExp(
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/
     );

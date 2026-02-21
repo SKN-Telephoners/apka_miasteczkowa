@@ -19,4 +19,19 @@ export const tokenStorage = {
     await SecureStore.deleteItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
     await SecureStore.deleteItemAsync(STORAGE_KEYS.REFRESH_TOKEN);
   },
+
+  getUserId: async () => {
+    const accessToken = await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+
+    if (!accessToken) {
+      return null;
+    }
+
+    const payload = accessToken.split('.')[1];
+    const decodedPayload = JSON.parse(atob(payload));
+    const plainObject = JSON.parse(JSON.stringify(decodedPayload));
+
+    return plainObject.sub;
+  },
+
 };
