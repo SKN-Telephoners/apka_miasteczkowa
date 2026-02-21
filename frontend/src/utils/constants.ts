@@ -8,6 +8,10 @@ export const API_BASE_URL = __DEV__
     })
   : "https://production-api.com";
 
+if (!__DEV__ && !API_BASE_URL.startsWith('https://')) {
+  throw new Error("App has to use HTTPS protocol");
+}
+
 export const STORAGE_KEYS = {
   ACCESS_TOKEN: "access_token",
   REFRESH_TOKEN: "refresh_token",
