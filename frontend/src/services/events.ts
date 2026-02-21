@@ -2,6 +2,7 @@ import api from "./api";
 import { Event } from "../types";
 
 type ApiMessage = { message?: string }; //type string insure for backend function response
+type CreateEventResponse = { message: string; event_id: string };
 
 interface EventData {
     name: string;
@@ -23,13 +24,13 @@ export interface PaginatedEvents {
 }
 
 // Create event
-export const createEvent = async (eventData: EventData): Promise<string> => { // check promise
+export const createEvent = async(eventData: EventData) : Promise<CreateEventResponse> =>{ // check promise
     try {
-        const response = await api.post<ApiMessage>('/create_event', eventData);
-        return response.data.message ?? "Event created";// return, delete if unnecessary
-    }
-    // error handling 
-    catch (err: any) {
+        const response = await api.post<CreateEventResponse>('/create_event', eventData);
+        return response.data;
+        }
+        // error handling 
+         catch (err: any) {
         const msg = err?.response?.data?.message || err?.message || "Network error";
         throw new Error(msg);
     }
