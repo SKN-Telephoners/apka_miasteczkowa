@@ -20,10 +20,14 @@ def add_token_to_db(encoded_token):
 def revoke_token(token_jti, user_id):
     try:
         token = TokenBlocklist.query.filter_by(jti=token_jti, user_id=user_id).one()
-        token.revoked_at = datetime.datetime.now()
-        db.session.commit()
-    except NoResultFound:
-        raise Exception(f"Could not find token {token_jti}")
+        if token:
+            token.revoked_at = datetime.datetime.now()
+            db.session.commit()
+            return True
+    except Exception as e:
+        print(f"Error revoking token: {e}")
+        return False
+    return False
 
 def is_token_revoked(jwt_payload):
     jti = jwt_payload["jti"]

@@ -8,7 +8,7 @@ from backend.models import User
 def test_register_successful(client, app):
     with app.app_context():
         username = "user1"
-        password = "secret"
+        password = "Secret123" # Strong password
         email = "user1@gmail.com"
         
         payload = {
@@ -45,8 +45,8 @@ def test_register_missing_key(client, app):
 
 def test_register_invalid_credentials(client, app):
     with app.app_context():
-        username = "a"
-        password = "secret"
+        username = "a" # Too short
+        password = "Secret123"
         email = "user1@gmail.com"
         
         payload = {
@@ -58,14 +58,15 @@ def test_register_invalid_credentials(client, app):
         response1 = client.post("/api/register", json=payload)
         
         assert response1.status_code == 400
+        # New regex error message for username or email
         assert response1.get_json() == {
             "message": "Invalid username or email"
         }
         assert User.query.filter_by(username=username).first() is None
         
         username = "goodusername"
-        password = "secret"
-        email = "@gmail[]'user1@gmail.com"
+        password = "Secret123"
+        email = "@gmail[]'user1@gmail.com" # Invalid email
         
         payload = {
             "username": username,
@@ -75,19 +76,32 @@ def test_register_invalid_credentials(client, app):
         
         response2 = client.post("api/register", json=payload)
         
-        assert response1.status_code == 400
-        assert response1.get_json() == {
+        assert response2.status_code == 400
+        assert response2.get_json() == {
             "message": "Invalid username or email"
         }
         assert User.query.filter_by(username=username).first() is None
+
+# New test for weak passwords
+def test_register_weak_password(client, app):
+    with app.app_context():
+        payload = {
+            "username": "validuser",
+            "password": "weak", 
+            "email": "valid@gmail.com"
+        }
         
+        response = client.post("/api/register", json=payload)
+        assert response.status_code == 400
+        assert "Password must be 8-72 chars long" in response.get_json()["message"] or "Incorrect password format" in response.get_json()["message"]
+
 def test_register_username_taken(client, registered_user, app):
     with app.app_context():
         user, password = registered_user
         assert User.query.filter_by(username=user.username).first() is not None
 
         username2 = user.username
-        password2 = "secret"
+        password2 = "Secret123"
         email2 = "user2@gmail.com"
         
         payload = {
@@ -110,7 +124,7 @@ def test_register_email_exists(client, registered_user, app):
         assert User.query.filter_by(username=user.username).first() is not None
 
         username2 = "user2"
-        password2 = "secret"
+        password2 = "Secret123"
         email2 = user.email
         
         payload = {

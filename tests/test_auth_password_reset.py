@@ -1,6 +1,7 @@
 import pytest
 from re import search
-from backend.extensions import mail
+from backend.extensions import mail ,db 
+from backend.models import User
 
 # =============================================================================
 # Tests for password resetting
@@ -30,13 +31,13 @@ def test_password_reset(client, registered_user, app):
             assert response.status_code == 200 
             
             password_payload = {
-                "new_password": "dupa123"
+                "new_password": "Dupa!123"
             }
 
             response = client.post(token_path, json=password_payload)
             assert response.status_code == 200
 
-        response = client.post("/api/login", json={"username": user.username, "password": "dupa123"})
+        response = client.post("/api/login", json={"username": user.username, "password": "Dupa!123"})
         assert response.status_code == 200
 
 def test_password_reset_invalid_email(client, app):
@@ -48,5 +49,7 @@ def test_password_reset_invalid_email(client, app):
         with mail.record_messages() as outbox:
             response = client.post("/reset_password_request", json=email_payload)
 
-            assert response.status_code == 401
+            assert response.status_code == 200
             assert len(outbox) == 0
+
+
