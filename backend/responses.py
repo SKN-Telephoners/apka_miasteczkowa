@@ -20,7 +20,7 @@ class ResponseTypes:
     ACCOUNT_NOT_VERIFIED = ("Account not verified. Please check your email.", 403)
 
     #5xx
-    SERVER_ERROR = ("Internal server error", 400)
+    SERVER_ERROR = ("Internal server error", 500)
 
 def make_api_response(response_type, data=None, message=None):
     default_msg, status_code = response_type

@@ -60,12 +60,11 @@ def register_user():
         )
     
     try:
-        db.session.add(new_user)
         db.session.commit()
         mail.send(msg)
     except Exception as e:
-        db.session.rollback()
         db.session.delete(new_user)
+        db.session.rollback()
         db.session.commit()
         return make_api_response(ResponseTypes.SERVER_ERROR, message="Registration failed (mail eror)")
     

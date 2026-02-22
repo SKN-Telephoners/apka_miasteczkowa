@@ -102,7 +102,7 @@ def test_edit_comment(client, app, logged_in_user, comment):
     with app.app_context():
         token = logged_in_user[1]
 
-        response_edit_comment = client.put(f"/api/comments/edit/{comment.comment_id}", headers={
+        response_edit_comment = client.post(f"/api/comments/edit/{comment.comment_id}", headers={
             "Authorization": f"Bearer {token}"
         }, json = {"new_content": "Jebać UKEN!"})
 
@@ -117,7 +117,7 @@ def test_edit_comment(client, app, logged_in_user, comment):
 def test_edit_comment_not_exist(client, app, logged_in_user):
     with app.app_context():
         token = logged_in_user[1]
-        response_edit_comment = client.put(f"/api/comments/edit/{uuid.uuid4()}", headers={
+        response_edit_comment = client.post(f"/api/comments/edit/{uuid.uuid4()}", headers={
             "Authorization": f"Bearer {token}"
         })
 
@@ -138,7 +138,7 @@ def test_edit_comment_not_owner(client, logged_in_user, registered_friend, event
         db.session.commit()
 
         # attempt edit
-        response_edit_comment = client.put(f"/api/comments/edit/{comment.comment_id}", headers={
+        response_edit_comment = client.post(f"/api/comments/edit/{comment.comment_id}", headers={
             "Authorization": f"Bearer {token}"
         })
 

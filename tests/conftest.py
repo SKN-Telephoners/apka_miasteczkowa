@@ -47,7 +47,7 @@ def registered_user(client):
         match = search(r'(http://.+/verify/\S+)', outbox[0].body)
         auth_url = match.group()
         token_path = auth_url.replace("http://localhost", "")
-        client.get(token_path)
+        client.post(token_path)
 
     return user, payload["password"]
 
@@ -73,7 +73,7 @@ def registered_friend(client):
         match = search(r'(http://.+/verify/\S+)', outbox[0].body)
         auth_url = match.group()
         token_path = auth_url.replace("http://localhost", "")
-        client.get(token_path)
+        client.post(token_path)
     return friend, payload["password"]
 
 
