@@ -2,7 +2,10 @@ import pytest
 from backend.extensions import db
 from backend.models import Event
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import uuid
+
+local_tz = ZoneInfo("Europe/Warsaw")
 
 # =============================================================================
 # Tests for handling events
@@ -66,7 +69,7 @@ def test_delete_event(client, logged_in_user, app):
             "Authorization": f"Bearer {token}"
         }, json=payload)
 
-        assert response_create_event.status_code == 200
+        assert response_create_event.status_code == 201
 
         event = Event.query.filter_by(name="to delete").first()
         assert event is not None
@@ -151,7 +154,7 @@ def test_edit_event(client, logged_in_user, app):
             "Authorization": f"Bearer {token}"
         }, json=payload)
 
-        assert response_create_event.status_code == 200
+        assert response_create_event.status_code == 201
 
         event = Event.query.filter_by(name="to edit").first()
         assert event is not None
@@ -160,7 +163,7 @@ def test_edit_event(client, logged_in_user, app):
         new_payload = {
             "name": "edited",
             "description": None,
-            "date": "20.01.2026",
+            "date": "20.01.2050",
             "time": "22:37",
             "location": None
         }
@@ -178,7 +181,7 @@ def test_edit_event(client, logged_in_user, app):
         edited_event = Event.query.filter_by(event_id=event.event_id).first()
         assert edited_event.name == "edited"
         assert edited_event.description == "very cool event"
-        assert edited_event.date_and_time == datetime(2026, 1, 20, 22, 37, tzinfo=timezone.utc)
+        assert edited_event.date_and_time == datetime(2050, 1, 20, 22, 37, tzinfo=local_tz)
         assert edited_event.location == "here"
         assert edited_event.edited == True
 
@@ -189,7 +192,7 @@ def test_edit_event_not_exist(client, logged_in_user, app):
         new_payload = {
             "name": "edited",
             "description": None,
-            "date": "20.01.2026",
+            "date": "20.01.2050",
             "time": "22:37",
             "location": None
         }
@@ -211,7 +214,7 @@ def test_edit_event_not_owner(client, logged_in_user, registered_friend, app):
         event = Event(
             name="event1",
             description="private",
-            date_and_time=datetime(2026, 1, 20, 21, 37, tzinfo=timezone.utc),
+            date_and_time=datetime(2050, 1, 20, 21, 37, tzinfo=timezone.utc),
             location="here",
             creator_id=friend.user_id #other user
         )

@@ -1,4 +1,3 @@
-from time import timezone
 from flask import Blueprint, request, url_for, current_app
 from backend.models import User
 from backend.extensions import db, mail, limiter
@@ -9,7 +8,7 @@ from backend.helpers import add_token_to_db, revoke_token, is_token_revoked, rev
 from backend.tasks import send_email_async
 import re
 from flask_mail import Message
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 email_bp = Blueprint("email", __name__, url_prefix="/api/email")
 
@@ -53,7 +52,7 @@ def verify(token):
             return make_api_response(ResponseTypes.INCORRECT_TOKEN)
         if is_token_revoked(decoded):
             return make_api_response(ResponseTypes.BAD_REQUEST, message="Link already used or expired")
-        user_id = decoded
+        user_id = decoded["sub"]
         user = db.session.get(User, user_id)
 
         if not user:
@@ -64,7 +63,7 @@ def verify(token):
     
         user.is_confirmed=True
         user.confirmed_at = datetime.now(timezone.utc)
-        revoke_token(decoded, user.user_id)
+        revoke_token(decoded["jti"], user.user_id)
         revoke_all_user_tokens(user.user_id, token_type="email_verification")
         db.session.commit()
 
@@ -125,7 +124,7 @@ def reset_password(token):
         if decoded.get("type") != "password_reset":
             return make_api_response(ResponseTypes.INCORRECT_TOKEN)
         
-        user_id = decoded
+        user_id = decoded["sub"]
 
     except Exception:
         return make_api_response(ResponseTypes.UNAUTHORIZED)
@@ -148,7 +147,7 @@ def reset_password(token):
     db.session.commit()
 
     try:
-        revoke_token(decoded, decoded)
+        revoke_token(decoded["jti"], decoded["sub"])
         revoke_all_user_tokens(user.user_id, token_type="access")
         revoke_all_user_tokens(user.user_id, token_type="refresh")
     except Exception as e:

@@ -22,6 +22,8 @@ def create_app(test_mode=False):
     limiter.init_app(app)
     celery_init_app(app)
 
+    register_blueprints(app)
+
     logging.basicConfig(level=logging.INFO)
 
     csp = {

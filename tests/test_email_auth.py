@@ -40,7 +40,7 @@ def test_auth_user(client, app):
             
             assert response.status_code == 200 
 
-            response = client.get(token_path)
+            response = client.post(token_path)
             assert response.status_code == 200
             assert response.get_json()["message"] == "Verification succesful"
 

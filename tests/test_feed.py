@@ -16,7 +16,7 @@ def create_events(client,logged_in_user):
         event_time = datetime.now(timezone.utc) + timedelta(days=event_id)
         payload = {"name": str(event_id)+"ssss", "description": "Lore ipsum", "date": event_time.strftime("%d.%m.%Y"), "time":event_time.strftime("%H:%M"), "location":"Poland"}
         response=client.post("api/events/create", json=payload,headers=headers)
-        assert response.status_code == 200
+        assert response.status_code == 201
 
 def test_feed_returns_events(client, create_events, app):
     with app.app_context():
