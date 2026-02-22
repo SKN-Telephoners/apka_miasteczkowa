@@ -1,4 +1,5 @@
-import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
 import { STORAGE_KEYS } from "./constants";
 
 export const tokenStorage = {
@@ -27,11 +28,10 @@ export const tokenStorage = {
       return null;
     }
 
-    const payload = accessToken.split('.')[1];
+    const payload = accessToken.split(".")[1];
     const decodedPayload = JSON.parse(atob(payload));
     const plainObject = JSON.parse(JSON.stringify(decodedPayload));
 
     return plainObject.sub;
   },
-
 };
