@@ -192,26 +192,30 @@ def update_user_course_or_academy():
         courses_data = json.load(r)
     with open(os.path.join(DATA_DIR, "academic_circle.json") , encoding="utf-8") as a:
         academic_circle_data = json.load(a)
-      
+
     user_data = request.get_json() #To ma wyświetlać co jest w menu zmiany użytkownika
 
     academy = user_data.get("academy")
-    course = user_data.get("course")
+    course = user_data.get("course and year")
     academic_circle = user_data.get("academic_circle")
-    year = user_data.get("year")
- 
 
+    course_pattern = rf"^({'|'.join(courses_data)})\s\d$"
+    
     if (academy != "AGH" and course) or (academy != "AGH" and academic_circle): #Ta część ma sprawdzać zgodność tego co jest w menu z plikami
         return jsonify ({"message": "Only AGH members can change course and academic circle"}), 404
 
     if academy not in academy_data and academy != None:
         return jsonify({"message": "Such academy doesn't exist"}), 404
 
-    if course not in courses_data and course != None:
-        return jsonify({"message": "Such course doesn't exist"}), 404
+    if course != None and not re.match(course_pattern, course):
+       return jsonify({"message": "Such course doesn't exist"}), 404
 
-    if academic_circle not in academic_circle_data and academic_circle != None:
-        return jsonify({"message": "Such circle dosen't exist"}), 404
+    if academic_circle != None:
+        user_circles = [circle.strip() for circle in academic_circle.split(",")]
+        for circle in user_circles:
+            if circle not in academic_circle_data:
+                return jsonify({"message": "Such circle  doesn't exist"}), 404
+
 
     if academy:                    #Ta część podmienia wartości w tym menu
         academy = (academy)
@@ -226,22 +230,13 @@ def update_user_course_or_academy():
         course = (None)
             
     if academy == "AGH" and academic_circle:   
-        academic_circle = (academic_circle)      
-    
+        academic_circle = (academic_circle)    
+
     if academic_circle is None:
         academic_circle = (None)
 
-    if year: 
-        year_pattern = r"^[1-6]$"
-        if not re.match(year_pattern, year):
-            return jsonify({"message": "Invalid year"}), 404
-        year = (year)
-
-    if year is None:
-        year = (None)
-    
     db.session.commit()
-    return jsonify({"message": "User updated successfully"}), 200
+    return jsonify({"message": "User updated successfully"}), 200 
 
 @main.route("/reset_password_request", methods=["POST"])
 @limiter.limit("500 per hour")   # for tests, 500 password resets for IP per hour, change before deployment to 5

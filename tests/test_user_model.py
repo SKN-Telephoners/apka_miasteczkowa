@@ -14,10 +14,9 @@ def test_user_update(client, logged_in_user, app):
         
         #create user info
         payload = {
-            "course" : "Ceramika" , 
-            "year" : "3",
+            "course and year" : "Automatyka i Robotyka 3" , 
             "academy" : "AGH", 
-            "academic_circle" : "Koło Naukowe Inteligentnych Sterowników w Automatyce i Robotyce \"INTEGRA\"",
+            "academic_circle" : "Hydrogenium , KN Kliwent",
             }
 
         response = client.post("/user/user_update",
