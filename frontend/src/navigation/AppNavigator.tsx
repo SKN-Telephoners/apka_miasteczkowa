@@ -95,11 +95,11 @@ const AppNavigator = () => {
           OPCJA 1: Logowanie włączone (ZAKOMENTOWANA)
           Odkomentuj blok niżej żeby logowanie znów było konieczne
           ======================================================= */}
-        {!isAuthenticated ? (
+        {/* {!isAuthenticated ? (
           <Stack.Screen name="Auth" component={AuthStack} />
         ) : (
           <Stack.Screen name="Main" component={MainTabs} />
-        )}
+        )}*/}
 
 
         {/* =======================================================
@@ -107,7 +107,7 @@ const AppNavigator = () => {
           Zakomentuj lub usuń linię poniżej, gdy włączysz opcję 1.
           (Tylko jedna na raz może być odblokowana)
           ======================================================= */}
-        {/*<Stack.Screen name="Main" component={MainTabs} />*/}
+        <Stack.Screen name="Main" component={MainTabs} />
 
       </Stack.Navigator>
     </NavigationContainer>
