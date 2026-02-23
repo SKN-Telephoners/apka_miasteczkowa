@@ -7,9 +7,11 @@ from flask_jwt_extended import jwt_required, get_current_user
 from backend.helpers import validate_uuid, sanitize_input
 import uuid
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from sqlalchemy.exc import SQLAlchemyError
 
 events_bp = Blueprint("events", __name__, url_prefix="/api/events")
+local_tz = ZoneInfo("Europe/Warsaw")
 
 @events_bp.route("/create", methods=["POST"])
 @limiter.limit("100 per minute")
@@ -44,8 +46,10 @@ def create_event():
 
     try:
         dt_string = f"{date_str} {time_str}"
-        date_and_time = datetime.strptime(dt_string, "%d.%m.%Y %H:%M")
-        date_and_time = date_and_time.replace(tzinfo=timezone.utc)
+        local_dt = datetime.strptime(dt_string, "%d.%m.%Y %H:%M")
+        local_dt = local_dt.replace(tzinfo=local_tz)
+
+        date_and_time = local_dt.astimezone(timezone.utc)
         
         if date_and_time <= datetime.now(timezone.utc):
             return make_api_response(ResponseTypes.BAD_REQUEST, message="Event date must be in the future")
@@ -98,7 +102,6 @@ def delete_event(event_id):
 
     return make_api_response(ResponseTypes.SUCCESS, message="Event deleted successfully")
 
-#NEEDS TO BE ADJUSTED
 @events_bp.route("/edit/<event_id>", methods=["PUT"])
 @limiter.limit("100 per minute")
 @jwt_required()
@@ -112,7 +115,7 @@ def edit_event(event_id):
     event = db.session.get(Event, e_uuid)
 
     if not event:
-        return make_api_response(ResponseTypes.NOT_FOUND, message="Event doesn't exists")
+        return make_api_response(ResponseTypes.NOT_FOUND, message="Event doesn't exist")
 
     if user.user_id != event.creator_id:
         current_app.logger.warning(f"SECURITY: User {user.user_id} attempted to edit event {event_id} without permissions.")
@@ -154,8 +157,10 @@ def edit_event(event_id):
             clean_time = sanitize_input(str(time_str)).strip()
 
             dt_string = f"{clean_date} {clean_time}"
-            date_and_time = datetime.strptime(dt_string, "%d.%m.%Y %H:%M")
-            date_and_time = date_and_time.replace(tzinfo=timezone.utc)
+            local_dt = datetime.strptime(dt_string, "%d.%m.%Y %H:%M")
+            local_dt = local_dt.replace(tzinfo=local_tz)
+
+            date_and_time = local_dt.astimezone(timezone.utc)
 
             if date_and_time <= datetime.now(timezone.utc):
                 return make_api_response(ResponseTypes.BAD_REQUEST, message="Event date must be in the future")
@@ -171,7 +176,7 @@ def edit_event(event_id):
         current_app.logger.error(f"Database error in edit_event: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
-    return make_api_response(ResponseTypes.SUCCESS, message="Event edited succesfully")
+    return make_api_response(ResponseTypes.SUCCESS, message="Event edited successfully")
 
 @events_bp.route("/feed", methods=["GET"])
 @limiter.limit("600 per minute")
@@ -204,8 +209,8 @@ def feed():
                 "id": str(event.event_id),
                 "name": event.name,
                 "description": event.description,
-                "date": event.date_and_time.strftime("%d.%m.%Y"),
-                "time": event.date_and_time.strftime("%H:%M"),
+                "date": event.date_and_time.astimezone(local_tz).strftime("%d.%m.%Y"),
+                "time": event.date_and_time.astimezone(local_tz).strftime("%H:%M"),
                 "location": event.location,
                 "creator_id": str(event.creator_id)
             }

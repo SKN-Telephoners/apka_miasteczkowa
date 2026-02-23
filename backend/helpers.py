@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime, timezone
 from backend.extensions import db
 from flask_jwt_extended import decode_token
 from backend.models import TokenBlocklist
@@ -8,7 +8,7 @@ import bleach
 
 def add_token_to_db(encoded_token):
     decoded_token = decode_token(encoded_token)
-    token_expires = datetime.datetime.fromtimestamp(decoded_token["exp"], tz=datetime.timezone.utc)
+    token_expires = datetime.fromtimestamp(decoded_token["exp"], tz=timezone.utc)
     token = TokenBlocklist(
         jti=decoded_token["jti"],
         token_type=decoded_token["type"],
@@ -29,7 +29,7 @@ def revoke_token(token_jti, user_id):
     try:
         token = TokenBlocklist.query.filter_by(jti=token_jti, user_id=user_id).one()
         if token:
-            token.revoked_at = datetime.datetime.now(datetime.timezone.utc)
+            token.revoked_at = datetime.now(timezone.utc)
             db.session.commit()
             return True
     except NoResultFound:
@@ -61,7 +61,7 @@ def revoke_all_user_tokens(user_id, token_type=None):
 
         tokens = query.all()
         for token in tokens:
-            token.revoked_at = datetime.now(datetime.timezone.utc)
+            token.revoked_at = datetime.now(timezone.utc)
         db.session.commit()
         return True
     except Exception as e:
