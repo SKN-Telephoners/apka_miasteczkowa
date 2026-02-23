@@ -23,3 +23,18 @@ class Review(db.Model):
 
     event = db.relationship("Event", foreign_keys=[place_id])
     reviewer = db.relationship("User", foreign_keys=[author_id])
+    
+    
+    def to_dict(self):
+        return {
+            "id": str(self.id),
+            "place_id": str(self.place_id),
+            "author_id": str(self.author_id),
+            "rating": self.rating,
+            "text": self.text,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+            "is_deleted": self.is_deleted,
+            "is_edited": self.is_edited
+        }
+    
