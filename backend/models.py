@@ -12,15 +12,13 @@ class User(db.Model):
     password_hash = db.Column(db.String(128), nullable=False)
     email = db.Column(db.String(320), nullable=False, unique=True)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
-    course = db.Column(db.String(100), nullable=True)
-    year = db.Column(db.Integer, nullable=True) 
+    course_year = db.Column(db.String(100), nullable=True)
     academy = db.Column(db.String(10), nullable=True)
     academic_circle = db.Column(db.String(100), nullable=True)
     
     __table_args__ = (
         CheckConstraint(r"email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'", name="email_format"),
     
-        CheckConstraint("year BETWEEN 1 AND 6 OR year IS NULL", name="year_format"),
     )
     
     def __init__(self, username, password, email):

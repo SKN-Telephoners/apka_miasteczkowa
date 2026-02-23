@@ -196,19 +196,24 @@ def update_user_course_or_academy():
     user_data = request.get_json() #To ma wyświetlać co jest w menu zmiany użytkownika
 
     academy = user_data.get("academy")
-    course = user_data.get("course and year")
+    course_year = user_data.get("course and year")
     academic_circle = user_data.get("academic_circle")
 
     course_pattern = rf"^({'|'.join(courses_data)})\s\d$"
     
-    if (academy != "AGH" and course) or (academy != "AGH" and academic_circle): #Ta część ma sprawdzać zgodność tego co jest w menu z plikami
+
+    
+    if (academy != "AGH" and course_year) or (academy != "AGH" and academic_circle): #Ta część ma sprawdzać zgodność tego co jest w menu z plikami
         return jsonify ({"message": "Only AGH members can change course and academic circle"}), 404
 
     if academy not in academy_data and academy != None:
         return jsonify({"message": "Such academy doesn't exist"}), 404
 
-    if course != None and not re.match(course_pattern, course):
+    if course_year != None and not re.match(course_pattern, course_year):
        return jsonify({"message": "Such course doesn't exist"}), 404
+
+    if course_year is not None and not re.fullmatch(r"^[A-Za-zĄąĆćĘęŁłŃńÓóŚśŹźŻż ]+ [1-6]$", course_year):
+        return jsonify({"message": "Year must be between 1 and 6"}), 400
 
     if academic_circle != None:
         user_circles = [circle.strip() for circle in academic_circle.split(",")]
@@ -223,11 +228,11 @@ def update_user_course_or_academy():
     if academy is None:
         academy = (None)
    
-    if academy == "AGH" and course:
-        course = (course)
+    if academy == "AGH" and course_year:
+        course_year = (course_year)
 
-    if course is None:
-        course = (None)
+    if course_year is None:
+        course_year = (None)
             
     if academy == "AGH" and academic_circle:   
         academic_circle = (academic_circle)    

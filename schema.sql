@@ -2,6 +2,7 @@
 -- PostgreSQL database dump
 --
 
+\restrict EXLuu3EYuewSnumWobiGD2drdW9L4Xfb0iTXJGPBS6Whie5Jsvj2FCLWKr69RVT
 
 -- Dumped from database version 16.11 (Ubuntu 16.11-0ubuntu0.24.04.1)
 -- Dumped by pg_dump version 16.11 (Ubuntu 16.11-0ubuntu0.24.04.1)
@@ -31,6 +32,20 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
 
 
+--
+-- Name: uuid-ossp; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION "uuid-ossp"; Type: COMMENT; Schema: -; Owner: 
+--
+
+COMMENT ON EXTENSION "uuid-ossp" IS 'generate universally unique identifiers (UUIDs)';
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -40,17 +55,15 @@ SET default_table_access_method = heap;
 --
 
 CREATE TABLE public.app_user (
-    user_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
     username character varying(32) NOT NULL,
     password_hash character varying(128) NOT NULL,
     email character varying(320) NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    course character varying(100),
-    year integer,
+    course_year character varying(100),
     academy character varying(10),
     academic_circle character varying(100),
-    CONSTRAINT email_format CHECK (((email)::text ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'::text)),
-    CONSTRAINT year_format CHECK ((((year >= 1) AND (year <= 6)) OR (year IS NULL)))
+    CONSTRAINT email_format CHECK (((email)::text ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'::text))
 );
 
 
@@ -213,4 +226,5 @@ CREATE INDEX idx_event_creator_id ON public.event USING btree (creator_id);
 -- PostgreSQL database dump complete
 --
 
+\unrestrict EXLuu3EYuewSnumWobiGD2drdW9L4Xfb0iTXJGPBS6Whie5Jsvj2FCLWKr69RVT
 
