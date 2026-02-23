@@ -95,19 +95,19 @@ const AppNavigator = () => {
           OPCJA 1: Logowanie włączone (ZAKOMENTOWANA)
           Odkomentuj blok niżej żeby logowanie znów było konieczne
           ======================================================= */}
-        {/* {!isAuthenticated ? (
-        <Stack.Screen name="Auth" component={AuthStack} />
-      ) : (
-        <Stack.Screen name="Main" component={MainTabs} />
-      )} 
-      */}
+        {!isAuthenticated ? (
+          <Stack.Screen name="Auth" component={AuthStack} />
+        ) : (
+          <Stack.Screen name="Main" component={MainTabs} />
+        )}
+
 
         {/* =======================================================
           OPCJA 2: Pomijanie logowania na czas dewelopmentu (AKTYWNA)
           Zakomentuj lub usuń linię poniżej, gdy włączysz opcję 1.
           (Tylko jedna na raz może być odblokowana)
           ======================================================= */}
-        <Stack.Screen name="Main" component={MainTabs} />
+        {/*<Stack.Screen name="Main" component={MainTabs} />*/}
 
       </Stack.Navigator>
     </NavigationContainer>
