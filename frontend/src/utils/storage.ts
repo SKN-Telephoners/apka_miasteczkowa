@@ -22,7 +22,7 @@ export const tokenStorage = {
   },
 
   getUserId: async () => {
-    const accessToken = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
+    const accessToken = await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
 
     if (!accessToken) {
       return null;
