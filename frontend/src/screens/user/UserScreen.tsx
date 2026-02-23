@@ -52,7 +52,7 @@ const UserScreen = () => {
       {/* 3. Lista Postów */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>📜 Twoje Posty</Text>
-        <Text style={styles.infoText}>Historia postów jest w trakcie budowy przez backend.</Text>
+        <Text style={styles.infoText}>Historia postów jest w trakcie budowy!.</Text>
       </View>
 
       {/* 4. Lista Znajomych */}
@@ -65,7 +65,7 @@ const UserScreen = () => {
             </TouchableOpacity>
           ))
         ) : (
-          <Text style={styles.infoText}>Brak znajomych. Dodaj kogoś!</Text>
+          <Text style={styles.infoText}>To też w budowie!</Text>
         )}
       </View>
 
