@@ -95,7 +95,6 @@ const CommentCard = ({
                             {formatDate(date)} {formatTime(date)}
                         </Text>
                     </View>
-
                     {item.user_id === userID && (
                         <TouchableOpacity
                             ref={menuButtonRef}

@@ -96,13 +96,12 @@ const EventDetails = () => {
   const deleteGoBack = async () => {
     try {
       await deleteEvent(event.id);
+      navigation.navigate("EventScreen");
     } catch (error: any) {
       Alert.alert(
         "Błąd usuwania wydarzenia",
         "Wystąpił nieoczekiwany błąd. Spróbuj ponownie."
       );
-    } finally {
-      navigation.goBack();
     }
   }
 

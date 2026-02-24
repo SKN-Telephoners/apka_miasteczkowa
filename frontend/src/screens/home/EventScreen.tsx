@@ -13,6 +13,8 @@ import { Event } from "../../types";
 import InputField from "../../components/InputField";
 import { getEvents } from "../../services/events";
 import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect } from "@react-navigation/native";
+
 
 const EventScreen = () => {
 
@@ -57,9 +59,12 @@ const EventScreen = () => {
         }
     }
 
-    useEffect(() => {
-        loadEvents(1, false);
-    }, []);
+    useFocusEffect(
+        useCallback(() => {
+            loadEvents(1, false);
+        }, [])
+    );
+
 
     const handleRefresh = useCallback(() => {
         setRefreshing(true);
@@ -162,7 +167,7 @@ const EventScreen = () => {
                 initialNumToRender={10}
                 maxToRenderPerBatch={10}
                 windowSize={10}
-                removeClippedSubviews={true}
+                removeClippedSubviews={false}
 
             />
 

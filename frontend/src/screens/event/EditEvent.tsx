@@ -3,21 +3,19 @@ import { View, TouchableOpacity, Text, Alert } from "react-native";
 import { useState } from "react"; 
 import { useRoute } from "@react-navigation/native";
 import InputField from "../../components/InputField";
-import { createEvent } from "../../services/events";
+import { editEvent } from "../../services/events";
 import DatePicker from "../../components/DateTimePicker";
 
 const EditEvent = () => {
     const route = useRoute<any>();
     const { event } = route.params;
 
-    // Helper function moved here so it can be used during state initialization
     const getInitialDateTime = () => {
         try {
             if (event.date && event.time) {
                 const [day, month, year] = event.date.split('.').map(Number);
                 const [hours, minutes] = event.time.split(':').map(Number);
                 
-                // JavaScript Date: months are 0-indexed (0 = Jan, 11 = Dec)
                 const dateObj = new Date(year, month - 1, day);
                 const timeObj = new Date(year, month - 1, day, hours, minutes);
                 
@@ -31,7 +29,6 @@ const EditEvent = () => {
         return { date: now, time: now };
     };
 
-    // Calculate these ONCE immediately, before the render happens
     const initialValues = getInitialDateTime();
 
     const [title, setTitle] = useState(event.name || "");
@@ -94,21 +91,23 @@ const EditEvent = () => {
     };
 
     const handleEditEvent = async () => {
-        if (!validateInputs()) return;
-        try {
-            await createEvent({
-                name: title,
-                description: description,
-                date: date,
-                time: time,
-                location: location
-            });
-            Alert.alert("Sukces", "Edytowano wydarzenie");
-        } catch (error: any) {
-            const msg = error.response?.data?.message || "Wystąpił nieoczekiwany błąd.";
-            Alert.alert("Błąd edycji", msg);
-        }
-    };
+    if (!validateInputs()) return;
+
+    try {
+        await editEvent(event.id, {
+            name: title,
+            description,
+            location,
+            date,
+            time,
+        });
+
+        Alert.alert("Sukces", "Edytowano wydarzenie");
+    } catch (error: any) {
+        Alert.alert("Błąd edycji", error.message);
+    }
+};
+
 
     const handleDateTimeSelected = (selectedDate: string, selectedTime: string) => {
         setDate(selectedDate);
