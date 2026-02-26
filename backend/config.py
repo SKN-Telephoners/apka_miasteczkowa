@@ -1,5 +1,6 @@
 from datetime import timedelta
-
+// Configuration class for the Flask application, including database URI, JWT settings, and email server settings
+// Po polsku: Klasa konfiguracyjna dla aplikacji Flask, zawierająca URI bazy danych, ustawienia JWT i ustawienia serwera pocztowego
 class Config:
     SQLALCHEMY_DATABASE_URI = "postgresql://postgres:postgres@localhost/apka_miasteczkowa?sslmode=require"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -12,7 +13,8 @@ class Config:
     MAIL_USERNAME =  'your-email@example.com'
     MAIL_PASSWORD = 'your-email-password'
     MAIL_DEFAULT_SENDER =  'your-email@example.com'
-    
+// Test configuration class for the Flask application, with settings for testing environment and email suppression
+// Po polsku: Klasa konfiguracyjna testowa dla aplikacji Flask, z ustawieniami dla środowiska testowego i tłumieniem wysyłania maili    
 class TestConfig(Config):
     MAIL_SUPPRESS_SEND = True
     MAIL_BACKEND = 'flask_mail.backends.locmem.EmailBackend'

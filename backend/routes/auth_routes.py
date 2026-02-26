@@ -4,9 +4,11 @@ from backend.extensions import limiter
 from backend.services.auth_service import register_user_service, login_user_service
 from backend.services.token_service import add_token_to_db, revoke_token
 from backend.helpers.validators import validate_registration_data
-
+// Blueprint for authentication routes
+// Po polsku: Blueprint dla tras uwierzytelniania
 auth_bp = Blueprint("auth", __name__)
-
+// Route for user registration with rate limiting to prevent abuse
+// Po polsku: Trasa rejestracji użytkownika z ograniczeniem liczby prób, aby zapobiec nadużyciom
 @auth_bp.route("/api/register", methods=["POST"])
 @limiter.limit("5 per hour")
 def register_user():
@@ -18,7 +20,8 @@ def register_user():
     result, status = register_user_service(data)
     return jsonify(result), status
 
-
+// Route for user login with rate limiting to prevent brute-force attacks
+// Po polsku: Trasa logowania użytkownika z ograniczeniem liczby prób, aby zapobiec atakom brute-force  
 @auth_bp.route("/api/login", methods=["POST"])
 @limiter.limit("5 per 15 minutes")
 def login_user():
@@ -26,7 +29,8 @@ def login_user():
     result, status = login_user_service(data)
     return jsonify(result), status
 
-
+// Route for refreshing the access token using a valid refresh token
+// Po polsku: Trasa odświeżania tokena dostępu za pomocą ważnego tokena odświeżającego
 @auth_bp.route("/api/refresh", methods=["POST"])
 @jwt_required(refresh=True)
 def refresh_token():
@@ -35,7 +39,8 @@ def refresh_token():
     add_token_to_db(access_token)
     return jsonify(access_token=access_token), 200
 
-
+// Route for revoking the current access token
+// Po polsku: Trasa do unieważnienia aktualnego tokena dostępu
 @auth_bp.route("/api/revoke_access", methods=["DELETE"])
 @jwt_required()
 def revoke_access():
@@ -44,7 +49,8 @@ def revoke_access():
     revoke_token(jti, user_id)
     return jsonify(message="Access token revoked"), 200
 
-
+// Route for revoking the current refresh token
+// Po polsku: Trasa do unieważnienia aktualnego tokena odświeżającego
 @auth_bp.route("/api/revoke_refresh", methods=["DELETE"])
 @jwt_required(refresh=True)
 def revoke_refresh():

@@ -4,7 +4,8 @@ from flask_jwt_extended import create_access_token, create_refresh_token
 from backend.models import User
 from backend.extensions import db, mail
 from backend.services.token_service import add_token_to_db
-
+// Service functions for user registration and login
+// Po polsku: Funkcje serwisowe dla rejestracji i logowania użytkowników
 def register_user_service(data):
     username = data["username"]
     email = data["email"]
@@ -32,7 +33,8 @@ def register_user_service(data):
     mail.send(msg)
 
     return {"message": "Registration successful"}, 201
-
+// Service function for user login, generating access and refresh tokens
+// Po polsku: Funkcja serwisowa dla logowania użytkownika, generująca tokeny dostępu i odświeżania
 
 def login_user_service(data):
     username = data.get("username")

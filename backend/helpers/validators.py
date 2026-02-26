@@ -8,7 +8,8 @@ import re
 MAX_EMAIL_LEN = 320
 MAX_USERNAME_LEN = 32
 MIN_USERNAME_LEN = 3
-
+// Validate registration data for username, password, and email
+// Po polsku: Walidacja danych rejestracyjnych dla nazwy użytkownika, hasła i emaila
 def validate_registration_data(data):
     if not data or not {"username", "password", "email"}.issubset(data.keys()):
         return False, "Missing required fields"
@@ -25,7 +26,8 @@ def validate_registration_data(data):
         return False, "Invalid username or email"
 
     return True, ""
-
+// The following functions are related to token management and revocation
+// Po polsku: Poniższe funkcje są związane z zarządzaniem tokenami i ich unieważnianiem
 def add_token_to_db(encoded_token):
     decoded_token = decode_token(encoded_token)
 
@@ -38,7 +40,8 @@ def add_token_to_db(encoded_token):
 
     db.session.add(token)
     db.session.commit()
-    
+// Revoke a token by its JTI and user ID
+// Po polsku: Unieważnij token za pomocą jego JTI i ID użytkownika    
 def revoke_token(token_jti, user_id):
     try:
         token = TokenBlocklist.query.filter_by(jti=token_jti, user_id=user_id).one()
@@ -46,7 +49,8 @@ def revoke_token(token_jti, user_id):
         db.session.commit()
     except NoResultFound:
         raise Exception(f"Could not find token {token_jti}")
-
+// Check if a token has been revoked by its JTI and user ID
+// Po polsku: Sprawdź, czy token został unieważniony za pomocą jego JTI i ID użytkownika
 def is_token_revoked(jwt_payload):
     jti = jwt_payload["jti"]
     user_id = jwt_payload["sub"]

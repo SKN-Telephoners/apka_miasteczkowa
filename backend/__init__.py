@@ -5,12 +5,14 @@ from backend.routes.auth_routes import auth_bp
 from backend.routes.user_routes import user_bp
 from backend.routes.mail_routes import mail_bp
 from werkzeug.exceptions import HTTPException
-
+// Importing service functions for token management and user authentication
+// Po polsku: Importowanie funkcji serwisowych dla zarządzania tokenami i uwierzytelniania użytkowników 
 def register_blueprints(app):
     app.register_blueprint(auth_bp)
     app.register_blueprint(user_bp)
     app.register_blueprint(mail_bp)
-
+// Function to create and configure the Flask application
+// Po polsku: Funkcja do tworzenia i konfigurowania aplikacji Flask
 def create_app(test_mode=False):
     app = Flask(__name__)
     CORS(app)

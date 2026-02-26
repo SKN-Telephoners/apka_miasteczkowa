@@ -3,7 +3,8 @@ from flask_mail import Message
 from flask_jwt_extended import create_access_token
 from backend.models import User
 from backend.extensions import db, mail
-
+// Service functions for user registration and login
+// Po polsku: Funkcje serwisowe dla rejestracji i logowania
 def send_verification_email(email):
     user = User.query.filter_by(email=email).first()
     if not user:
@@ -23,7 +24,8 @@ def send_verification_email(email):
     mail.send(msg)
 
     return {"message": "Verification email sent"}, 200
-
+// Service function for sending password reset email
+// Po polsku: Funkcja serwisowa dla wysyłania emaila do resetowania hasła
 
 def send_reset_email(email):
     user = User.query.filter_by(email=email).first()
