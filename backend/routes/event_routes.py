@@ -1,7 +1,8 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, abort
 from backend.models import Event
+from backend.models import Invite, User
 from backend.extensions import db, limiter
-from flask_jwt_extended import jwt_required, get_current_user
+from flask_jwt_extended import jwt_required, get_current_user,get_jwt_identity
 import uuid
 from datetime import datetime, timezone
 
@@ -136,3 +137,121 @@ def feed():
             "pages": pagination.pages
         }
     }) ,200
+
+@events_bp.route("/<uuid:event_id>/invite/new", methods=["POST"])
+@jwt_required()
+def invite_for_event(event_id):
+    
+    event=event_id_sefe(event_id)
+    jwt_check(event)
+
+    invent_data = request.get_json()
+    required_keys = {"user_id"}
+
+    
+
+    if not invent_data or not required_keys.issubset(invent_data.keys()):
+        return jsonify({"message": "Bad request"}), 400
+    
+    list_invite_id=invent_data.get("user_id")
+
+    for invite_id in list_invite_id:
+        existing=Invite.query.filter_by(event_id=event_id,user_id=invite_id).first()
+
+        if not existing:
+
+            new_record=Invite(
+                event_id=event_id,
+                user_id=invite_id
+            )
+
+            db.session.add(new_record)
+                
+             
+    try:
+        db.session.commit()
+    except  Exception as e:
+                db.session.rollback()
+                print(f"Database error: {e}")
+                return jsonify({"message": "Internal server error"}), 500
+    return {
+        "message": "Invite successfully"
+    }, 200
+
+@events_bp.route("/<uuid:event_id>/invite/list",methods=["GET"])
+@jwt_required()
+def invite_on_event(event_id):
+
+    event=event_id_sefe(event_id)
+    jwt_check(event)
+
+    users=(db.session.query(User)
+           .join(Invite, Invite.user_id == User.user_id)
+           .filter(Invite.event_id == event_id)
+           .all()
+           )
+    
+    invite_list=[
+        {
+            "id":user.user_id,
+            "username":user.username,
+            "email":user.email
+        }
+        for user in users
+    ]
+
+    return jsonify(
+        {
+            "data":invite_list
+        }
+    ),200
+
+@events_bp.route("/<uuid:event_id>/invite/delete",methods=["DELETE"])
+@jwt_required()
+def delete_invite(event_id):
+
+    event=event_id_sefe(event_id)
+    jwt_check(event)
+
+    invent_data = request.get_json()
+    required_keys = {"user_id"}
+
+    if not invent_data or not required_keys.issubset(invent_data.keys()):
+        return jsonify({"message": "Bad request"}), 400
+    
+    list_invite_id_to_delete=invent_data.get("user_id")
+
+    
+    for invite_id in list_invite_id_to_delete:
+        existing=Invite.query.filter_by(event_id=event_id,user_id=invite_id).first()
+
+        if existing:
+
+            db.session.delete(existing)
+
+    try:
+        db.session.commit()
+    except  Exception as e:
+                db.session.rollback()
+                print(f"Database error: {e}")
+                return jsonify({"message": "Internal server error"}), 500
+    return {
+        "message": "delete successfully"
+    }, 200
+
+
+####sefty######
+
+def event_id_sefe(event_id):
+    event = Event.query.get(event_id)
+    if not event:
+        abort(404,description="Event not found")
+    return event
+    
+def jwt_check(event):
+    current_user_id = get_jwt_identity()
+
+    if event.creator_id != current_user_id:
+        abort(403, description="Unauthorized")
+                
+
