@@ -1,10 +1,10 @@
 import axios from "axios";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { tokenStorage } from "../utils/storage";
 import { API_BASE_URL, STORAGE_KEYS } from "../utils/constants";
 
 const MAX_RETRY_ATTEMPTS = 2;
 const INITIAL_RETRY_DELAY = 500; // in milliseconds
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms)); // helper function for delay
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms)); // helper function for delay
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -18,17 +18,14 @@ const api = axios.create({
 // LOGOUT function to clear tokens
 export async function handleSessionExpiry() {
   console.log("Token refresh failed, logging out");
-  await AsyncStorage.multiRemove([
-    STORAGE_KEYS.ACCESS_TOKEN,
-    STORAGE_KEYS.REFRESH_TOKEN,
-    ]);
+  await tokenStorage.clearTokens();
     //TO DO : redirect to login screen
 }
 // Request interceptor - adds auth token to all requests
 api.interceptors.request.use(
   async (config) => {
     console.log("Request interceptor for", config.url);
-    const token = await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+    const token = await tokenStorage.getAccessToken();
     if (token) {
       console.log("Found token, adding to headers");
       config.headers.Authorization = `Bearer ${token}`;
@@ -42,10 +39,7 @@ api.interceptors.request.use(
 
 // Response interceptor - handles token refresh
 api.interceptors.response.use(
-  (response) => {
-    console.log("Response interceptor for", response.config.url);
-     return response;
-  },
+  (response) => response,
   async (error) => {
     const originalRequest = error.config;
     console.log('Response error Błąd:', error.response?.status, 'dla URL:', originalRequest.url);
@@ -55,18 +49,16 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const refreshToken = await AsyncStorage.getItem(
-          STORAGE_KEYS.REFRESH_TOKEN
-        );
+        const refreshToken = await tokenStorage.getRefreshToken();
 
         if (refreshToken) {
           console.log("Attempting token refresh");
-          const response = await axios.post(`${API_BASE_URL}/api/refresh`, {
-            refresh_token: refreshToken,
+          const response = await axios.post(`${API_BASE_URL}/api/refresh`, {}, {
+            headers: { Authorization: `Bearer ${refreshToken}`}
           });
 
-          const { access_token } = response.data;
-          await AsyncStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, access_token);
+          const { access_token, refresh_token } = response.data;
+          await tokenStorage.saveTokens(access_token, refresh_token);
 
           // retry original request with new token
           originalRequest.headers.Authorization = `Bearer ${access_token}`;

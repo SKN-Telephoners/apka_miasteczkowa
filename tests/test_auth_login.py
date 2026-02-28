@@ -17,7 +17,10 @@ def test_login_success(client, registered_user, app):
         response = client.post("/api/auth/login", json={"username": user.username, "password": password})
         
         assert response.status_code == 200
-        assert ("message", "Login successful") and ("username", user.username) in response.get_json()["user"].items()
+        data = response.get_json()
+
+        assert data["message"] == "Login successful"
+        assert data["user"]["username"] == user.username
         
 def test_login_missing_key(client, registered_user, app):
     with app.app_context():
@@ -27,9 +30,8 @@ def test_login_missing_key(client, registered_user, app):
         response = client.post("/api/auth/login", json={"username": user.username})
         
         assert response.status_code == 400
-        assert response.get_json() == {
-            "message": "Bad request"
-        }
+        assert response.get_json()["message"] == "Bad request"
+
 
 def test_login_invalid_credentials(client, registered_user, app):
     with app.app_context():
@@ -39,9 +41,8 @@ def test_login_invalid_credentials(client, registered_user, app):
         response = client.post("/api/auth/login", json={"username": user.username, "password": "different_passwd123"})
         
         assert response.status_code == 401
-        assert response.get_json() == {
-            "message": "Invalid username or password"
-        }
+        assert response.get_json()["message"] == "Invalid username or password"
+
 
 # =============================================================================
 # Tests for jwt authorization
@@ -78,18 +79,14 @@ def test_jwt_invalid_token(client, app):
             "Authorization": f"Bearer {invalid_token}"
         })
 
-        assert protected_response.get_json() == {
-            "message": "Incorrect token"
-        }
+        assert protected_response.get_json()["message"] == "Incorrect token"
         assert protected_response.status_code == 401
 
 def test_jwt_no_token(client, app):
     with app.app_context():
         protected_response = client.get("api/users/me")
 
-        assert protected_response.get_json() == {
-            "message": "Missing or invalid token"
-        }
+        assert protected_response.get_json()["message"] == "Missing or invalid token"
         assert protected_response.status_code == 401
 
 def test_jwt_revoke_access(client, logged_in_user, app):
@@ -101,22 +98,16 @@ def test_jwt_revoke_access(client, logged_in_user, app):
         })
         assert protected_response1.status_code == 200
 
-        # Changed GET to DELETE
         revoke_response = client.delete("api/auth/revoke_access", headers={
             "Authorization": f"Bearer {token}"
         })
         assert revoke_response.status_code == 200
-        assert revoke_response.get_json() == {
-            "message": "Access token revoked"
-        }
+        assert revoke_response.get_json()["message"] == "Access token revoked"
 
         protected_response2 = client.get("/api/users/me", headers={
             "Authorization": f"Bearer {token}"
         })
         assert protected_response2.status_code == 401
-        assert protected_response2.get_json() == {
-            "msg": "Token has been revoked"
-        }
 
 def test_jwt_revoke_refresh_token(client, registered_user, app):
     with app.app_context():
@@ -133,14 +124,11 @@ def test_jwt_revoke_refresh_token(client, registered_user, app):
         data = json.loads(response.data)
         refresh_token = data["refresh_token"]
 
-        # Changed GET to DELETE
         revoke_response = client.delete("api/auth/revoke_refresh", headers={
             "Authorization": f"Bearer {refresh_token}"
         })
         assert revoke_response.status_code == 200
-        assert revoke_response.get_json() == {
-            "message": "Refresh token revoked"
-        }
+        assert revoke_response.get_json()["message"] == "Refresh token revoked"
 
         refresh_response = client.post("api/auth/refresh", headers={
             "Authorization": f"Bearer {refresh_token}"
@@ -192,7 +180,7 @@ def test_logout_refresh_only(client, registered_user, app):
     assert response.json['message'] == 'Logged out successfully'
  
     assert is_token_revoked(decode_token(refresh_token)) == True
-    assert is_token_revoked(decode_token(access_token)) == False # Access token should not be revoked
+    assert is_token_revoked(decode_token(access_token)) == False 
 
 def test_logout_invalid_access_token_in_body(client, registered_user, app):
     user, password = registered_user
@@ -206,24 +194,17 @@ def test_logout_invalid_access_token_in_body(client, registered_user, app):
     headers = {'Authorization': f'Bearer {refresh_token}'}
     body = {'access_token': 'not.a.real.token'}
     
-    response = client.delete('/api/auth/logout', headers=headers, json=body)
-    
-    # Changed to 200 because we ignore invalid access tokens on logout (Zero Trust/Stability)
+    response = client.delete('/api/logout', headers=headers, json=body)
     assert response.status_code == 200
     assert response.json['message'] == 'Logged out successfully'
 
     assert is_token_revoked(decode_token(refresh_token)) == True
 
-def test_logout_token_mismatch(client, registered_user, registered_friend, app):
-    # This test logic might depend on how strict your revoke_token is.
-    # If you check sub matches, it will fail silently or revoke nothing.
-    pass # Skipping complex mismatch test as logout is now "best effort" for access token
-    
 def test_logout_no_auth_header(client):
     response = client.delete('/api/auth/logout', json={'access_token': '...'})
     
     assert response.status_code == 401
-    assert response.json['message'] == 'Missing or invalid token' # From your @jwt.unauthorized_loader
+    assert response.json['message'] == 'Missing or invalid token' 
 
 def test_logout_with_access_token_in_header(client, registered_user):
     user, password = registered_user

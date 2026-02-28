@@ -1,0 +1,21 @@
+--blue: #0300d1;
+--orange: #cf6f02;
+--black: #000000;
+--gray0: #202020;
+--gray1: #222222;
+--gray2: #656565;
+--gray3: #7f7f7f;
+--gray4: #d9d9d9;
+--gray5: #dddddd;
+--gray6: #e9e9e9;
+--white: #ffffff;
+
+
+
+
+
+
+
+
+
+

@@ -1,60 +1,56 @@
-from flask import Blueprint, request, jsonify, url_for
+from datetime import timedelta
+from flask import Blueprint, request, url_for
 from backend.models import User
 from backend.extensions import db, mail, limiter
+from backend.constants import Constants
+from backend.responses import ResponseTypes, make_api_response
 from flask_jwt_extended import jwt_required, create_access_token, create_refresh_token, get_jwt, get_jwt_identity, decode_token
-from backend.helpers import add_token_to_db, revoke_token
+from backend.helpers import add_token_to_db, revoke_token, sanitize_input
 import re
 from flask_mail import Message
 
-MAX_EMAIL_LEN = 320
-MAX_USERNAME_LEN = 32
-MIN_USERNAME_LEN = 3
-
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
+public_url = "example address"
 
 @auth_bp.route("/register",methods=["POST"])
 @limiter.limit("500 per hour")   # for tests, 500 registers for IP per hour, change before deployment to 5
 def register_user():
     user_data = request.get_json()
     required_keys = {"username", "password", "email"}
-    print(user_data)
 
     if not user_data or not required_keys.issubset(user_data.keys()):
-        return jsonify({"message": "Bad request"}), 400
+        return make_api_response(ResponseTypes.BAD_REQUEST)
     
-    username = user_data["username"]
+    username = sanitize_input(user_data["username"])
     password = user_data["password"]
-    email = user_data["email"]
-
-    email_pattern = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
-    username_pattern = r"^[A-Za-z0-9_.'-]+$"
-    password_pattern = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,72}$" #72 bytes is a max input for bcrypt hash function
+    email = sanitize_input(user_data["email"]).lower()
 
     if (
-        not re.match(email_pattern, email)
-        or not re.match(username_pattern, username)
-        or not len(email) < MAX_EMAIL_LEN
-        or not MIN_USERNAME_LEN <= len(username) <= MAX_USERNAME_LEN
+        not re.match(Constants.EMAIL_PATTERN, email)
+        or not re.match(Constants.USERNAME_PATTERN, username)
+        or not len(email) < Constants.MAX_EMAIL_LEN
+        or not Constants.MIN_USERNAME_LEN <= len(username) <= Constants.MAX_USERNAME_LEN
     ):
-        return jsonify({"message": "Invalid username or email"}), 400
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Incorrect username or email")
     
-    if not re.match(password_pattern, password):
-        return jsonify({"message": "Incorrect password format"}), 400
+    if not re.match(Constants.PASSWORD_PATTERN, password):
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Incorrect password format")
     
     new_user = User(username=username, password=password, email=email)
     if User.query.filter_by(username=username).first() is not None:
-        return jsonify({"message": "Username already taken"}), 409
+        return make_api_response(ResponseTypes.CONFLICT, message="Username already taken")
     if User.query.filter_by(email=email).first() is not None:
-        return jsonify({"message": "Account with this email already exists"}), 409
-    
+        return make_api_response(ResponseTypes.CONFLICT, message="Account with this email already exists")
+
     db.session.add(new_user)
-    db.session.commit()
-    print("Dodano użytkownika do bazy!")
-
+    db.session.flush()
     #send auth email
-
-    auth_token = create_access_token(identity=email)
-
+    auth_token = create_access_token(
+        identity=new_user.user_id,
+        expires_delta=timedelta(hours=24),
+        additional_claims={"type": "email_verification"}
+        )
+    add_token_to_db(auth_token)
     auth_url = url_for("email.verify", token=auth_token, _external=True)
 
     msg = Message(
@@ -62,12 +58,17 @@ def register_user():
             recipients=[email],
             body=f"Hello! Click the link to authorize your account: {auth_url}"
         )
-
-    mail.send(msg)
     
-    return {
-        "message": "Registration successful",
-    }, 200
+    try:
+        db.session.commit()
+        mail.send(msg)
+    except Exception as e:
+        db.session.delete(new_user)
+        db.session.rollback()
+        db.session.commit()
+        return make_api_response(ResponseTypes.SERVER_ERROR, message="Registration failed (mail eror)")
+    
+    return make_api_response(ResponseTypes.CREATED, message="Registration successful")
 
 @auth_bp.route("/login", methods=["POST"])
 @limiter.limit("500 per 15 minutes")   # for tests, 500 logins for IP per 15 minutes, change before deployment to 5
@@ -76,7 +77,7 @@ def login_user():
     required_keys = {"username", "password"}
     
     if not user_data or not required_keys.issubset(user_data.keys()):
-        return jsonify({"message": "Bad request"}), 400
+        return make_api_response(ResponseTypes.BAD_REQUEST)
     
     username = user_data["username"]
     password = user_data["password"]
@@ -84,17 +85,16 @@ def login_user():
     if (
         not isinstance(username, str)
         or not isinstance(password, str) 
-        or len(username) > MAX_USERNAME_LEN
-        or len(password) > 128
+        or len(username) > Constants.MAX_USERNAME_LEN
+        or len(password) > Constants.MAX_PASSWORD_LEN
     ):
-        return jsonify({"message" : "Incorrect username or password"}), 401
+        return make_api_response(ResponseTypes.INVALID_CREDENTIALS)
 
     user = User.query.filter_by(username=username).first()
     if not user or not user.validate_password(password):
-        return jsonify({"message": "Invalid username or password"}), 401
-    
+        return make_api_response(ResponseTypes.INVALID_CREDENTIALS)
     if not user.is_confirmed:
-        return jsonify({"message":"At first, verify your account"})
+       return make_api_response(ResponseTypes.ACCOUNT_NOT_VERIFIED)
     
     limiter.reset()
 
@@ -105,14 +105,11 @@ def login_user():
     add_token_to_db(access_token)
     add_token_to_db(refresh_token)
 
-    return {
-        "message": "Login successful",
-        "user": {
-            "username": user.username,
-        },
+    return make_api_response(ResponseTypes.LOGIN_SUCCESS, data={
+        "user": {"username": user.username},
         "access_token": access_token,
         "refresh_token": refresh_token
-    }, 200
+    })
 
 @auth_bp.route("/refresh", methods=["POST"])
 @jwt_required(refresh=True)
@@ -128,10 +125,10 @@ def refresh():
     add_token_to_db(new_access_token)
     add_token_to_db(new_refresh_token)
     
-    return jsonify({
+    return make_api_response(ResponseTypes.SUCCESS, data={
         "access_token": new_access_token,
         "refresh_token": new_refresh_token
-    }), 200
+        })
 
 @auth_bp.route("/logout", methods=["DELETE"])
 @jwt_required(refresh=True)
@@ -152,15 +149,17 @@ def logout():
         except Exception:
             pass
             
-    return jsonify(message="Logged out successfully"), 200
+    return make_api_response(ResponseTypes.LOGOUT_SUCCESS)
 
-@auth_bp.route("/revoke_access", methods=["DELETE"])
+@auth_bp.route("/revoke_access", methods=["GET", "DELETE"])
 @jwt_required()
 def revoke_access_token():
     jti = get_jwt()["jti"]
     user_id = get_jwt_identity()
-    revoke_token(jti, user_id)
-    return jsonify(message="Access token revoked")
+    revoked = revoke_token(jti, user_id)
+    if not revoked:
+        pass
+    return make_api_response(ResponseTypes.TOKEN_REVOKED, message="Access token revoked")
 
 @auth_bp.route("/revoke_refresh", methods=["DELETE"])
 @jwt_required(refresh=True)
@@ -168,4 +167,4 @@ def revoke_refresh_token():
     jti = get_jwt()["jti"]
     user_id = get_jwt_identity()
     revoke_token(jti, user_id)
-    return jsonify(message="Refresh token revoked")
+    return make_api_response(ResponseTypes.TOKEN_REVOKED, message="Refresh token revoked")

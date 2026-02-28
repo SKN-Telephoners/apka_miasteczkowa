@@ -1,10 +1,26 @@
 import api from "./api";
 
+import { User, Request } from '../types/friends';
+
 type ApiMessage = { message?: string }; //type string insure for backend function response
+
+export interface FriendsDataResponse {
+  friends: User[];
+  incomingRequests: Request[];
+  outgoingRequests: Request[];
+}
+
 // Function to get the friends list
-export const getFriendsList = async () => {
+export const getFriendsList = async (): Promise<any> => {
+  return null;
   //TO-DO: impement in backend
 }
+
+// Function to search users
+export const searchUsers = async (query: string): Promise<User[]> => {
+  const response = await api.get<User[]>('/users/search', { params: { q: query } });
+  return response.data;
+};
 
 // Function to send a friend request
 export const addFriend = async (friendId: string): Promise<string> => {
@@ -31,7 +47,7 @@ export const acceptFriend = async (friendId: string): Promise<string> => {
   }
 };
 // Function to reject a friend request
-export const rejectFriend = async (friendId: string): Promise<string> => {  
+export const rejectFriend = async (friendId: string): Promise<string> => {
   try {
     const response = await api.post<ApiMessage>(`/reject_friend_request/${friendId}`);
     return response.data.message ?? "Friend request rejected";

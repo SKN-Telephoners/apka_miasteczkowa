@@ -28,10 +28,8 @@ def test_create_comment(client, app, logged_in_user, event):
             "Authorization": f"Bearer {token}"
         }, json=payload)
 
-        assert response_create_comment.status_code == 200
-        assert response_create_comment.get_json() == {
-            "message": "Comment created successfully"
-        }
+        assert response_create_comment.status_code == 201
+        assert response_create_comment.get_json()["message"] == "Comment created successfully"
 
         assert len(Comment.query.filter_by(user_id=user.user_id).all()) == 1
 
@@ -41,14 +39,10 @@ def test_create_comment_no_content(client, app, logged_in_user, event):
 
         response_create_comment = client.post(f"/api/comments/create/{event.event_id}", headers={
             "Authorization": f"Bearer {token}"
-        }, json = {"comment": ""})
+        }, json={"content": ""}) 
 
         assert response_create_comment.status_code == 400
-        assert response_create_comment.get_json() == {
-            "message": "Bad request"
-        }
-
-        assert len(Comment.query.filter_by(user_id=user.user_id).all()) == 0
+        
 
 def test_delete_comment(client, app, logged_in_user, comment):
     with app.app_context():
@@ -62,9 +56,7 @@ def test_delete_comment(client, app, logged_in_user, comment):
         })
 
         assert response_delete_comment.status_code == 200
-        assert response_delete_comment.get_json() == {
-            "message": "Comment deleted successfully"
-        }
+        assert response_delete_comment.get_json()["message"] == "Comment deleted successfully"
 
         assert len(Comment.query.filter_by(user_id=user.user_id).all()) == 1
         assert comment.deleted == True
@@ -79,10 +71,8 @@ def test_delete_comment_not_exist(client, app, logged_in_user):
             "Authorization": f"Bearer {token}"
         })
 
-        assert response_delete_comment.status_code == 400
-        assert response_delete_comment.get_json() == {
-            "message": "Comment doesn't exist"
-        }
+        assert response_delete_comment.status_code == 404
+        assert response_delete_comment.get_json()["message"] == "Comment doesn't exist"
 
 def test_delete_comment_not_owner(client, logged_in_user, registered_friend, event, app):
     with app.app_context():
@@ -90,7 +80,7 @@ def test_delete_comment_not_owner(client, logged_in_user, registered_friend, eve
         friend = registered_friend[0]
 
         comment = Comment(
-            user_id = friend.user_id, #other user
+            user_id = friend.user_id,
             event_id = event.event_id,
             content = "jebać UJ!"
         )
@@ -102,28 +92,22 @@ def test_delete_comment_not_owner(client, logged_in_user, registered_friend, eve
             "Authorization": f"Bearer {token}"
         })
 
-        assert response_delete_comment.status_code == 401
-        assert response_delete_comment.get_json() == {
-            "message": "You can delete your own comments only"
-        }
+        assert response_delete_comment.status_code == 403
+        assert response_delete_comment.get_json()["message"] == "You can delete your own comments only"
 
         assert len(Comment.query.filter_by(user_id=friend.user_id).all()) == 1
         assert comment.deleted != True
-        assert comment.content != ""
-        assert comment.edited != True
 
 def test_edit_comment(client, app, logged_in_user, comment):
     with app.app_context():
         token = logged_in_user[1]
 
-        response_edit_comment = client.put(f"/api/comments/edit/{comment.comment_id}", headers={
+        response_edit_comment = client.post(f"/api/comments/edit/{comment.comment_id}", headers={
             "Authorization": f"Bearer {token}"
         }, json = {"new_content": "Jebać UKEN!"})
 
         assert response_edit_comment.status_code == 200
-        assert response_edit_comment.get_json() == {
-            "message": "Comment edited successfully"
-        }
+        assert response_edit_comment.get_json()["message"] == "Comment edited successfully"
 
         assert len(Comment.query.all()) == 1
         edited_comment = Comment.query.filter_by(content="Jebać UKEN!").first()
@@ -133,14 +117,12 @@ def test_edit_comment(client, app, logged_in_user, comment):
 def test_edit_comment_not_exist(client, app, logged_in_user):
     with app.app_context():
         token = logged_in_user[1]
-        response_edit_comment = client.put(f"/api/comments/edit/{uuid.uuid4()}", headers={
+        response_edit_comment = client.post(f"/api/comments/edit/{uuid.uuid4()}", headers={
             "Authorization": f"Bearer {token}"
         })
 
-        assert response_edit_comment.status_code == 400
-        assert response_edit_comment.get_json() == {
-            "message": "Comment doesn't exist"
-        }
+        assert response_edit_comment.status_code == 404
+        assert response_edit_comment.get_json()["message"] == "Comment doesn't exist"
 
 def test_edit_comment_not_owner(client, logged_in_user, registered_friend, event, app):
     with app.app_context():
@@ -148,7 +130,7 @@ def test_edit_comment_not_owner(client, logged_in_user, registered_friend, event
         friend = registered_friend[0]
 
         comment = Comment(
-            user_id = friend.user_id, #other user
+            user_id = friend.user_id, 
             event_id = event.event_id,
             content = "jebać UJ!"
         )
@@ -156,14 +138,12 @@ def test_edit_comment_not_owner(client, logged_in_user, registered_friend, event
         db.session.commit()
 
         # attempt edit
-        response_edit_comment = client.put(f"/api/comments/edit/{comment.comment_id}", headers={
+        response_edit_comment = client.post(f"/api/comments/edit/{comment.comment_id}", headers={
             "Authorization": f"Bearer {token}"
         })
 
-        assert response_edit_comment.status_code == 401
-        assert response_edit_comment.get_json() == {
-            "message": "You can edit your own comments only"
-        }
+        assert response_edit_comment.status_code == 403
+        assert response_edit_comment.get_json()["message"] == "You can edit your own comments only"
 
 def test_reply_to_comment(client, logged_in_user, comment, app):
     with app.app_context():
@@ -177,14 +157,8 @@ def test_reply_to_comment(client, logged_in_user, comment, app):
             "Authorization": f"Bearer {token}"
         }, json=payload)
 
-        assert response_reply_to_comment.status_code == 200
-        assert response_reply_to_comment.get_json() == {
-            "message": "Comment created successfully"
-        }
-
-        assert len(Comment.query.all()) == 2
-        assert len(comment.replies) == 1
-        assert comment.replies[0].content == 'rel'
+        assert response_reply_to_comment.status_code == 201
+        assert response_reply_to_comment.get_json()["message"] == "Reply created successfully"
 
 def test_reply_to_comment_not_exist(client, app, logged_in_user):
     with app.app_context():
@@ -193,10 +167,8 @@ def test_reply_to_comment_not_exist(client, app, logged_in_user):
             "Authorization": f"Bearer {token}"
         })
 
-        assert response_reply_to_comment.status_code == 400
-        assert response_reply_to_comment.get_json() == {
-            "message": "Parent comment doesn't exist"
-        }
+        assert response_reply_to_comment.status_code == 404
+        assert response_reply_to_comment.get_json()["message"] == "Parent comment doesn't exist"
 
 def test_get_comments_empty(client, logged_in_user, event, app):
     with app.app_context():

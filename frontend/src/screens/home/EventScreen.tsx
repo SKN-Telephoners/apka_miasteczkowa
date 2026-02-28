@@ -1,105 +1,91 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
     View,
     Text,
     SafeAreaView,
-    ActivityIndicator
+    ActivityIndicator,
+    FlatList,
+    RefreshControl,
+    TouchableOpacity,
 } from "react-native";
 import EventCard from "../../components/EventCard"
-import { FlatList } from "react-native-gesture-handler";
 import { Event } from "../../types";
 import InputField from "../../components/InputField";
-// TODO: mock data to use untill there is an api endpoint for getting events 
-
-
-const DATA: Partial<Event>[] = [
-    {
-        event_id: '1',
-        name: 'First Item',
-        date_and_time: '10-03-2025',
-        description: 'Lorem ipsum',
-        location: 'place1',
-    },
-    {
-        event_id: '2',
-        name: 'Second Item',
-        date_and_time: '10-02-2025',
-        description: 'Lorem ipsum',
-        location: 'place2',
-    },
-    {
-        event_id: '3',
-        name: 'Third Item',
-        date_and_time: '10-02-2025',
-        description: 'Lorem ipsum',
-        location: 'place3',
-    },
-    {
-        event_id: '4',
-        name: 'First Item',
-        date_and_time: '10-02-2025',
-        description: 'Lorem ipsum',
-        location: 'place1',
-    },
-    {
-        event_id: '5',
-        name: 'another Second Item',
-        date_and_time: '10-02-2025',
-        description: 'Lorem ipsum',
-        location: 'place2',
-    },
-    {
-        event_id: '6',
-        name: 'Third Item',
-        date_and_time: '10-02-2025',
-        description: 'Lorem ipsum',
-        location: 'place3',
-    },
-    {
-        event_id: '7',
-        name: 'First Item',
-        date_and_time: '10-02-2025',
-        description: 'Lorem ipsum',
-        location: 'place1',
-    },
-    {
-        event_id: '8',
-        name: 'Second Item',
-        date_and_time: '10-02-2025',
-        description: 'Lorem ipsum',
-        location: 'place2',
-    },
-    {
-        event_id: '9',
-        name: 'Third Item',
-        date_and_time: '10-02-2025',
-        description: 'Lorem ipsum',
-        location: 'place3',
-    },
-];
+import { getEvents } from "../../services/events";
+import { useNavigation } from "@react-navigation/native";
 
 const EventScreen = () => {
 
     const [searchQuery, setSearchQuery] = useState("");
-    const [isLoading, setIsLoading] = useState(false);
-    const [data, setData] = useState(DATA);
-    const [error, setError] = useState(null);
-    // TODO: full data is gonna be used with api endpoint 
-    // const [fullData, setFullData] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [data, setData] = useState<Event[]>([]);
+    const [error, setError] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [refreshing, setRefreshing] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(true);
+
+    const navigation = useNavigation<any>();
+
+    const loadEvents = async (p = currentPage, isLoadMore: boolean = false) => {
+        try {
+            if (isLoadMore) {
+                setLoadingMore(true);
+            } else {
+                if (p === 1) setIsLoading(true);
+            }
+
+            const response = await getEvents(p, 20);
+
+            if (isLoadMore) {
+                setData(prevData => [...prevData, ...response.data]);
+            } else {
+                setData(response.data);
+            }
+
+            setCurrentPage(response.pagination.page);
+            setTotalPages(response.pagination.pages)
+
+        } catch (error) {
+            console.error('Failed to load events:', error);
+            setError(true);
+        } finally {
+            setIsLoading(false);
+            setRefreshing(false);
+            setLoadingMore(false);
+        }
+    }
+
+    useEffect(() => {
+        loadEvents(1, false);
+    }, []);
+
+    const handleRefresh = useCallback(() => {
+        setRefreshing(true);
+        setHasMore(true);
+        loadEvents(1);
+    }, []);
+
+    const loadMore = () => {
+        if (!loadingMore && hasMore && currentPage < totalPages) {
+            loadEvents(currentPage + 1, true);
+        }
+    };
 
 
     const handleSearch = (query: string) => {
         setSearchQuery(query);
         const lowerCaseQuery = query.toLowerCase().trim();
         if (lowerCaseQuery === "") {
-            setData(DATA);
+            loadEvents(1, false);
             return
         }
 
 
-        const filteredData = DATA.filter((event) => {
+        const filteredData = data.filter((event: Event) => {
 
-            const { name, location, description } = event
+            const { name, location, description } = event;
             return name?.toLowerCase().includes(lowerCaseQuery) ||
                 location?.toLowerCase().includes(lowerCaseQuery) ||
                 description?.toLowerCase().includes(lowerCaseQuery)
@@ -108,8 +94,22 @@ const EventScreen = () => {
         setData(filteredData)
     }
 
+    const renderFooter = () => {
+        if (!loadingMore) return null;
 
-    if (isLoading) {
+        return (
+            <View style={{
+                padding: 20,
+                justifyContent: 'center',
+                alignItems: 'center'
+            }}>
+                <ActivityIndicator size="large" color="#0000ff" />
+            </View>
+        );
+    };
+
+
+    if (isLoading && !refreshing) {
         return (
             <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
                 <ActivityIndicator size="large" />
@@ -121,6 +121,15 @@ const EventScreen = () => {
         return (
             <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
                 <Text>Wystąpił błąd podczas pobierania wydarzeń</Text>
+                <TouchableOpacity
+                    onPress={() => {
+                        setError(false);
+                        setIsLoading(true);
+                        loadEvents(1, false);
+                    }}
+                >
+                    <Text style={{ color: '#0000ff', fontWeight: 'bold' }}>Spróbuj ponownie</Text>
+                </TouchableOpacity>
             </View>
         );
     }
@@ -129,17 +138,31 @@ const EventScreen = () => {
         <SafeAreaView style={{ flex: 1, marginHorizontal: 10 }}>
             <View style={{ marginVertical: 10 }}>
                 <InputField
-                    icon="search"
                     placeholder="Szukaj"
                     onChangeText={(query) => handleSearch(query)}
                     value={searchQuery}
                 />
+                <TouchableOpacity onPress={() => navigation.navigate('AddEvent')} style={{ backgroundColor: '#045ddaff', alignItems: 'center', padding: 10, borderRadius: 25 }} >
+                    <Text style={{ color: '#ffffff' }}>Dodaj wydarzenie</Text>
+                </TouchableOpacity>
 
             </View>
+
+
             <FlatList
                 data={data}
                 renderItem={({ item }) => <EventCard item={item} />}
-                keyExtractor={item => item.event_id!}
+                keyExtractor={(item: Event) => item.id!}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+                }
+                ListFooterComponent={renderFooter}
+                onEndReached={loadMore}
+                onEndReachedThreshold={0.5}
+                initialNumToRender={10}
+                maxToRenderPerBatch={10}
+                windowSize={10}
+                removeClippedSubviews={true}
 
             />
 
