@@ -1,7 +1,7 @@
 import pytest
 from backend.app import create_app
 from backend.extensions import db, mail
-from backend.models import User, TokenBlocklist, Friendship, FriendRequest, Event
+from backend.models import User, TokenBlocklist, Friendship, FriendRequest, Event, Invite
 from datetime import datetime, timezone, timedelta
 from re import search
 
@@ -21,7 +21,7 @@ def rollback_db(app):
     """Rollback any changes made to the database after each test."""
     yield  # run the test
     db.session.rollback()  # undo everything done not commited
-    for model in [User, TokenBlocklist, Friendship, FriendRequest, Event]:
+    for model in [User, TokenBlocklist, Friendship, FriendRequest, Event, Invite]:
         db.session.query(model).delete() # delete everything commited
     db.session.commit()
 
