@@ -99,7 +99,7 @@ const AppNavigator = () => {
           <Stack.Screen name="Auth" component={AuthStack} />
         ) : (
           <Stack.Screen name="Main" component={MainTabs} />
-        )}*/}
+        )} */}
 
 
         {/* =======================================================
