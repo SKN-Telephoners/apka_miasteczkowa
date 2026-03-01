@@ -22,7 +22,7 @@ export const getFriendsList = async (): Promise<string> => {
   }
 }
 
-// Function to search users
+// Function to search users - move do correct spot 
 export const searchUsers = async (query: string): Promise<User[]> => {
   const response = await api.get<User[]>('/users/search', { params: { q: query } });
   return response.data;
@@ -32,7 +32,7 @@ export const searchUsers = async (query: string): Promise<User[]> => {
 export const addFriend = async (friendId: string): Promise<string> => {
   try {
     // post /create_friend_request/:friendId{string}
-    const response = await api.post<ApiMessage>(`/create_friend_request/${friendId}`);
+    const response = await api.post<ApiMessage>(`/requst/${friendId}/crate`);
     return response.data.message ?? "Friend request created";
   } catch (err: any) {
     // error handling for now
@@ -44,7 +44,7 @@ export const addFriend = async (friendId: string): Promise<string> => {
 // Function to accept a friend request
 export const acceptFriend = async (friendId: string): Promise<string> => {
   try {
-    const response = await api.post<ApiMessage>(`/accept_friend_request/${friendId}`);
+    const response = await api.post<ApiMessage>(`/request/${friendId}/accept`);
     return response.data.message ?? "Friend request accepted";
   } catch (err: any) {
     // error handling for now
@@ -55,7 +55,7 @@ export const acceptFriend = async (friendId: string): Promise<string> => {
 // Function to reject a friend request
 export const rejectFriend = async (friendId: string): Promise<string> => {
   try {
-    const response = await api.post<ApiMessage>(`/reject_friend_request/${friendId}`);
+    const response = await api.post<ApiMessage>(`/request/${friendId}/decline`);
     return response.data.message ?? "Friend request rejected";
   } catch (err: any) {
     // error handling for now
@@ -63,4 +63,15 @@ export const rejectFriend = async (friendId: string): Promise<string> => {
     throw new Error(msg);
   }
 };
+// Function to cancel friend request
+export const cancelRequest = async (friendId: string): Promise<string> => {
+  try {
+    const response = await api.post<ApiMessage>(`/request/${friendId}/cancel`);
+    return response.data.message ?? "Friend request canceled";
+  } catch (err: any) {
+    // error handling for now
+    const msg = err?.response?.data?.message || err?.message || "Network error";
+    throw new Error(msg);
+  }
+}
 
