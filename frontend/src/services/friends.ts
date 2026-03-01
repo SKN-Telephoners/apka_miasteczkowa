@@ -11,9 +11,15 @@ export interface FriendsDataResponse {
 }
 
 // Function to get the friends list
-export const getFriendsList = async (): Promise<any> => {
-  return null;
-  //TO-DO: impement in backend
+export const getFriendsList = async (): Promise<string> => {
+  try {
+    const response = await api.post<ApiMessage>('/list');
+    return response.data.message ?? "Returned Friends List"
+  }catch (err: any){
+    //error handling for now
+    const msg = err?.response?.data?.message || err?.message || "Network error"
+    throw new Error(msg)
+  }
 }
 
 // Function to search users
@@ -57,3 +63,4 @@ export const rejectFriend = async (friendId: string): Promise<string> => {
     throw new Error(msg);
   }
 };
+
