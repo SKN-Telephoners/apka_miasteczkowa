@@ -41,8 +41,12 @@ apka_miasteczkowa/
 
 venv/
 backend/.venv
+.venv/
 
 backend/__pycache__/
+backend/routes/__pycache__/
+backend/models/__pycache__/
+backend/.env
 tests/__pycache__/
 frontend/package-lock.json
 frontend/package.json
