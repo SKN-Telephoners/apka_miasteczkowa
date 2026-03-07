@@ -2,11 +2,15 @@ import { Platform } from "react-native";
 
 export const API_BASE_URL = __DEV__
   ? Platform.select({
-      android: "http://localhost:5000",
-      ios: "http://localhost:5000",
-      default: "http://localhost:5000",
+      android: "http://10.0.2.2:5000",
+      ios: "http://10.0.2.2:5000",
+      default: "http://10.0.2.2:5000",
     })
   : "https://production-api.com";
+
+if (!__DEV__ && !API_BASE_URL.startsWith('https://')) {
+  throw new Error("App has to use HTTPS protocol");
+}
 
 export const STORAGE_KEYS = {
   ACCESS_TOKEN: "access_token",
@@ -85,6 +89,8 @@ export const MESSAGES = {
     MIN_LENGTH: (min: number) => `Minimum ${min} znaków`,
     MAX_LENGTH: (max: number) => `Maksimum ${max} znaków`,
     PASSWORDS_MATCH: "Hasła muszą być identyczne",
+    CHECK_USERNAME: "Sprawdź czy nazwa użytkownika jest poprawna",
+    CHECK_PASSWORD: "Sprawdź czy hasło jest poprawne",
   },
 
   // UI Messages

@@ -1,7 +1,9 @@
 import pytest
-from backend.app import create_app
-from backend.extensions import db
+from backend import create_app
+from backend.extensions import db, mail
 from backend.models import User, TokenBlocklist, Friendship, FriendRequest, Event
+from datetime import datetime, timezone, timedelta
+from re import search
 
 @pytest.fixture
 def app():
@@ -35,16 +37,25 @@ def runner(app):
 
 @pytest.fixture
 def registered_user(client):
-    payload = {"username": "user1", "password": "secret", "email": "user1@gmail.com"}
-    client.post("/api/register", json=payload)
+    # Updated password to meet new complexity requirements
+    payload = {"username": "user1", "password": "Secret123", "email": "user1@gmail.com"}
+    client.post("/api/auth/register", json=payload)
     user = User.query.filter_by(username="user1").first()
+    #confirm email
+    with mail.record_messages() as outbox:
+        response = client.post("/api/email/verify_request", json={"email": user.email})
+        match = search(r'(http://.+/verify/\S+)', outbox[0].body)
+        auth_url = match.group()
+        token_path = auth_url.replace("http://localhost", "")
+        client.post(token_path)
+
     return user, payload["password"]
 
 @pytest.fixture
 def logged_in_user(registered_user, client):
     user, password = registered_user
     payload = {"username": user.username, "password": password}
-    response = client.post("/api/login", json=payload)
+    response = client.post("/api/auth/login", json=payload)
     data = response.get_json()
     token = data["access_token"]
     return user, token
@@ -52,7 +63,35 @@ def logged_in_user(registered_user, client):
 
 @pytest.fixture
 def registered_friend(client):
-    payload = {"username": "friend", "password": "friend_secret", "email": "friend@gmail.com"}
-    client.post("/api/register", json=payload)
+    # Updated password to meet new complexity requirements
+    payload = {"username": "friend", "password": "FriendSecret123", "email": "friend@gmail.com"}
+    client.post("/api/auth/register", json=payload)
     friend = User.query.filter_by(username="friend").first()
+    #confirm email
+    with mail.record_messages() as outbox:
+        response = client.post("api/email/verify_request", json={"email": friend.email})
+        match = search(r'(http://.+/verify/\S+)', outbox[0].body)
+        auth_url = match.group()
+        token_path = auth_url.replace("http://localhost", "")
+        client.post(token_path)
     return friend, payload["password"]
+
+@pytest.fixture
+def event(client, logged_in_user):
+    token = logged_in_user[1]
+
+    future_date = (datetime.now(timezone.utc) + timedelta(days=1))
+
+    payload = {
+        "name": "event1",
+        "description": "very cool event",
+        "date": future_date.strftime("%d.%m.%Y"),
+        "time": "21:37",
+        "location": "here",
+        "tags": None,
+        "typeof": "private"
+    }
+
+    client.post("/api/events/create", headers={"Authorization": f"Bearer {token}"}, json=payload)
+    event = Event.query.filter_by(name="event1").first()
+    return event

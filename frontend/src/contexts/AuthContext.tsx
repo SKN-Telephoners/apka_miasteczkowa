@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { tokenStorage } from "../utils/storage";
 
 interface AuthContextType {
@@ -35,10 +36,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const login = async (accessToken: string, refreshToken: string) => {
     await tokenStorage.saveTokens(accessToken, refreshToken);
     setIsAuthenticated(true);
+    setIsLoading(false);
   };
 
   const logout = async () => {
     await tokenStorage.clearTokens();
+    await AsyncStorage.clear();
     setIsAuthenticated(false);
   };
 
@@ -56,3 +59,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
+

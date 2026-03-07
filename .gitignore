@@ -31,6 +31,7 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
 
 # typescript
 *.tsbuildinfo
@@ -40,6 +41,7 @@ yarn-error.*
 apka_miasteczkowa/
 
 venv/
+.venv/
 backend/.venv
 .venv/
 
@@ -48,5 +50,6 @@ backend/routes/__pycache__/
 backend/models/__pycache__/
 backend/.env
 tests/__pycache__/
-frontend/package-lock.json
-frontend/package.json
+backend/routes/__pycache__/
+backend/models/__pycache__/
+.pytest_cache/

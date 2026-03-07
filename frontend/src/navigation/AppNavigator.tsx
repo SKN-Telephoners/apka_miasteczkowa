@@ -6,8 +6,13 @@ import LoginScreen from "../screens/auth/LoginScreen";
 import RegisterScreen from "../screens/auth/RegisterScreen";
 import ResetPasswordScreen from "../screens/auth/ResetPasswordScreen";
 import HomeScreen from "../screens/home/HomeScreen";
+import MapScreen from "../screens/home/MapScreen";
+import ProfileStack from "./ProfileStack";
+import EventStack from "./EventStack";
+import { Ionicons } from "@expo/vector-icons";
+import type { ComponentProps } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, View, TouchableOpacity } from "react-native";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -24,12 +29,48 @@ const AuthStack = () => {
   );
 };
 
+const getIconName = (routeName: string): ComponentProps<typeof Ionicons>['name'] => {
+  const iconMap: Record<string, ComponentProps<typeof Ionicons>['name']> = {
+    'Home': 'home',
+    'Mapa': 'map',
+    'Wydarzenia': 'locate',
+    'Profil': 'person'
+  };
+
+  return iconMap[routeName] ?? 'home';
+};
+
 // for authenticated users
 const MainTabs = () => {
   return (
-    <Tab.Navigator screenOptions={{ headerShown: false }}>
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerStyle: { height: 70 },
+        headerTitleAlign: "center",
+        tabBarStyle: { height: 70 },
+        tabBarItemStyle: { margin: 8, borderRadius: 10 },
+
+        headerRight: () => (
+          <View style={{ flexDirection: 'row' }}>
+            <TouchableOpacity style={{ marginHorizontal: 20 }}>
+              <Ionicons name={'search'} size={28} />
+            </TouchableOpacity>
+            <TouchableOpacity style={{ marginHorizontal: 20 }}>
+              <Ionicons name={'notifications'} size={28} />
+            </TouchableOpacity>
+          </View>
+        ),
+
+        tabBarIcon: ({ color }) => {
+          const iconName = getIconName(route.name)
+          return <Ionicons name={iconName} size={28} color={color} />;
+        },
+      })}
+    >
       <Tab.Screen name="Home" component={HomeScreen} />
-      {/* more tabs */}
+      <Tab.Screen name="Mapa" component={MapScreen} />
+      <Tab.Screen name="Wydarzenia" component={EventStack} />
+      <Tab.Screen name="Profil" component={ProfileStack} />
     </Tab.Navigator>
   );
 };
@@ -49,14 +90,19 @@ const AppNavigator = () => {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!isAuthenticated ? (
+        {/* {!isAuthenticated ? (
           <Stack.Screen name="Auth" component={AuthStack} />
         ) : (
           <Stack.Screen name="Main" component={MainTabs} />
-        )}
+        )} */}
+        {/* Temporary disable auth flow for development */}
+        <Stack.Screen name="Main" component={MainTabs} />
       </Stack.Navigator>
     </NavigationContainer>
   );
 };
 
+
 export default AppNavigator;
+
+
