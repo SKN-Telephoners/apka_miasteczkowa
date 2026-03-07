@@ -33,10 +33,10 @@ const CONTEXT_DEFAULT_VALUE: FriendsContextType = {
   loading: false, // Don't load anything on startup
   error: null,
   // Zastępcze funkcje dla typowania:
-  fetchFriends: async () => {},
-  sendFriendRequest: async () => {},
-  acceptRequest: async () => {},
-  declineRequest: async () => {},
+  fetchFriends: async () => { },
+  sendFriendRequest: async () => { },
+  acceptRequest: async () => { },
+  declineRequest: async () => { },
   searchUsers: async () => [],
 };
 
@@ -52,7 +52,7 @@ export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // --- PERSISTENCE: ZAPISYWANIE DANYCH DO CACHE ---
+  // --- ZAPISYWANIE DANYCH DO CACHE ---
   const saveCache = useCallback(
     async (data: {
       friends: User[];
