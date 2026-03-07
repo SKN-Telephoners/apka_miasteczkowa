@@ -33,10 +33,10 @@ const CONTEXT_DEFAULT_VALUE: FriendsContextType = {
   loading: false, // Don't load anything on startup
   error: null,
   // Zastępcze funkcje dla typowania:
-  fetchFriends: async () => { },
-  sendFriendRequest: async () => { },
-  acceptRequest: async () => { },
-  declineRequest: async () => { },
+  fetchFriends: async () => {},
+  sendFriendRequest: async () => {},
+  acceptRequest: async () => {},
+  declineRequest: async () => {},
   searchUsers: async () => [],
 };
 
