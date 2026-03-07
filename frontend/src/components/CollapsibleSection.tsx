@@ -10,7 +10,7 @@ import {
     Platform,
     UIManager
 } from 'react-native';
-import { THEME } from '../../utils/constants';
+import { THEME } from '../utils/constants';
 import Icon from 'react-native-vector-icons/Ionicons';
 
 // Enable LayoutAnimation on Android
