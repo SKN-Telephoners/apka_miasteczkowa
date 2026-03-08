@@ -1,8 +1,11 @@
-from flask import Blueprint
+from flask import Blueprint, send_file
 from flask_jwt_extended import jwt_required, get_current_user
 from backend.responses import ResponseTypes, make_api_response
+from google.cloud import storage
+import io
 
 users_bp = Blueprint("users", __name__, url_prefix="/api/users")
+client = storage.Client()
 
 @users_bp.route("/me", methods=["GET"])
 @jwt_required()
@@ -17,3 +20,18 @@ def get_user_info():
             "username": user.username,
             "email": user.email
         }})
+
+@users_bp.route("/test_image", methods=["GET"])
+def test_image():
+    bucket_name = "your-bucket-name"
+    filename = "mytestimage.jpg"
+
+    bucket = client.bucket(bucket_name)
+    blob = bucket.blob(filename)
+
+    contents = blob.download_as_bytes()
+
+    return send_file(
+        io.BytesIO(contents),
+        mimetype="image/jpeg"
+    )
