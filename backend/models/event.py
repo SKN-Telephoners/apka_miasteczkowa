@@ -21,3 +21,13 @@ class Event(db.Model):
     )
 
     creator = db.relationship("User", foreign_keys=[creator_id])
+    images = db.relationship("EventImage", backref="event", cascade="all, delete-orphan", lazy=True)
+
+class EventImage(db.Model):
+    __tablename__ = "event_image"
+    
+    image_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
+    event_id = db.Column(UUID(as_uuid=True), db.ForeignKey("event.event_id", ondelete='CASCADE'), nullable=False, index=True)
+    image_url = db.Column(db.String(500), nullable=False)
+    public_id = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)

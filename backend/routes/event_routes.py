@@ -1,5 +1,5 @@
 from flask import jsonify, Blueprint, request, current_app
-from backend.models import Event
+from backend.models import Event, EventImage
 from backend.extensions import db, limiter
 from backend.constants import Constants
 from backend.responses import ResponseTypes, make_api_response
@@ -9,6 +9,7 @@ import uuid
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from sqlalchemy.exc import SQLAlchemyError
+import cloudinary.uploader
 
 events_bp = Blueprint("events", __name__, url_prefix="/api/events")
 local_tz = ZoneInfo("Europe/Warsaw")
@@ -57,6 +58,17 @@ def create_event():
     except ValueError:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid date format. Use DD.MM.YYYY and HH:MM")
 
+    #IMPORTANT: Before calling create/event endpoint frontend needs to call /upload and upload images to the cloud one by one
+    # or use /upload-batch to upload multiple images
+    #then frontend needs to send a list with image data to /create or /edit
+
+    images_data = event_data.get("images", [])
+    if not isinstance(images_data, list):
+        return make_api_response(ResponseTypes.BAD_REQUEST, message="Images must be a list")
+    
+    if len(images_data) > Constants.MAX_IMAGES_COUNT:
+        return make_api_response(ResponseTypes.BAD_REQUEST, message=f"Maximum {Constants.MAX_IMAGES_COUNT} images allowed per event")
+
     try:
         new_event = Event(
             name=name,
@@ -66,6 +78,20 @@ def create_event():
             creator_id=user.user_id
         )
         db.session.add(new_event)
+        db.session.flush()
+
+        for img in images_data:
+            img_url = img.get("image_url")
+            pub_id = img.get("public_id")
+            
+            if img_url and pub_id:
+                new_image = EventImage(
+                    event_id=new_event.event_id,
+                    image_url=img_url,
+                    public_id=pub_id
+                )
+                db.session.add(new_image)
+
         db.session.commit()
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -93,6 +119,13 @@ def delete_event(event_id):
         current_app.logger.warning(f"Użytkownik {user.user_id} próbował usunąć event {event_id} bez uprawnień do niego")
         return make_api_response(ResponseTypes.FORBIDDEN, message="You can delete your own events only")
     try:
+        for image in event.images:
+            try:
+                cloudinary.uploader.destroy(image.public_id)
+            except Exception as cloud_err:
+                current_app.logger.error(f"Failed to delete image {image.public_id} from Cloudinary: {cloud_err}")
+
+        # delete event from db (cascade will handle deleting EventImage rows)
         db.session.delete(event)
         db.session.commit()
     except SQLAlchemyError as e:
@@ -167,9 +200,47 @@ def edit_event(event_id):
             event.date_and_time = date_and_time
         except ValueError:
             return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid date format. Use DD.MM.YYYY and HH:MM")
-        event.edited = True
+
+    raw_images = event_data.get("images")
+    if raw_images is not None:
+        if not isinstance(raw_images, list):
+            return make_api_response(ResponseTypes.BAD_REQUEST, message="Images must be a list")
+        
+        if len(raw_images) > Constants.MAX_IMAGES_COUNT:
+            return make_api_response(ResponseTypes.BAD_REQUEST, message=f"Maximum of {Constants.MAX_IMAGES_COUNT} images allowed per event")
+
+        existing_images = EventImage.query.filter_by(event_id=event.event_id).all()
+        existing_ids = {img.public_id for img in existing_images}
+        
+        valid_incoming_images = [img for img in raw_images if img.get("public_id") and img.get("image_url")]
+        incoming_ids = {img["public_id"] for img in valid_incoming_images}
+
+        ids_to_delete = existing_ids - incoming_ids
+        ids_to_add = incoming_ids - existing_ids
+
+        if ids_to_delete:
+            for img in existing_images:
+                if img.public_id in ids_to_delete:
+                    try:
+                        cloudinary.uploader.destroy(img.public_id)
+                    except Exception as cloud_err:
+                        current_app.logger.error(f"Failed to delete image {img.public_id} from Cloudinary: {cloud_err}")
+
+                    db.session.delete(img)
+
+        if ids_to_add:
+            incoming_lookup = {img["public_id"]: img["image_url"] for img in valid_incoming_images}
+            
+            for new_id in ids_to_add:
+                new_image = EventImage(
+                    event_id=event.event_id,
+                    image_url=incoming_lookup[new_id],
+                    public_id=new_id
+                )
+                db.session.add(new_image)
 
     try:
+        event.edited = True
         db.session.commit()
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -212,7 +283,8 @@ def feed():
                 "date": event.date_and_time.astimezone(local_tz).strftime("%d.%m.%Y"),
                 "time": event.date_and_time.astimezone(local_tz).strftime("%H:%M"),
                 "location": event.location,
-                "creator_id": str(event.creator_id)
+                "creator_id": str(event.creator_id),
+                "images": [{"image_url": img.image_url, "public_id": img.public_id} for img in event.images]
             }
             for event in pagination.items
         ]

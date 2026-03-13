@@ -9,7 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 import cloudinary
 
-images_bp = Blueprint("images", __name__, url_prefix="/api/photos")
+images_bp = Blueprint("images", __name__, url_prefix="/api/images")
 
 @images_bp.route("/upload", methods=["POST"])
 @jwt_required()
@@ -43,3 +43,58 @@ def upload_file():
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@images_bp.route("/upload-batch", methods=["POST"])
+@jwt_required()
+@limiter.limit("100 per minute")
+def upload_multiple_files():
+    if 'files' not in request.files:
+        return make_api_response(ResponseTypes.BAD_REQUEST, message="No files provided")
+
+    files = request.files.getlist('files')
+    
+    if len(files) == 0:
+        return make_api_response(ResponseTypes.BAD_REQUEST, message="File list is empty")
+
+    if len(files) > 5:
+        return make_api_response(ResponseTypes.BAD_REQUEST, message="Maximum 5 images allowed per upload")
+
+    manual_tags = request.form.get('tags', '') 
+    
+    uploaded_data = []
+    errors = []
+
+    for file in files:
+        if file.filename == '':
+            continue
+
+        try:
+            response = cloudinary.uploader.upload(
+                file,
+                upload_preset="aplikacja_miasteczkowa",
+                tags=manual_tags,
+                unique_filename=True,
+                overwrite=True,
+                eager=[{"width": 500, "height": 500, "crop": "fill"}]
+            )
+            
+            uploaded_data.append({
+                "image_url": response.get('eager')[0].get('secure_url'),
+                "public_id": response.get('public_id')
+            })
+
+        except Exception as e:
+            current_app.logger.error(f"Cloudinary upload error for {file.filename}: {e}")
+            errors.append({"filename": file.filename, "error": str(e)})
+
+    # If all uploads failed
+    if not uploaded_data and errors:
+        return make_api_response(ResponseTypes.SERVER_ERROR, message="Failed to upload images", data={"errors": errors})
+
+    # Return partial or full success
+    message = "All images uploaded successfully" if not errors else "Some images failed to upload"
+    
+    return make_api_response(ResponseTypes.CREATED, data={
+        "images": uploaded_data,
+        "errors": errors 
+    }, message=message)

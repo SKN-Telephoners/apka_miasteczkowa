@@ -1,11 +1,17 @@
 import pytest
 from backend.extensions import db
-from backend.models import Event
-from datetime import datetime, timezone
+from backend.models import Event, EventImage
+from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 import uuid
+import base64
 
 local_tz = ZoneInfo("Europe/Warsaw")
+TINY_JPG = base64.b64decode(
+    "/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBxISEhUTEhIVFRUVFRUVFRUVFRUVFRUWFxUVFRUYHSggGBolHRUVITEhJSkrLi4uFx8zODMtNygtLisBCgoKDg0OFRAQFS0dHR0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLf/AABEIAAEAAQMBIgACEQEDEQH/xAAV"
+    "AAEBAAAAAAAAAAAAAAAAAAAABf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhADEAAAAJ8f/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABBQL/xAAVEQEBAAAAAAAAAAAAAAAAAAABAP/aAAgBAwEBPwF//8QAFBEBAAAAAAAAAAAAAAAAAAAAEP/aAAgBAgEBPwF//8QAFBABAAAAAAAA"
+    "AAAAAAAAAAAAAP/aAAgBAQAGPwJ//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPyF//9k="
+)
 
 # =============================================================================
 # Tests for handling events
@@ -31,6 +37,55 @@ def test_create_event(client, logged_in_user, app):
         data = response_create_event.get_json()
         assert data["message"] == "Event created successfully"
         assert "event_id" in data 
+
+def test_create_event_with_images(client, logged_in_user, app):
+    user, user_token = logged_in_user
+    future_date = datetime.now() + timedelta(days=30)
+    date_str = future_date.strftime("%d.%m.%Y")
+    time_str = "18:00"
+
+    payload = {
+        "name": "event1",
+        "description": "very cool event",
+        "date": date_str,
+        "time": time_str,
+        "location": "here",
+        "images": [
+            {
+                "image_url": "https://res.cloudinary.com/demo/image/upload/v1234/fest1.jpg",
+                "public_id": "aplikacja_miasteczkowa/fest1"
+            },
+            {
+                "image_url": "https://res.cloudinary.com/demo/image/upload/v1234/fest2.jpg",
+                "public_id": "aplikacja_miasteczkowa/fest2"
+            }
+        ]
+    }
+
+    headers = {
+        "Authorization": f"Bearer {user_token}",
+        "Content-Type": "application/json"
+    }
+    
+    response = client.post("/api/events/create", json=payload, headers=headers)
+
+    assert response.status_code == 201
+    response_data = response.get_json()
+    assert "event_id" in response_data
+
+    event_id = response_data["event_id"]
+
+    with app.app_context():
+        created_event = Event.query.filter_by(event_id=event_id).first()
+        assert created_event is not None
+        assert created_event.name == "event1"
+
+        linked_images = EventImage.query.filter_by(event_id=event_id).all()
+        assert len(linked_images) == 2
+        
+        public_ids = [img.public_id for img in linked_images]
+        assert "aplikacja_miasteczkowa/fest1" in public_ids
+        assert "aplikacja_miasteczkowa/fest2" in public_ids
 
 def test_create_event_invalid_date(client, logged_in_user, app):
     with app.app_context():
