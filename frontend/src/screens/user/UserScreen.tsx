@@ -3,13 +3,13 @@ import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 import { useFriends } from "../../contexts/FriendsContext";
 import { useNavigation } from "@react-navigation/native";
-import { THEME } from "../../utils/constants";
+import { THEME, MOCKS } from "../../utils/constants";
 import Button from "../../components/Button";
 import CollapsibleSection from "../../components/CollapsibleSection";
+import Avatar from "../../components/Avatar";
 
 // Mock do zmiany na wczoraj, jeśli backend obsłuży te pola
 const MOCK_EXTRAS = {
-  avatar: "https://www.hollywoodreporter.com/wp-content/uploads/2011/06/drive_primary.jpg?w=1440&h=810&crop=1", // Ryan Gosling (Wikipedia)
   bio: "Status: Zew Miasteczka za 3,50!", // Domyślne bio
   faculty: "WIEiT",
   majorAndYear: "Teleinformatyka 1 rok"
@@ -36,12 +36,7 @@ const UserScreen = () => {
     <View style={styles.container}>
       {/* 1. Nagłówek: Avatar + Nazwa + Statystyki */}
       <View style={styles.headerRow}>
-        <View style={styles.avatarContainer}>
-          <Image
-            source={{ uri: MOCK_EXTRAS.avatar }}
-            style={styles.avatar}
-          />
-        </View>
+        <Avatar uri={MOCKS.AVATAR} size={80} style={{ marginRight: THEME.spacing.m }} />
 
         <View style={styles.headerInfo}>
           <Text style={styles.userName}>{user?.username || "Użytkownik"}</Text>
@@ -96,21 +91,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: THEME.spacing.s,
   },
-  avatarContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: THEME.borderRadius.l,
-    overflow: 'hidden',
-    marginRight: THEME.spacing.m,
-    borderWidth: 1,
-    borderColor: THEME.colors.lm_src_br,
-    backgroundColor: THEME.colors.lm_src_br, // Placeholder background
-  },
-  avatar: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
-  },
   headerInfo: {
     flex: 1,
     justifyContent: "center",
@@ -122,27 +102,20 @@ const styles = StyleSheet.create({
   },
   statsText: {
     ...THEME.typography.text,
-    fontSize: 14,
     color: THEME.colors.lm_txt,
-    lineHeight: 18,
   },
   statsNumber: {
     fontWeight: "bold",
   },
   facultyText: {
     ...THEME.typography.text,
-    fontWeight: "bold",
-    fontSize: 14,
   },
   majorText: {
     ...THEME.typography.text,
-    fontSize: 14,
     marginBottom: THEME.spacing.s,
   },
   userBio: {
     ...THEME.typography.text,
-    fontSize: 12,
-    lineHeight: 16,
     color: THEME.colors.lm_txt,
     marginBottom: THEME.spacing.m,
   },
@@ -150,7 +123,7 @@ const styles = StyleSheet.create({
     marginBottom: THEME.spacing.l,
   },
   infoText: {
-    fontSize: 14,
+    ...THEME.typography.text,
     color: THEME.colors.lm_ico,
     fontStyle: "italic",
     textAlign: "center",

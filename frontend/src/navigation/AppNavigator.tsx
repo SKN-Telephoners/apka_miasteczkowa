@@ -12,7 +12,7 @@ import EventStack from "./EventStack";
 import { Ionicons } from "@expo/vector-icons";
 import type { ComponentProps } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { ActivityIndicator, View, TouchableOpacity } from "react-native";
+import { ActivityIndicator, View, TouchableOpacity, Image } from "react-native";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -29,15 +29,22 @@ const AuthStack = () => {
   );
 };
 
-const getIconName = (routeName: string): ComponentProps<typeof Ionicons>['name'] => {
-  const iconMap: Record<string, ComponentProps<typeof Ionicons>['name']> = {
-    'Home': 'home',
-    'Mapa': 'map',
-    'Wydarzenia': 'locate',
-    'Profil': 'person'
+// Konfiguracja "sprite'a" dla iconset1.jpg
+const ICON_SIZE = 30; // Rozmiar wyświetlanej ikony w pasku
+const IMAGE_WIDTH = 120; // Całkowita szerokość pliku (do dostosowania!)
+const IMAGE_HEIGHT = 30; // Całkowita wysokość pliku (do dostosowania!)
+
+const getIconOffset = (routeName: string) => {
+  // Przesunięcia (offsety) dla poszczególnych ikon wewnątrz pliku iconset1.jpg.
+  // Założenie domyślne: 4 ikony w jednym rzędzie. Skorygować wartości w zależności od pliku.
+  const offsets: Record<string, { x: number, y: number }> = {
+    'Home': { x: 0, y: 0 },
+    'Mapa': { x: -ICON_SIZE, y: 0 },
+    'Wydarzenia': { x: -ICON_SIZE * 2, y: 0 },
+    'Profil': { x: -ICON_SIZE * 3, y: 0 }
   };
 
-  return iconMap[routeName] ?? 'home';
+  return offsets[routeName] ?? { x: 0, y: 0 };
 };
 
 // for authenticated users
@@ -61,9 +68,29 @@ const MainTabs = () => {
           </View>
         ),
 
-        tabBarIcon: ({ color }) => {
-          const iconName = getIconName(route.name)
-          return <Ionicons name={iconName} size={28} color={color} />;
+        tabBarIcon: ({ focused }) => {
+          const offset = getIconOffset(route.name);
+          return (
+            <View style={{
+              width: ICON_SIZE,
+              height: ICON_SIZE,
+              overflow: 'hidden',
+              opacity: focused ? 1 : 0.4
+            }}>
+              <Image
+                source={require('../../assets/iconset1.jpg')}
+                style={{
+                  width: IMAGE_WIDTH,
+                  height: IMAGE_HEIGHT,
+                  transform: [
+                    { translateX: offset.x },
+                    { translateY: offset.y }
+                  ]
+                }}
+                resizeMode="cover"
+              />
+            </View>
+          );
         },
       })}
     >

@@ -2,11 +2,9 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, Alert, TouchableOpacity, Image } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
-import { THEME } from '../../utils/constants';
+import { THEME, MOCKS } from '../../utils/constants';
 import Button from '../../components/Button';
-
-// Tymczasowy mock avatara dopóki backend go nie obsłuży
-const MOCK_AVATAR = "https://www.hollywoodreporter.com/wp-content/uploads/2011/06/drive_primary.jpg?w=1440&h=810&crop=1"; // Ryan Gosling (Wikipedia)
+import Avatar from '../../components/Avatar';
 
 const EditProfileScreen = () => {
     const { user } = useAuth();
@@ -31,9 +29,7 @@ const EditProfileScreen = () => {
         <View style={styles.container}>
             {/* Sekcja Avatara */}
             <View style={styles.avatarSection}>
-                <View style={styles.avatarContainer}>
-                    <Image source={{ uri: MOCK_AVATAR }} style={styles.avatar} />
-                </View>
+                <Avatar uri={MOCKS.AVATAR} size={100} style={{ marginBottom: THEME.spacing.s }} />
                 <TouchableOpacity onPress={() => Alert.alert("Info", "Zmiana avatara udostępniona po wpięciu do API!")}>
                     <Text style={styles.changeAvatarText}>Zmień zdjęcie</Text>
                 </TouchableOpacity>
@@ -83,21 +79,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginVertical: THEME.spacing.l,
     },
-    avatarContainer: {
-        width: 100,
-        height: 100,
-        borderRadius: THEME.borderRadius.l,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: THEME.colors.lm_src_br,
-        backgroundColor: THEME.colors.lm_src_br,
-        marginBottom: THEME.spacing.s,
-    },
-    avatar: {
-        width: "100%",
-        height: "100%",
-        resizeMode: "cover",
-    },
     changeAvatarText: {
         ...THEME.typography.text,
         color: THEME.colors.lm_highlight,
@@ -108,7 +89,6 @@ const styles = StyleSheet.create({
     },
     label: {
         ...THEME.typography.text,
-        fontWeight: '600',
         color: THEME.colors.lm_txt,
         marginBottom: THEME.spacing.xs,
     },
@@ -129,7 +109,7 @@ const styles = StyleSheet.create({
         textAlignVertical: 'top', // Wyrównanie do góry na Androidzie
     },
     hint: {
-        fontSize: 12,
+        ...THEME.typography.text,
         color: THEME.colors.lm_ico,
         marginBottom: THEME.spacing.s,
         marginTop: THEME.spacing.xs,
