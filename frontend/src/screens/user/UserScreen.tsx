@@ -98,8 +98,8 @@ const styles = StyleSheet.create({
   userName: {
     fontFamily: "Roboto", //Musimy mieć duże name i małe name
     fontWeight: "700" as const,
-    fontSize: 20,
     lineHeight: 16,
+    fontSize: 20,
   },
   statsText: {
     ...THEME.typography.text,
