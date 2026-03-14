@@ -30,18 +30,22 @@ const AuthStack = () => {
 };
 
 // Konfiguracja "sprite'a" dla iconset1.jpg
-const ICON_SIZE = 30; // Rozmiar wyświetlanej ikony w pasku
-const IMAGE_WIDTH = 120; // Całkowita szerokość pliku (do dostosowania!)
-const IMAGE_HEIGHT = 30; // Całkowita wysokość pliku (do dostosowania!)
+const ICON_SIZE = 30;
+// Skoro ikony są rozłożone w wierszach (górny, na środku) i kolumnach (lewa, środek, prawa),
+// założyłem że obrazek to siatka 3x3. Gdyby rozmiary się nie zgadzały, dopasuj IMAGE_WIDTH i IMAGE_HEIGHT.
+const IMAGE_WIDTH = 90;
+const IMAGE_HEIGHT = 90;
 
 const getIconOffset = (routeName: string) => {
-  // Przesunięcia (offsety) dla poszczególnych ikon wewnątrz pliku iconset1.jpg.
-  // Założenie domyślne: 4 ikony w jednym rzędzie. Skorygować wartości w zależności od pliku.
   const offsets: Record<string, { x: number, y: number }> = {
-    'Home': { x: 0, y: 0 },
-    'Mapa': { x: -ICON_SIZE, y: 0 },
-    'Wydarzenia': { x: -ICON_SIZE * 2, y: 0 },
-    'Profil': { x: -ICON_SIZE * 3, y: 0 }
+    // "prawy górny róg" (X: po prawej, Y: u góry)
+    'Home': { x: -ICON_SIZE * 2, y: 0 },
+    // "na środku po lewej" (X: po lewej, Y: na środku)
+    'Mapa': { x: 0, y: -ICON_SIZE },
+    // "na samym środku" (X: na środku, Y: na środku)
+    'Wydarzenia': { x: -ICON_SIZE, y: -ICON_SIZE },
+    // "po prawej na środku" (X: po prawej, Y: na środku)
+    'Profil': { x: -ICON_SIZE * 2, y: -ICON_SIZE }
   };
 
   return offsets[routeName] ?? { x: 0, y: 0 };

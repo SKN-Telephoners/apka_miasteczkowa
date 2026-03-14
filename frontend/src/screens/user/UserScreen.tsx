@@ -96,9 +96,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   userName: {
-    ...THEME.typography.title,
-    fontWeight: "bold",
-    marginBottom: THEME.spacing.xs,
+    ...THEME.typography.name,
   },
   statsText: {
     ...THEME.typography.text,
@@ -108,7 +106,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   facultyText: {
-    ...THEME.typography.text,
+    ...THEME.typography.faculty,
   },
   majorText: {
     ...THEME.typography.text,
