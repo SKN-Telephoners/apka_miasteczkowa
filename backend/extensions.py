@@ -7,6 +7,7 @@ from flask_limiter.util import get_remote_address
 from flask_mail import Mail
 from celery import Celery, Task
 from flask import Flask
+from flask_migrate import Migrate
 
 db = SQLAlchemy()
 bcrypt = Bcrypt()

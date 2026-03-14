@@ -1,6 +1,7 @@
 import os
 from datetime import timedelta
 from dotenv import load_dotenv
+from flask_migrate import Migrate
 
 load_dotenv()
 

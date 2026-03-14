@@ -3,6 +3,7 @@ from sqlalchemy import CheckConstraint, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from datetime import datetime, timezone
+from flask_migrate import Migrate
 
 class Friendship(db.Model):
     __tablename__ = 'friendships'

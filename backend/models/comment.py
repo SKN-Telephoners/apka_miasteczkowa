@@ -2,6 +2,7 @@ from backend.extensions import db
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from datetime import datetime, timezone
+from flask_migrate import Migrate
 
 class Comment(db.Model):
     __tablename__ = 'comments'
