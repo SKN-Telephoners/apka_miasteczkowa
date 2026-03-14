@@ -103,8 +103,6 @@ const styles = StyleSheet.create({
     },
     text: {
         ...THEME.typography.text,
-        fontWeight: 'bold',
-        fontSize: 16,
     },
     primaryText: {
         color: '#FFFFFF',

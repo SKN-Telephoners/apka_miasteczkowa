@@ -83,14 +83,16 @@ export const THEME = {
       lineHeight: 20.5,
     },
     name: {
-      fontWeight: "400" as const,
+      fontFamily: "Roboto",
+      fontWeight: "700" as const,
       fontSize: 16,
-      lineHeight: 16,
+      lineHeight: 20,
     },
     faculty: {
-      fontWeight: "400" as const,
+      fontFamily: "Roboto",
+      fontWeight: "700" as const,
       fontSize: 10,
-      lineHeight: 7,
+      lineHeight: 16,
     },
   },
 
@@ -198,4 +200,8 @@ export const APP_CONFIG = {
   MIN_PASSWORD_LENGTH: 8,
   MAX_USERNAME_LENGTH: 30,
   MAX_EMAIL_LENGTH: 100,
+} as const;
+
+export const MOCKS = {
+  AVATAR: "https://www.hollywoodreporter.com/wp-content/uploads/2011/06/drive_primary.jpg?w=1440&h=810&crop=1",
 } as const;
