@@ -97,6 +97,8 @@ const styles = StyleSheet.create({
   },
   userName: {
     ...THEME.typography.name,
+    fontSize: 20,
+    lineHeight: 16,
   },
   statsText: {
     ...THEME.typography.text,
@@ -107,6 +109,8 @@ const styles = StyleSheet.create({
   },
   facultyText: {
     ...THEME.typography.faculty,
+    fontSize: 18,
+    lineHeight: 20.5,
   },
   majorText: {
     ...THEME.typography.text,
