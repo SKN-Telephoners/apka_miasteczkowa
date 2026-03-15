@@ -1,9 +1,16 @@
 //API; Pamiętać o API!;
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as friendsService from '../services/friends';
-import { User, Request } from '../types/friends';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import * as friendsService from "../services/friends";
+import { Request, User } from "../types/friends";
 
 interface FriendsContextType {
   friends: User[];
@@ -18,107 +25,124 @@ interface FriendsContextType {
   searchUsers: (query: string) => Promise<User[]>; // Akcja zwracająca wynik
 }
 
-const FRIENDS_CACHE_KEY = 'friendsCache';
+const FRIENDS_CACHE_KEY = "friendsCache";
 const CONTEXT_DEFAULT_VALUE: FriendsContextType = {
   friends: [],
   incomingRequests: [],
   outgoingRequests: [],
-  loading: true, // Zaczynamy od ładowania, aby pobrać cache
+  loading: false, // Don't load anything on startup
   error: null,
   // Zastępcze funkcje dla typowania:
-  fetchFriends: async () => { },
-  sendFriendRequest: async () => { },
-  acceptRequest: async () => { },
-  declineRequest: async () => { },
+  fetchFriends: async () => {},
+  sendFriendRequest: async () => {},
+  acceptRequest: async () => {},
+  declineRequest: async () => {},
   searchUsers: async () => [],
 };
 
 const FriendsContext = createContext<FriendsContextType | undefined>(undefined);
 
-export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   // --- STAN LOKALNY ---
   const [friends, setFriends] = useState<User[]>([]);
   const [incomingRequests, setIncomingRequests] = useState<Request[]>([]);
   const [outgoingRequests, setOutgoingRequests] = useState<Request[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // --- PERSISTENCE: ZAPISYWANIE DANYCH DO CACHE ---
-  const saveCache = useCallback(async (data: { friends: User[], incomingRequests: Request[], outgoingRequests: Request[] }) => {
-    try {
-      await AsyncStorage.setItem(FRIENDS_CACHE_KEY, JSON.stringify(data));
-    } catch (e) {
-      console.error("Failed to save friends cache", e);
-    }
-  }, []);
+  const saveCache = useCallback(
+    async (data: {
+      friends: User[];
+      incomingRequests: Request[];
+      outgoingRequests: Request[];
+    }) => {
+      try {
+        await AsyncStorage.setItem(FRIENDS_CACHE_KEY, JSON.stringify(data));
+      } catch (e) {
+        console.error("Failed to save friends cache", e);
+      }
+    },
+    [],
+  );
 
-  const fetchFriends = useCallback(async (isInitialLoad: boolean = false) => {
-    setError(null);
-    if (!isInitialLoad) {
-      setLoading(true);
-    }
+  const fetchFriends = useCallback(
+    async (isInitialLoad: boolean = false) => {
+      setError(null);
+      if (!isInitialLoad) {
+        setLoading(true);
+      }
 
-    try {
-      const response = await friendsService.getFriendsList() as any;
-      const data = response || { friends: [], incomingRequests: [], outgoingRequests: [] };
+      try {
+        const response = (await friendsService.getFriendsList()) as any;
+        const data = response || {
+          friends: [],
+          incomingRequests: [],
+          outgoingRequests: [],
+        };
 
+        setFriends(data.friends);
+        setIncomingRequests(data.incomingRequests);
+        setOutgoingRequests(data.outgoingRequests);
 
-      setFriends(data.friends);
-      setIncomingRequests(data.incomingRequests);
-      setOutgoingRequests(data.outgoingRequests);
+        // Synchronizacja cache po pomyślnym pobraniu
+        await saveCache(data);
+      } catch (err) {
+        setError("Nie udało się załadować danych o znajomych.");
+        console.error("Error fetching friends data:", err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [saveCache],
+  );
 
-      // Synchronizacja cache po pomyślnym pobraniu
-      await saveCache(data);
+  const sendFriendRequest = useCallback(
+    async (userId: string) => {
+      try {
+        setLoading(true);
+        await friendsService.addFriend(userId);
+        await fetchFriends(); // Odświeżenie listy po akcji
+      } catch (err) {
+        setError("Nie udało się wysłać zaproszenia.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [friends, incomingRequests, outgoingRequests, saveCache],
+  );
 
-    } catch (err) {
-      setError("Nie udało się załadować danych o znajomych.");
-      console.error("Error fetching friends data:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [saveCache]);
+  const acceptRequest = useCallback(
+    async (requestId: string) => {
+      try {
+        setLoading(true);
+        await friendsService.acceptFriend(requestId);
+        await fetchFriends(); // Odświeżenie listy po akcji
+      } catch (err) {
+        setError("Nie udało się zaakceptować zaproszenia.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [friends, incomingRequests, outgoingRequests, saveCache],
+  );
 
-  const sendFriendRequest = useCallback(async (userId: string) => {
-    try {
-      setLoading(true);
-      await friendsService.addFriend(userId);
-      await fetchFriends(); // Odświeżenie listy po akcji
-
-    } catch (err) {
-      setError("Nie udało się wysłać zaproszenia.");
-    } finally {
-      setLoading(false);
-    }
-  }, [friends, incomingRequests, outgoingRequests, saveCache]);
-
-  const acceptRequest = useCallback(async (requestId: string) => {
-    try {
-      setLoading(true);
-      await friendsService.acceptFriend(requestId);
-      await fetchFriends(); // Odświeżenie listy po akcji
-
-
-    } catch (err) {
-      setError("Nie udało się zaakceptować zaproszenia.");
-    } finally {
-      setLoading(false);
-    }
-  }, [friends, incomingRequests, outgoingRequests, saveCache]);
-
-
-  const declineRequest = useCallback(async (requestId: string) => {
-    try {
-      setLoading(true);
-      await friendsService.rejectFriend(requestId);
-      await fetchFriends(); // Odświeżenie listy po akcji
-
-    } catch (err) {
-      setError("Nie udało się odrzucić zaproszenia.");
-    } finally {
-      setLoading(false);
-    }
-  }, [friends, incomingRequests, outgoingRequests, saveCache]);
-
+  const declineRequest = useCallback(
+    async (requestId: string) => {
+      try {
+        setLoading(true);
+        await friendsService.rejectFriend(requestId);
+        await fetchFriends(); // Odświeżenie listy po akcji
+      } catch (err) {
+        setError("Nie udało się odrzucić zaproszenia.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [friends, incomingRequests, outgoingRequests, saveCache],
+  );
 
   const searchUsers = useCallback(async (query: string): Promise<User[]> => {
     try {
@@ -129,8 +153,9 @@ export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, []);
 
+  // Load cached data on startup (NO API CALLS)
   useEffect(() => {
-    const loadCacheAndFetch = async () => {
+    const loadCache = async () => {
       try {
         const cachedData = await AsyncStorage.getItem(FRIENDS_CACHE_KEY);
         if (cachedData) {
@@ -141,39 +166,39 @@ export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
       } catch (e) {
         console.error("Failed to load friends cache", e);
-      } finally {
-        fetchFriends(true);
       }
     };
 
-    loadCacheAndFetch();
-  }, [fetchFriends]);
-
+    loadCache();
+  }, []);
 
   // --- KONTEKSTOWA WARTOŚĆ (Użycie useMemo dla optymalizacji) ---
-  const contextValue = useMemo(() => ({
-    friends,
-    incomingRequests,
-    outgoingRequests,
-    loading,
-    error,
-    fetchFriends,
-    sendFriendRequest,
-    acceptRequest,
-    declineRequest,
-    searchUsers,
-  }), [
-    friends,
-    incomingRequests,
-    outgoingRequests,
-    loading,
-    error,
-    fetchFriends,
-    sendFriendRequest,
-    acceptRequest,
-    declineRequest,
-    searchUsers,
-  ]);
+  const contextValue = useMemo(
+    () => ({
+      friends,
+      incomingRequests,
+      outgoingRequests,
+      loading,
+      error,
+      fetchFriends,
+      sendFriendRequest,
+      acceptRequest,
+      declineRequest,
+      searchUsers,
+    }),
+    [
+      friends,
+      incomingRequests,
+      outgoingRequests,
+      loading,
+      error,
+      fetchFriends,
+      sendFriendRequest,
+      acceptRequest,
+      declineRequest,
+      searchUsers,
+    ],
+  );
 
   return (
     <FriendsContext.Provider value={contextValue}>
@@ -185,7 +210,7 @@ export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({ child
 export const useFriends = () => {
   const context = useContext(FriendsContext);
   if (context === undefined) {
-    throw new Error('useFriends must be used within a FriendsProvider');
+    throw new Error("useFriends must be used within a FriendsProvider");
   }
   return context;
 };

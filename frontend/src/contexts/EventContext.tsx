@@ -20,10 +20,11 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       const response = await createEvent(eventData);
       const newEvent: Event = {
-        event_id: response.event_id,
+        id: response.event_id,
         name: eventData.name,
         description: eventData.description,
-        date_and_time: `${eventData.date} ${eventData.time}`,
+        date: eventData.date,
+        time: eventData.time,
         location: eventData.location,
         creator_id: 'current_user', // Placeholder, bo backend nie zwraca
         created_at: new Date().toISOString(),
@@ -42,7 +43,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsLoading(true);
     try {
       await deleteEvent(eventId);
-      setEvents(prev => prev.filter(event => event.event_id !== eventId));
+      setEvents(prev => prev.filter(event => event.id !== eventId));
     } catch (error) {
       console.error("Error deleting event:", error);
       throw error;

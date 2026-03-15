@@ -17,7 +17,7 @@ import { useNavigation } from "@react-navigation/native";
 const EventScreen = () => {
 
     const [searchQuery, setSearchQuery] = useState("");
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
     const [data, setData] = useState<Event[]>([]);
     const [error, setError] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
@@ -58,8 +58,14 @@ const EventScreen = () => {
     }
 
     useEffect(() => {
-        loadEvents(1, false);
-    }, []);
+        // Listen for screen focus to lazy-load events
+        const unsubscribe = navigation.addListener('focus', () => {
+            if (data.length === 0 && !error) {
+                loadEvents(1, false);
+            }
+        });
+        return unsubscribe;
+    }, [navigation, data.length, error]);
 
     const handleRefresh = useCallback(() => {
         setRefreshing(true);
