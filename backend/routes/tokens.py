@@ -1,11 +1,12 @@
 from backend.models import User
 from backend.responses import ResponseTypes, make_api_response
 from backend.extensions import db, jwt
+from backend.app import app
 from backend.helpers import is_token_revoked
 from flask_jwt_extended import create_access_token, get_jwt, get_jwt_identity, set_access_cookies
 from datetime import datetime, timezone, timedelta
 
-@jwt.after_request
+@app.after_request
 def refresh_expiring_jwts(response):
     try:
         exp_timestamp = get_jwt()["exp"]
