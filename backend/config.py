@@ -11,7 +11,7 @@ class Config:
     BCRYPT_LOG_ROUNDS = 12
     
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=1)
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=5)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
     
     MAIL_SERVER = os.getenv("MAIL_SERVER")  #SMTP server ex. smtp.gmail.com
