@@ -1,7 +1,6 @@
 from backend.extensions import db
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
-from flask_migrate import Migrate
 
 class TokenBlocklist(db.Model):
     __tablename__ = "token_blocklist"
