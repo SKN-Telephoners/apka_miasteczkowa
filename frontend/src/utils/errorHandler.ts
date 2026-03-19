@@ -12,7 +12,7 @@ const httpStatusMessages: { [key: number]: string } = {
 }
 export const parseAxiosError = (error: unknown): string => {
     if(isAxiosError(error)){
-        const axiosError = error as AxiosError<ApiErrorResponse>; // change if trows error TypeError: Cannot read properties of undefined "as"
+        const axiosError = error as AxiosError<ApiErrorMessage>; // change if trows error TypeError: Cannot read properties of undefined "as"
         const status = axiosError.response?.status;
         const backendMessage = axiosError.response?.data?.message;
         if(backendMessage){
@@ -25,4 +25,5 @@ export const parseAxiosError = (error: unknown): string => {
             return axiosError.message;
         }
     }
+    return "Unknown error occurred. Please try again.";
 }

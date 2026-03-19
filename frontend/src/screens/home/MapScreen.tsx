@@ -1,62 +1,43 @@
 import {
   Camera,
   MapView,
-  RasterLayer,
-  RasterSource,
-  setAccessToken,
 } from "@maplibre/maplibre-react-native";
-import React from "react";
+import Constants from "expo-constants";
+import { useMemo } from "react";
 import { StyleSheet, View } from "react-native";
 
-setAccessToken(null);
+export default function MapScreen() {
+  const MAPTILER_KEY = Constants.expoConfig?.extra?.MAPTILER_KEY || "";
 
-const MapScreen = () => {
+  const mapStyle = useMemo(
+    () =>
+      `https://api.maptiler.com/maps/streets-v4/style.json?key=${MAPTILER_KEY}`,
+    [MAPTILER_KEY],
+  );
+
   return (
-    <View style={styles.page}>
-      {/*target implementation - vector rendering */}
-      {/* <MapView
-        style={styles.map}
-        styleURL="https://api.maptiler.com/maps/streets/style.json?key=MAPTILER_KEY"
-        logoEnabled={false}
-      >
-        <Camera
-          zoomLevel={14}
-          centerCoordinate={[19.9449, 50.0647]}
-          animationMode="flyTo"
-          animationDuration={2000}
-        />
-      </MapView> */}
-
-      {/*OpenStreetMap Tiles via RasterSource and RasterLayer for development*/}
-      <MapView style={styles.map} logoEnabled={false}>
-        <Camera
-          zoomLevel={14}
-          centerCoordinate={[19.9449, 50.0647]}
-          animationMode="moveTo"
-        />
-
-        {/* OpenStreetMap Images */}
-        <RasterSource
-          id="osmSource"
-          tileUrlTemplates={[
-            "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
-          ]}
-          tileSize={256}
-        />
-
-        <RasterLayer
-          id="osmLayer"
-          sourceID="osmSource"
-          style={{ rasterOpacity: 1 }}
-        />
-      </MapView>
+    <View style={styles.container}>
+      <View style={styles.mapcontainer}>
+        <MapView
+          style={styles.map}
+          mapStyle={mapStyle}
+          logoEnabled={false}
+          attributionPosition={{ bottom: 8, right: 8 }}
+        >
+          <Camera
+            zoomLevel={17}
+            centerCoordinate={[19.906, 50.0685]}
+            animationMode="flyTo"
+            animationDuration={1500}
+          />
+        </MapView>
+      </View>    
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  page: { flex: 1 },
+  container: { flex: 1, justifyContent: "center", alignItems: "center" },
+  mapcontainer: { width: "100%", height: "100%" },
   map: { flex: 1 },
 });
-
-export default MapScreen;

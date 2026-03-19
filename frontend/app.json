@@ -25,14 +25,11 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-      "@maplibre/maplibre-react-native"
-    ],
+    "plugins": ["@maplibre/maplibre-react-native"],
     "extra": {
       "eas": {
         "projectId": "6b3dd378-2802-4aa8-8660-e3f3fd64d98a"
-      }
-    },
+      }    },
     "owner": "skn-telephoners"
   }
 }
