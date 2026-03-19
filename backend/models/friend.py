@@ -4,8 +4,13 @@ from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from datetime import datetime, timezone
 
+class FriendRequestStatus(enum.Enum):
+    pending = "pending"
+    accepted = "accepted"
+    rejected = "rejected"
+
 class Friendship(db.Model):
-    __tablename__ = 'friendships'
+    __tablename__ = 'Friendships'
 
     friendship_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,  unique=True, nullable=False)
     user_id = db.Column(UUID(as_uuid=True), db.ForeignKey("app_user.user_id", ondelete='CASCADE'), nullable=False, index=True)
@@ -22,12 +27,13 @@ class Friendship(db.Model):
     friend = db.relationship("User", foreign_keys=[friend_id])
 
 class FriendRequest(db.Model):
-    __tablename__ = 'friend_requests'
+    __tablename__ = 'Friend_requests'
 
     request_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,  unique=True, nullable=False)
     sender_id = db.Column(UUID(as_uuid=True), db.ForeignKey("app_user.user_id", ondelete='CASCADE'), nullable=False, index=True)
     receiver_id = db.Column(UUID(as_uuid=True), db.ForeignKey("app_user.user_id", ondelete='CASCADE'), nullable=False, index=True)
     requested_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+    status = db.Column(db.Enum(FriendRequestStatus), default=InvitationStatus.pending, nullable=False)
 
     __table_args__ = (
         db.CheckConstraint('sender_id <> receiver_id', name='sender_not_receiver'),

@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timezone
 
 class User(db.Model):
-    __tablename__ = "app_user"
+    __tablename__ = "User"
     
     user_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
     username = db.Column(db.String(32), nullable=False, unique=True)
@@ -15,6 +15,7 @@ class User(db.Model):
     is_confirmed = db.Column(db.Boolean, default=False)
     password_changed_at = db.Column(db.DateTime(timezone=True), nullable=True)
     confirmed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    description = db.Column(db.String(320))
 
     __table_args__ = (
         CheckConstraint(r"email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'", name="email_format"),

@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 
 class Comment(db.Model):
-    __tablename__ = 'comments'
+    __tablename__ = 'Comments'
 
     comment_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,  unique=True, nullable=False)
     parent_comment_id = db.Column(UUID(as_uuid=True), db.ForeignKey("comments.comment_id", ondelete='SET NULL'), default=None, nullable=True)
