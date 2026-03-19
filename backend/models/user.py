@@ -36,3 +36,20 @@ class User(db.Model):
 
     def __repr__(self):
         return f"User {self.username}"
+    
+class ProfilePicture(db.Model):
+    __tablename__="Profile_pictures"
+    
+    profile_picture_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
+    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey("User.user_id", ondelete='CASCADE'), nullable=False, index=True)
+    picture_link = db.Column(db.String(1000))
+    
+class BlockList(db.Model):
+    __tablename__="Block_list"
+    
+    block_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
+    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey("User.user_id", ondelete='CASCADE'), nullable=False, index=True)
+    blocked_user_id = db.Column(UUID(as_uuid=True), db.ForeignKey("User.user_id", ondelete='CASCADE'), nullable=False, index=True)
+    
+    
+    
