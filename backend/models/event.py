@@ -48,7 +48,7 @@ class Event_participants(db.Model):
     user_id = db.Column(UUID(as_uuid=True), db.ForeignKey("User.user_id", ondelete='CASCADE'), nullable=False, index=True)
 
     __table_args__ = (
-        UniqueConstraint('user_id', 'event_id', name='unique_record'),
+        UniqueConstraint('user_id', 'event_id', name='unique_event_participant'),
     )
 
     event = db.relationship("Event", foreign_keys=[event_id])
@@ -63,7 +63,7 @@ class Event_visibility(db.Model):
     shared_with = db.Column(UUID(as_uuid=True), db.ForeignKey("User.user_id", ondelete='CASCADE'), nullable=False, index=True)
 
     __table_args__ = (
-        UniqueConstraint('sharing', 'shared_with', 'event_id', name='unique_record'),
+        UniqueConstraint('sharing', 'shared_with', 'event_id', name='unique_private_event_share'),
         CheckConstraint('sharing <> shared_with', name='cannot_share_with_oneself'),
     )
 
@@ -82,7 +82,7 @@ class Invites(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
 
     __table_args__ = (
-        UniqueConstraint('inviter_id', 'invited_id', 'event_id', name='unique_record'),
+        UniqueConstraint('inviter_id', 'invited_id', 'event_id', name='unique_event_invite'),
         CheckConstraint('invited_id <> inviter_id', name='cannot_invite_oneself'),
     )
 
