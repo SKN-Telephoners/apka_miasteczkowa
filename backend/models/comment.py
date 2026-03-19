@@ -7,9 +7,9 @@ class Comment(db.Model):
     __tablename__ = 'Comments'
 
     comment_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,  unique=True, nullable=False)
-    parent_comment_id = db.Column(UUID(as_uuid=True), db.ForeignKey("comments.comment_id", ondelete='SET NULL'), default=None, nullable=True)
-    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey("app_user.user_id", ondelete='CASCADE'), nullable=False)
-    event_id = db.Column(UUID(as_uuid=True), db.ForeignKey("event.event_id", ondelete='CASCADE'), nullable=False)
+    parent_comment_id = db.Column(UUID(as_uuid=True), db.ForeignKey("Comments.comment_id", ondelete='SET NULL'), default=None, nullable=True)
+    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey("User.user_id", ondelete='CASCADE'), nullable=False)
+    event_id = db.Column(UUID(as_uuid=True), db.ForeignKey("Event.event_id", ondelete='CASCADE'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
     content = db.Column(db.String(1000), nullable=False)
     edited = db.Column(db.Boolean, default=False)
