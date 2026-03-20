@@ -105,5 +105,5 @@ def event(client, logged_in_user):
     }
 
     client.post("/api/events/create", headers={"Authorization": f"Bearer {token}"}, json=payload)
-    event = Event.query.filter_by(name="event1").first()
+    event = Event.query.filter_by(event_name="event1").first()
     return event

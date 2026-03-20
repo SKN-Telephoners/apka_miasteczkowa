@@ -59,7 +59,7 @@ def create_event():
 
     try:
         new_event = Event(
-            name=name,
+            event_name=name,
             description=description,
             date_and_time=date_and_time,
             location=location,
@@ -130,7 +130,7 @@ def edit_event(event_id):
         name = sanitize_input(str(raw_name)).strip()
         if not (Constants.MIN_EVENT_NAME <= len(name) <= Constants.MAX_EVENT_NAME):
             return make_api_response(ResponseTypes.INVALID_DATA, message=f"Event must be between {Constants.MIN_EVENT_NAME} and {Constants.MAX_EVENT_NAME} characters")
-        event.name = name
+        event.event_name = name
 
     raw_desc = event_data.get("description")
     if raw_desc is not None:
@@ -207,7 +207,7 @@ def feed():
         event_list=[
             {
                 "id": str(event.event_id),
-                "name": event.name,
+                "name": event.event_name,
                 "description": event.description,
                 "date": event.date_and_time.astimezone(local_tz).strftime("%d.%m.%Y"),
                 "time": event.date_and_time.astimezone(local_tz).strftime("%H:%M"),

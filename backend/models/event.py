@@ -36,8 +36,13 @@ class Event(db.Model):
 
     @validates('date_and_time')
     def validate_date(self, key, date_and_time):
-        if date_and_time and date_and_time <= datetime.now(timezone.utc):
-            raise ValueError("Data wydarzenia musi być ustawiona na przyszłość.")
+        if date_and_time:
+            if date_and_time.tzinfo is None:
+                date_and_time = date_and_time.replace(tzinfo=timezone.utc)
+
+            if date_and_time <= datetime.now(timezone.utc):
+                raise ValueError("Data wydarzenia musi być w przyszłości.")
+            
         return date_and_time
 
 class Event_participants(db.Model):
@@ -48,7 +53,7 @@ class Event_participants(db.Model):
     user_id = db.Column(UUID(as_uuid=True), db.ForeignKey("User.user_id", ondelete='CASCADE'), nullable=False, index=True)
 
     __table_args__ = (
-        UniqueConstraint('user_id', 'event_id', name='unique_event_participant'),
+        UniqueConstraint('user_id', 'event_id', name='unique_event_participants'),
     )
 
     event = db.relationship("Event", foreign_keys=[event_id])
@@ -63,7 +68,7 @@ class Event_visibility(db.Model):
     shared_with = db.Column(UUID(as_uuid=True), db.ForeignKey("User.user_id", ondelete='CASCADE'), nullable=False, index=True)
 
     __table_args__ = (
-        UniqueConstraint('sharing', 'shared_with', 'event_id', name='unique_private_event_share'),
+        UniqueConstraint('sharing', 'shared_with', 'event_id', name='unique_private_events_shared'),
         CheckConstraint('sharing <> shared_with', name='cannot_share_with_oneself'),
     )
 
