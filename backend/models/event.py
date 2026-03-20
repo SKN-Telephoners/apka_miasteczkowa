@@ -33,6 +33,7 @@ class Event(db.Model):
     )
 
     creator = db.relationship("User", foreign_keys=[creator_id])
+    pictures = db.relationship("Pictures", backref="event_ref", cascade="all, delete-orphan", lazy=True) #nie trzeba się odwoływać do poszczególnych zdjęć tylko od razu przez Event.pictures
 
     @validates('date_and_time')
     def validate_date(self, key, date_and_time):
