@@ -3,6 +3,7 @@ import { StatusBar, ActivityIndicator, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "./contexts/AuthContext";
 import { EventProvider } from "./contexts/EventContext";
+import { FriendsProvider } from "./contexts/FriendsContext";
 import AppNavigator from "./navigation/AppNavigator";
 import { tokenStorage } from "./utils/storage";
 
@@ -34,8 +35,12 @@ const App = () => {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <StatusBar barStyle="dark-content" />
-        <AppNavigator />
+        <EventProvider>
+          <FriendsProvider>
+            <StatusBar barStyle="dark-content" />
+            <AppNavigator />
+          </FriendsProvider>
+        </EventProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );
