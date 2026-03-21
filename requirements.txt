@@ -1,5 +1,9 @@
+aiosmtpd==1.4.6
+alembic==1.18.4
 amqp==5.3.1
 async-timeout==5.0.1
+atpublic==7.0.0
+attrs==25.4.0
 bcrypt==4.3.0
 billiard==4.2.4
 bleach==6.3.0
@@ -23,6 +27,7 @@ flask-cors==5.0.1
 Flask-JWT-Extended==4.7.1
 Flask-Limiter==3.12
 Flask-Mail==0.10.0
+Flask-Migrate==4.1.0
 Flask-SQLAlchemy==3.1.1
 flask-talisman==1.1.0
 Flask-Testing==0.8.1
@@ -38,8 +43,9 @@ idna==3.11
 iniconfig==2.0.0
 itsdangerous==2.2.0
 Jinja2==3.1.6
-kombu==5.6.2
+kombu==5.6.1
 limits==5.2.0
+Mako==1.3.10
 markdown-it-py==3.0.0
 MarkupSafe==3.0.2
 mdurl==0.1.2
@@ -70,7 +76,7 @@ tzdata==2025.3
 tzlocal==5.3.1
 urllib3==2.6.3
 vine==5.1.0
-wcwidth==0.6.0
+wcwidth==0.2.14
 webencodings==0.5.1
 Werkzeug==3.1.3
 wrapt==1.17.2

@@ -1,0 +1,41 @@
+import dotenv from "dotenv";
+
+dotenv.config();
+
+export default {
+  expo: {
+    name: "aplikacja",
+    slug: "aplikacja-miasteczkowa",
+    version: "1.0.0",
+    orientation: "portrait",
+    icon: "./assets/icon.png",
+    userInterfaceStyle: "light",
+    newArchEnabled: true,
+    splash: {
+      image: "./assets/splash-icon.png",
+      resizeMode: "contain",
+      backgroundColor: "#ffffff",
+    },
+    ios: {
+      supportsTablet: true,
+    },
+    android: {
+      adaptiveIcon: {
+        foregroundImage: "./assets/adaptive-icon.png",
+        backgroundColor: "#ffffff",
+      },
+      package: "com.skntelephoners.aplikacjamiasteczkowa",
+    },
+    web: {
+      favicon: "./assets/favicon.png",
+    },
+    plugins: ["@maplibre/maplibre-react-native"],
+    extra: {
+      eas: {
+        projectId: "6b3dd378-2802-4aa8-8660-e3f3fd64d98a",
+      },
+      MAPTILER_KEY: process.env.MAPTILER_API_KEY,
+    },
+    owner: "skn-telephoners",
+  },
+};

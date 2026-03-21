@@ -13,6 +13,8 @@ TINY_JPG = base64.b64decode(
     "AAAAAAAAAAAAAP/aAAgBAQAGPwJ//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPyF//9k="
 )
 
+local_tz = ZoneInfo("Europe/Warsaw")
+
 # =============================================================================
 # Tests for handling events
 # =============================================================================

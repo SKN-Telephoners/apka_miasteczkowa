@@ -90,13 +90,12 @@ const AppNavigator = () => {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {/* {!isAuthenticated ? (
+
+         {!isAuthenticated ? (
           <Stack.Screen name="Auth" component={AuthStack} />
         ) : (
           <Stack.Screen name="Main" component={MainTabs} />
-        )} */}
-        {/* Temporary disable auth flow for development */}
-        <Stack.Screen name="Main" component={MainTabs} />
+        )} 
       </Stack.Navigator>
     </NavigationContainer>
   );
