@@ -10,6 +10,7 @@ import uuid
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import or_
 
 events_bp = Blueprint("events", __name__, url_prefix="/api/events")
 local_tz = ZoneInfo("Europe/Warsaw")
@@ -212,6 +213,7 @@ def edit_event(event_id):
 
 @events_bp.route("/feed", methods=["GET"])
 @limiter.limit("600 per minute")
+@jwt_required()
 def feed():
     try:
         user = get_current_user()
@@ -229,15 +231,15 @@ def feed():
         if limit > Constants.MAX_PAGINATION_LIMIT:
             limit = Constants.MAX_PAGINATION_LIMIT
 
-        events_public = Event.query.filter_by(is_private=False)
-        if events_public is not None:
-            events = events_public
-        events_private = Event_visibility.query.filter_by(shared_with=user_id)
-        if events_private is not None:
-            events.append(events_private)
-        my_events = Event_visibility.query.filter_by(sharing=user_id)
-        if my_events is not None:
-            events.append(my_events)
+        events = Event.query.outerjoin(
+            Event_visibility, Event.event_id == Event_visibility.event_id
+        ).filter(
+            or_(
+                Event.is_private == False,              
+                Event.creator_id == user_id,               
+                Event_visibility.shared_with == user_id
+            )
+        ).distinct() 
 
         if sort==1:
             events=events.order_by(Event.date_and_time.asc())

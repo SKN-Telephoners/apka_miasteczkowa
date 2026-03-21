@@ -20,7 +20,8 @@ def test_create_event(client, logged_in_user, app):
             "description": "very cool event",
             "date": "01.01.2050",
             "time": "21:37",
-            "location": "here"
+            "location": "here",
+            "is_private": False
         }
 
         response_create_event = client.post(f"/api/events/create", headers={
@@ -42,7 +43,8 @@ def test_create_event_invalid_date(client, logged_in_user, app):
             "description": "very cool event",
             "date": "01.01.1995",
             "time": "21:37",
-            "location": "here"
+            "location": "here",
+            "is_private": False
         }
 
         response_create_event = client.post(f"/api/events/create", headers={
@@ -62,7 +64,8 @@ def test_delete_event(client, logged_in_user, app):
             "description": "very cool event",
             "date": "01.01.2050",
             "time": "21:37",
-            "location": "here"
+            "location": "here",
+            "is_private": False
         }
 
         response_create_event = client.post(f"/api/events/create", headers={
@@ -95,7 +98,8 @@ def test_delete_event_not_owner(client, logged_in_user, registered_friend, app):
             description="private",
             date_and_time=datetime(2027, 1, 1, 21, 37),
             location="here",
-            creator_id=friend.user_id #other user
+            creator_id=friend.user_id, #other user
+            is_private=False
         )
         db.session.add(event)
         db.session.commit()
@@ -129,7 +133,8 @@ def test_create_event_invalid_payload(client, logged_in_user, app):
             "description": "valid desc",
             "date": "01.01.2050",
             "time": "21:37",
-            "location": "valid loc"
+            "location": "valid loc",
+            "is_private": False
         }
 
         response = client.post("/api/events/create", headers={"Authorization": f"Bearer {token}"}, json=payload)
@@ -147,7 +152,8 @@ def test_edit_event(client, logged_in_user, app):
             "description": "very cool event",
             "date": "01.01.2050",
             "time": "21:37",
-            "location": "here"
+            "location": "here",
+            "is_private": False
         }
 
         response_create_event = client.post(f"/api/events/create", headers={
@@ -165,7 +171,8 @@ def test_edit_event(client, logged_in_user, app):
             "description": None,
             "date": "20.01.2050",
             "time": "22:37",
-            "location": None
+            "location": None,
+            "is_private": False
         }
 
         #edit event
@@ -185,7 +192,7 @@ def test_edit_event(client, logged_in_user, app):
         assert edited_event.description == "very cool event"
         assert edited_event.date_and_time == datetime(2050, 1, 20, 22, 37, tzinfo=local_tz)
         assert edited_event.location == "here"
-        assert edited_event.edited == True
+        assert edited_event.is_edited == True
 
 def test_edit_event_not_exist(client, logged_in_user, app):
     with app.app_context():
@@ -196,7 +203,8 @@ def test_edit_event_not_exist(client, logged_in_user, app):
             "description": None,
             "date": "20.01.2050",
             "time": "22:37",
-            "location": None
+            "location": None,
+            "is_private": False
         }
 
         response_edit_event = client.put(f"/api/events/edit/{uuid.uuid4()}", headers={
@@ -218,7 +226,8 @@ def test_edit_event_not_owner(client, logged_in_user, registered_friend, app):
             description="private",
             date_and_time=datetime(2050, 1, 20, 21, 37, tzinfo=timezone.utc),
             location="here",
-            creator_id=friend.user_id #other user
+            creator_id=friend.user_id, #other user
+            is_private=False
         )
         db.session.add(event)
         db.session.commit()

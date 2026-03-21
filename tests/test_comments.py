@@ -44,7 +44,7 @@ def test_create_comment_no_content(client, app, logged_in_user, event):
         assert response_create_comment.status_code == 400
         
 
-def test_delete_comment(client, app, logged_in_user, comment):
+def test_delete_comment(client, app, logged_in_user, comment, event):
     with app.app_context():
         user, token = logged_in_user
 
@@ -52,7 +52,7 @@ def test_delete_comment(client, app, logged_in_user, comment):
         comment = Comment.query.filter_by(user_id=user.user_id).first()
 
         response_delete_comment = client.delete(f"/api/comments/delete/{comment.comment_id}", headers={
-            "Authorization": f"Bearer {token}"
+            "Authorization": f"Bearer {token}", "event_id": event.event_id
         })
 
         assert response_delete_comment.status_code == 200
@@ -63,12 +63,12 @@ def test_delete_comment(client, app, logged_in_user, comment):
         assert comment.content == ""
         assert comment.edited == True
 
-def test_delete_comment_not_exist(client, app, logged_in_user):
+def test_delete_comment_not_exist(client, app, logged_in_user, event):
     with app.app_context():
         token = logged_in_user[1]
 
         response_delete_comment = client.delete(f"/api/comments/delete/{uuid.uuid4()}", headers={
-            "Authorization": f"Bearer {token}"
+            "Authorization": f"Bearer {token}", "event_id": event.event_id
         })
 
         assert response_delete_comment.status_code == 404
@@ -89,7 +89,7 @@ def test_delete_comment_not_owner(client, logged_in_user, registered_friend, eve
 
         # attempt delete
         response_delete_comment = client.delete(f"/api/comments/delete/{comment.comment_id}", headers={
-            "Authorization": f"Bearer {token}"
+            "Authorization": f"Bearer {token}", "event_id": event.event_id
         })
 
         assert response_delete_comment.status_code == 403
@@ -145,7 +145,7 @@ def test_edit_comment_not_owner(client, logged_in_user, registered_friend, event
         assert response_edit_comment.status_code == 403
         assert response_edit_comment.get_json()["message"] == "You can edit your own comments only"
 
-def test_reply_to_comment(client, logged_in_user, comment, app):
+def test_reply_to_comment(client, logged_in_user, comment, event, app):
     with app.app_context():
         token = logged_in_user[1]
 
@@ -154,18 +154,19 @@ def test_reply_to_comment(client, logged_in_user, comment, app):
         }
 
         response_reply_to_comment = client.post(f"/api/comments/reply/{comment.comment_id}", headers={
-            "Authorization": f"Bearer {token}"
+            "Authorization": f"Bearer {token}", "event_id": event.event_id
         }, json=payload)
 
         assert response_reply_to_comment.status_code == 201
         assert response_reply_to_comment.get_json()["message"] == "Reply created successfully"
 
-def test_reply_to_comment_not_exist(client, app, logged_in_user):
+def test_reply_to_comment_not_exist(client, app, logged_in_user, event):
     with app.app_context():
         token = logged_in_user[1]
+        payload = {"content": "Jebać UJ!"}
         response_reply_to_comment = client.post(f"/api/comments/reply/{uuid.uuid4()}", headers={
-            "Authorization": f"Bearer {token}"
-        })
+            "Authorization": f"Bearer {token}", "event_id": event.event_id
+        },  json=payload)
 
         assert response_reply_to_comment.status_code == 404
         assert response_reply_to_comment.get_json()["message"] == "Parent comment doesn't exist"

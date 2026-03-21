@@ -54,9 +54,10 @@ def create_comment(event_id):
 @comments_bp.route("/reply/<parent_comment_id>", methods=["POST"])
 @jwt_required()
 @limiter.limit("90 per minute")
-def reply_to_comment(parent_comment_id , event_id):
+def reply_to_comment(parent_comment_id):
     user = get_current_user()
     p_uuid = validate_uuid(parent_comment_id)
+    event_id = request.headers.get("event_id")
     e_uuid = validate_uuid(event_id)
     
     if not p_uuid:
@@ -109,9 +110,10 @@ def reply_to_comment(parent_comment_id , event_id):
 @comments_bp.route("/delete/<comment_id>", methods=["DELETE"])
 @jwt_required()
 @limiter.limit("90 per minute")
-def delete_comment(comment_id, event_id):
+def delete_comment(comment_id):
     user = get_current_user()
     c_uuid = validate_uuid(comment_id)
+    event_id = request.headers.get("event_id")
     e_uuid = validate_uuid(event_id)
 
     if not c_uuid:
@@ -130,7 +132,7 @@ def delete_comment(comment_id, event_id):
         return make_api_response(ResponseTypes.FORBIDDEN, message="You can delete your own comments only")
     
     comment_count = event.comment_count
-    comment_count += 1
+    comment_count -= 1
         
     try: 
         comment.soft_delete()

@@ -86,7 +86,7 @@ def create_events(client, logged_in_user):
     while(event_id!=22):
         event_id+=1
         event_time = datetime.now(timezone.utc) + timedelta(days=event_id)
-        payload = {"name": str(event_id)+"ssss", "description": "Lore ipsum", "date": event_time.strftime("%d.%m.%Y"), "time":event_time.strftime("%H:%M"), "location":"Poland"}
+        payload = {"name": str(event_id)+"ssss", "description": "Lore ipsum", "date": event_time.strftime("%d.%m.%Y"), "time":event_time.strftime("%H:%M"), "location":"Poland", "is_private": False}
         response=client.post("/create_event", json=payload, headers=headers)
         assert response.status_code == 201
 
@@ -101,7 +101,8 @@ def event(client, logged_in_user):
         "description": "very cool event",
         "date": future_date.strftime("%d.%m.%Y"),
         "time": "21:37",
-        "location": "here"
+        "location": "here",
+        "is_private": False
     }
 
     client.post("/api/events/create", headers={"Authorization": f"Bearer {token}"}, json=payload)

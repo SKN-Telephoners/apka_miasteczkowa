@@ -33,7 +33,7 @@ class Event(db.Model):
     )
 
     creator = db.relationship("User", foreign_keys=[creator_id])
-    pictures = db.relationship("Pictures", backref="event_ref", cascade="all, delete-orphan", lazy=True) #nie trzeba się odwoływać do poszczególnych zdjęć tylko od razu przez Event.pictures
+    pictures = db.relationship("Pictures", back_populates="event", cascade="all, delete-orphan", lazy=True) #nie trzeba się odwoływać do poszczególnych zdjęć tylko od razu przez Event.pictures
 
     @validates('date_and_time')
     def validate_date(self, key, date_and_time):
@@ -103,4 +103,4 @@ class Pictures(db.Model):
     event_picture_link = db.Column(db.String(64), nullable=False, unique=True)
     event_id = db.Column(UUID(as_uuid=True), db.ForeignKey("Event.event_id", ondelete='CASCADE'), nullable=False, index=True)
 
-    event = db.relationship("Event", foreign_keys=[event_id])
+    event = db.relationship("Event", back_populates="pictures")
