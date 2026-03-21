@@ -249,28 +249,30 @@ def invite_for_event(event_id):
     
     list_invite_id=invent_data.get("user_id")
 
-    for invite_id in list_invite_id:
-        existing=Invite.query.filter_by(event_id=event_id,user_id=invite_id).first()
+    existing_invites = Invite.query.filter(
+    Invite.event_id == event_id,
+    Invite.user_id.in_(list_invite_id)
+    ).all()
 
-        if not existing:
+    existing_ids = {invite.user_id for invite in existing_invites}
 
-            new_record=Invite(
-                event_id=event_id,
-                user_id=invite_id
-            )
+    new_invites = [
+        Invite(event_id=event_id, user_id=invite_id)
+        for invite_id in list_invite_id
+        if invite_id not in existing_ids
+    ]
 
-            db.session.add(new_record)
-                
+    db.session.add_all(new_invites)
              
     try:
         db.session.commit()
     except  Exception as e:
                 db.session.rollback()
                 print(f"Database error: {e}")
-                return jsonify({"message": "Internal server error"}), 500
-    return {
-        "message": "Invite successfully"
-    }, 200
+                return make_api_response(ResponseTypes.SERVER_ERROR)
+
+    return make_api_response(ResponseTypes.CREATED,None,"Invite successfully")
+
 
 @events_bp.route("/<uuid:event_id>/invite/list",methods=["GET"])
 @jwt_required()
@@ -294,11 +296,7 @@ def invite_on_event(event_id):
         for user in users
     ]
 
-    return jsonify(
-        {
-            "data":invite_list
-        }
-    ),200
+    return make_api_response(ResponseTypes.SUCCESS,data=[invite_list])
 
 @events_bp.route("/<uuid:event_id>/invite/delete",methods=["DELETE"])
 @jwt_required()
@@ -311,7 +309,7 @@ def delete_invite(event_id):
     required_keys = {"user_id"}
 
     if not invent_data or not required_keys.issubset(invent_data.keys()):
-        return jsonify({"message": "Bad request"}), 400
+        return make_api_response(ResponseTypes.BAD_REQUEST)
     
     list_invite_id_to_delete=invent_data.get("user_id")
 
@@ -328,10 +326,8 @@ def delete_invite(event_id):
     except  Exception as e:
                 db.session.rollback()
                 print(f"Database error: {e}")
-                return jsonify({"message": "Internal server error"}), 500
-    return {
-        "message": "delete successfully"
-    }, 200
+                return make_api_response(ResponseTypes.SERVER_ERROR)
+    return make_api_response(ResponseTypes.DELETE)
 
 
 ####sefty######
