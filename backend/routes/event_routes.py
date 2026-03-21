@@ -289,14 +289,14 @@ def invite_on_event(event_id):
     
     invite_list=[
         {
-            "id":user.user_id,
+            "id":str(user.user_id),
             "username":user.username,
             "email":user.email
         }
         for user in users
     ]
 
-    return make_api_response(ResponseTypes.SUCCESS,data=[invite_list])
+    return make_api_response(ResponseTypes.SUCCESS,data={"data": invite_list})
 
 @events_bp.route("/<uuid:event_id>/invite/delete",methods=["DELETE"])
 @jwt_required()
@@ -341,7 +341,7 @@ def event_id_sefe(event_id):
 def jwt_check(event):
     current_user_id = get_jwt_identity()
 
-    if event.creator_id != current_user_id:
+    if str(event.creator_id) != str(current_user_id):
         abort(403, description="Unauthorized")
                 
 
