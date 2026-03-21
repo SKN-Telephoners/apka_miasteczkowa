@@ -3,7 +3,8 @@ import { View, TouchableOpacity, Text, Alert } from "react-native";
 import { useState } from "react";
 import InputField from "../../components/InputField";
 import { createEvent } from "../../services/events";
-import DatePicker from "../../components/DateTimePicker"
+import DatePicker from "../../components/DateTimePicker";
+import { Checkbox } from 'expo-checkbox';
 
 
 const AddEvent = () => {
@@ -14,6 +15,7 @@ const AddEvent = () => {
   const [location, setLocation] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
+  const [isPrivate, setIsPrivate] = useState(false);
 
   const [titleError, setTitleError] = useState("");
   const [locationError, setLocationError] = useState("");
@@ -97,7 +99,8 @@ const AddEvent = () => {
           description: description,
           date: date,
           time: time,
-          location: location
+          location: location,
+          is_private: isPrivate,
         }
       );
       Alert.alert("Dodano wydarzenie");
@@ -120,6 +123,7 @@ const AddEvent = () => {
     setLocation("");
     setDate("");
     setTime("");
+    setIsPrivate(false);
   };
 
   const handleDateTimeSelected = (selectedDate: string, selectedTime: string) => {
@@ -151,6 +155,14 @@ const AddEvent = () => {
         initialDate={new Date()}
         initialTime={new Date()}
       />
+      <View>
+        <Checkbox
+          value={isPrivate}
+          onValueChange={setIsPrivate}
+          color={isPrivate ? '#4630EB' : undefined}
+        />
+        <Text>Wydarzenie prywatne</Text>
+      </View>
 
       <TouchableOpacity onPress={handleCreateEvent} style={{ backgroundColor: '#045ddaff', alignItems: 'center', padding: 10, borderRadius: 25 }} >
         <Text style={{ color: '#ffffff' }}>Dodaj wydarzenie</Text>
