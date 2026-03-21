@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { ComponentProps } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { ActivityIndicator, View, TouchableOpacity, Image } from "react-native";
+import { THEME } from "../utils/constants";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -35,6 +36,7 @@ const ICON_SIZE = 30;
 // założyłem że obrazek to siatka 3x3. Gdyby rozmiary się nie zgadzały, dopasuj IMAGE_WIDTH i IMAGE_HEIGHT.
 const IMAGE_WIDTH = 90;
 const IMAGE_HEIGHT = 90;
+const SEARCH_ICON_OFFSET = { x: -ICON_SIZE * 2, y: 0 };
 
 const getIconOffset = (routeName: string) => {
   const offsets: Record<string, { x: number, y: number }> = {
@@ -56,19 +58,35 @@ const MainTabs = () => {
   return (
     <Tab.Navigator
       initialRouteName="Mapa"
-      screenOptions={({ route }) => ({
-        headerStyle: { height: 70 },
+      screenOptions={({ route, navigation }) => ({
+        headerStyle: { height: 50, elevation: 0, shadowOpacity: 0, borderBottomWidth: 0 },
+        headerShadowVisible: false,
         headerTitleAlign: "left",
-        tabBarStyle: { height: 70 },
+        tabBarStyle: { height: 60 },
         tabBarItemStyle: { margin: 8, borderRadius: 10 },
+        tabBarShowLabel: false,
+        tabBarActiveTintColor: THEME.colors.transparentOrange,
 
         headerRight: () => (
           <View style={{ flexDirection: 'row' }}>
-            <TouchableOpacity style={{ marginHorizontal: 20 }}>
-              <Ionicons name={'search'} size={28} />
-            </TouchableOpacity>
-            <TouchableOpacity style={{ marginHorizontal: 20 }}>
-              <Ionicons name={'notifications'} size={28} />
+            <TouchableOpacity
+              style={{ marginHorizontal: 20 }}
+              onPress={() => navigation.navigate('Wydarzenia', { screen: 'AddEvent' })}
+            >
+              <View style={{ width: ICON_SIZE, height: ICON_SIZE, overflow: 'hidden' }}>
+                <Image
+                  source={require('../../assets/iconset2.jpg')}
+                  style={{
+                    width: IMAGE_WIDTH,
+                    height: IMAGE_HEIGHT,
+                    transform: [
+                      { translateX: SEARCH_ICON_OFFSET.x },
+                      { translateY: SEARCH_ICON_OFFSET.y }
+                    ]
+                  }}
+                  resizeMode="cover"
+                />
+              </View>
             </TouchableOpacity>
           </View>
         ),
@@ -114,7 +132,7 @@ const AppNavigator = () => {
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#0000ff" />
+        <ActivityIndicator size="large" color={THEME.colors.transparentOrange} />
       </View>
     );
   }

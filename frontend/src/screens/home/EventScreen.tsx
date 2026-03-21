@@ -13,6 +13,8 @@ import { Event } from "../../types";
 import InputField from "../../components/InputField";
 import { getEvents } from "../../services/events";
 import { useNavigation } from "@react-navigation/native";
+import { THEME } from "../../utils/constants";
+import ItemSeparator from "../../components/ItemSeparator"
 
 const parseEventDateTime = (event: Event): Date | null => {
     if (!event?.date || !event?.time) return null;
@@ -151,7 +153,7 @@ const EventScreen = () => {
                 justifyContent: 'center',
                 alignItems: 'center'
             }}>
-                <ActivityIndicator size="large" color="#0000ff" />
+                <ActivityIndicator size="large" color={THEME.colors.transparentOrange} />
             </View>
         );
     };
@@ -159,7 +161,7 @@ const EventScreen = () => {
 
     if (isLoading && !refreshing) {
         return (
-            <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+            <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: THEME.colors.lm_bg }}>
                 <ActivityIndicator size="large" />
             </View>
         );
@@ -167,7 +169,7 @@ const EventScreen = () => {
 
     if (error) {
         return (
-            <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+            <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: THEME.colors.lm_bg }}>
                 <Text>Wystąpił błąd podczas pobierania wydarzeń</Text>
                 <TouchableOpacity
                     onPress={() => {
@@ -176,23 +178,22 @@ const EventScreen = () => {
                         loadEvents(1, false);
                     }}
                 >
-                    <Text style={{ color: '#0000ff', fontWeight: 'bold' }}>Spróbuj ponownie</Text>
+                    <Text style={{ color: THEME.colors.transparentOrange, fontWeight: 'bold' }}>Spróbuj ponownie</Text>
                 </TouchableOpacity>
             </View>
         );
     }
 
     return (
-        <SafeAreaView style={{ flex: 1, marginHorizontal: 10 }}>
-            <View style={{ marginVertical: 10 }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: THEME.colors.lm_bg }}>
+            <View style={{marginHorizontal: 10, marginTop: 5}}>
                 <InputField
                     placeholder="Szukaj"
                     onChangeText={(query) => handleSearch(query)}
                     value={searchQuery}
+                    showSearchSpriteIcon
+                    reserveErrorSpace={false}
                 />
-                <TouchableOpacity onPress={() => navigation.navigate('AddEvent')} style={{ backgroundColor: '#045ddaff', alignItems: 'center', padding: 10, borderRadius: 25 }} >
-                    <Text style={{ color: '#ffffff' }}>Dodaj wydarzenie</Text>
-                </TouchableOpacity>
 
             </View>
 
@@ -211,6 +212,7 @@ const EventScreen = () => {
                 maxToRenderPerBatch={10}
                 windowSize={10}
                 removeClippedSubviews={true}
+                ItemSeparatorComponent={ItemSeparator}
 
             />
 

@@ -22,11 +22,10 @@ const Avatar = ({ uri, size = 80, style }: AvatarProps) => {
 
 const styles = StyleSheet.create({
     container: {
-        borderRadius: THEME.borderRadius.l,
+        borderRadius: THEME.borderRadius.round,
         overflow: 'hidden',
         borderWidth: 2,
-        borderRadius: 24,
-        borderColor: THEME.colors.txt,
+        borderColor: THEME.colors.lm_src_br,
         backgroundColor: THEME.colors.lm_src_br,
     },
     image: {

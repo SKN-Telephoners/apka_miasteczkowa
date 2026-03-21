@@ -76,6 +76,13 @@ export const THEME = {
       fontSize: 20,
       lineHeight: 20,
     },
+
+    eventTitle: {
+      fontFamily: "Prompt",
+      fontWeight: "700" as const,
+      fontSize: 20,
+      lineHeight: 20,
+    },
     text: {
       fontFamily: "Roboto",
       fontWeight: "400" as const,

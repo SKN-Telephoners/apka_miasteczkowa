@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
         opacity: 0.5,
     },
     text: {
-        ...THEME.typography.text,
+        ...THEME.typography.title,
     },
     primaryText: {
         color: '#FFFFFF',

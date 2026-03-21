@@ -268,6 +268,7 @@ def feed():
                 "location": event.location,
                 "creator_id": str(event.creator_id),
                 "creator_username": creator_usernames.get(str(event.creator_id)),
+                "created_at": event.created_at.isoformat() if event.created_at else None,
                 "comment_count": str(event.comment_count),
                 "is_private": event.is_private,
             }
