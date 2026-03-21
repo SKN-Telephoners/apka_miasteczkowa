@@ -24,8 +24,9 @@ const styles = StyleSheet.create({
     container: {
         borderRadius: THEME.borderRadius.l,
         overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: THEME.colors.lm_src_br,
+        borderWidth: 2,
+        borderRadius: 24,
+        borderColor: THEME.colors.txt,
         backgroundColor: THEME.colors.lm_src_br,
     },
     image: {

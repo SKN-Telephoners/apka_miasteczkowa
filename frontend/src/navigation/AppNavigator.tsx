@@ -57,7 +57,7 @@ const MainTabs = () => {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerStyle: { height: 70 },
-        headerTitleAlign: "center",
+        headerTitleAlign: "left",
         tabBarStyle: { height: 70 },
         tabBarItemStyle: { margin: 8, borderRadius: 10 },
 
