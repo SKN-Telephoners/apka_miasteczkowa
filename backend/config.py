@@ -32,6 +32,8 @@ class Config:
     
     
 class TestConfig(Config):
+    BCRYPT_LOG_ROUNDS = 4
+    
     MAIL_SUPPRESS_SEND = True
     MAIL_BACKEND = 'flask_mail.backends.locmem.EmailBackend'
     TESTING = True
