@@ -55,6 +55,7 @@ const getIconOffset = (routeName: string) => {
 const MainTabs = () => {
   return (
     <Tab.Navigator
+      initialRouteName="Mapa"
       screenOptions={({ route }) => ({
         headerStyle: { height: 70 },
         headerTitleAlign: "left",
