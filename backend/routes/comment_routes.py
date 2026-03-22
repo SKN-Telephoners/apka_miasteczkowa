@@ -24,8 +24,6 @@ def create_comment(event_id):
     
     comment_data = request.get_json(silent=True)
     required_keys = {"content"}
-    comment_count = event.comment_count 
-    comment_count += 1
     
     if not comment_data or not required_keys.issubset(comment_data.keys()):
         return make_api_response(ResponseTypes.BAD_REQUEST, message="Missing content")
@@ -39,7 +37,6 @@ def create_comment(event_id):
     
     try:
         new_comment = Comment(user_id=user.user_id, event_id=event_id, content=comment_data["content"])
-        event.comment_count = comment_count
 
         db.session.add(new_comment)
         db.session.commit()
@@ -72,8 +69,6 @@ def reply_to_comment(parent_comment_id):
     
     comment_data = request.get_json(silent=True)
     required_keys = {"content"}
-    comment_count = event.comment_count
-    comment_count += 1
     
     if not comment_data or not required_keys.issubset(comment_data.keys()):
         return make_api_response(ResponseTypes.BAD_REQUEST, message="Missing content")
@@ -92,7 +87,6 @@ def reply_to_comment(parent_comment_id):
             content=comment_data["content"],
             parent_comment_id=parent_comment_id
             )
-        event.comment_count = comment_count
 
         db.session.add(new_comment)
         db.session.commit()
@@ -109,30 +103,20 @@ def reply_to_comment(parent_comment_id):
 def delete_comment(comment_id):
     user = get_current_user()
     c_uuid = validate_uuid(comment_id)
-    event_id = request.headers.get("event_id")
-    e_uuid = validate_uuid(event_id)
 
     if not c_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid comment ID format")
-    
-    if not e_uuid:
-        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid event ID format")
-    
+
     comment = Comment.query.filter_by(comment_id=comment_id).first()
-    event = Event.query.filter_by(event_id=event_id).first()
 
     if comment is None:
         return make_api_response(ResponseTypes.NOT_FOUND, message="Comment doesn't exist")
 
     if user.user_id != comment.user_id:
         return make_api_response(ResponseTypes.FORBIDDEN, message="You can delete your own comments only")
-    
-    comment_count = event.comment_count
-    comment_count -= 1
         
     try: 
         comment.soft_delete()
-        event.comment_count = comment_count
         db.session.commit()
     except SQLAlchemyError as e:
         db.session.rollback()

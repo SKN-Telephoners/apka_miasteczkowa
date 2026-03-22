@@ -29,6 +29,7 @@ const EventDetails = () => {
   const [isParticipating, setIsParticipating] = useState(false);
   const [isParticipationLoading, setIsParticipationLoading] = useState(false);
   const [participantCount, setParticipantCount] = useState<number>(Number(event?.participant_count ?? 0));
+  const [commentCount, setCommentCount] = useState<number>(Number(event?.comment_count ?? 0));
   const [comments, setComments] = useState([]);
 
   const [commentValue, setCommentValue] = useState("");
@@ -62,6 +63,11 @@ const EventDetails = () => {
     setComments(data.comments);
   };
 
+  const handleCommentDeleted = async () => {
+    setCommentCount((prev) => Math.max(prev - 1, 0));
+    await refreshComments();
+  };
+
   const handleAddComment = async () => {
     if (!commentValue.trim()) {
       Alert.alert("Komentarz nie może być pusty");
@@ -74,6 +80,8 @@ const EventDetails = () => {
       } else {
         await createComment(event.id, commentValue);
       }
+
+      setCommentCount((prev) => prev + 1);
 
       setCommentValue("");
       setReplyTo(null);
@@ -178,7 +186,7 @@ const EventDetails = () => {
               <CommentCard
                 item={item}
                 userID={userID}
-                onDeleted={refreshComments}
+                onDeleted={handleCommentDeleted}
                 onReply={(comment) => {
                   setReplyTo(comment);
                   inputRef.current?.focus();
@@ -241,7 +249,7 @@ const EventDetails = () => {
                 )}
 
                 <Text style={{ fontSize: 16, marginVertical: 10, marginHorizontal: 20 }}>{event.description}</Text>
-                <Text style={{ fontSize: 16, marginVertical: 10, fontWeight: "bold" }}>Komentarze ({comments.length})</Text>
+                <Text style={{ fontSize: 16, marginVertical: 10, fontWeight: "bold" }}>Komentarze ({commentCount})</Text>
                 {comments.length === 0 && (
                   <Text style={{ fontSize: 14, color: '#919191ff', textAlign: 'center', marginBottom: 40 }}>Brak komentarzy</Text>
                 )}
