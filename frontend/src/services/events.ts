@@ -33,6 +33,11 @@ export interface PaginatedEvents {
     };
 }
 
+export interface ParticipationStatusResponse {
+    is_participating: boolean;
+    participant_count: number;
+}
+
 // Create event
 export const createEvent = async(eventData: CreateEventData) : Promise<CreateEventResponse> =>{ // check promise
     try {
@@ -66,6 +71,39 @@ export const getEvents = async (page: number = 1, limit: number = 20): Promise<P
     }
     // error handling 
     catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || "Network error";
+        throw new Error(msg);
+    }
+};
+
+export const getParticipationStatus = async (eventId: string): Promise<ParticipationStatusResponse> => {
+    try {
+        const response = await api.get<ParticipationStatusResponse>(`api/events/participation/${eventId}`);
+        return {
+            is_participating: response.data.is_participating,
+            participant_count: Number(response.data.participant_count ?? 0),
+        };
+    } catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || "Network error";
+        throw new Error(msg);
+    }
+};
+
+export const joinEvent = async (eventId: string): Promise<string> => {
+    try {
+        const response = await api.post<ApiMessage>(`api/events/join/${eventId}`);
+        return response.data.message ?? "Joined event successfully";
+    } catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || "Network error";
+        throw new Error(msg);
+    }
+};
+
+export const leaveEvent = async (eventId: string): Promise<string> => {
+    try {
+        const response = await api.delete<ApiMessage>(`api/events/leave/${eventId}`);
+        return response.data.message ?? "Left event successfully";
+    } catch (err: any) {
         const msg = err?.response?.data?.message || err?.message || "Network error";
         throw new Error(msg);
     }

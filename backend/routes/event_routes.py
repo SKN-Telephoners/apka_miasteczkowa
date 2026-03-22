@@ -1,5 +1,5 @@
 from flask import jsonify, Blueprint, request, current_app
-from backend.models.event import Event, Event_visibility
+from backend.models.event import Event, Event_visibility, Event_participants
 from backend.models import User
 from backend.extensions import db, limiter
 from backend.constants import Constants
@@ -281,3 +281,93 @@ def feed():
     except Exception as e:
         current_app.logger.error(f"Error in feed: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
+
+@events_bp.route("/participation/<event_id>", methods=["GET"])
+@limiter.limit("600 per minute")
+@jwt_required()
+def participation_status(event_id):
+    user = get_current_user()
+    e_uuid = validate_uuid(event_id)
+
+    if not e_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Event ID")
+
+    event = db.session.get(Event, e_uuid)
+    if not event:
+        return make_api_response(ResponseTypes.NOT_FOUND, message="Event doesn't exist")
+
+    is_participating = Event_participants.query.filter_by(event_id=e_uuid, user_id=user.user_id).first() is not None
+
+    return make_api_response(ResponseTypes.SUCCESS, data={
+        "is_participating": is_participating,
+        "participant_count": int(event.participant_count or 0),
+    })
+
+@events_bp.route("/join/<event_id>", methods=["POST"])
+@limiter.limit("100 per minute")
+@jwt_required()
+def join_event(event_id):
+    user = get_current_user()
+    e_uuid = validate_uuid(event_id)
+
+    if not e_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Event ID")
+
+    event = db.session.get(Event, e_uuid)
+    if not event:
+        return make_api_response(ResponseTypes.NOT_FOUND, message="Event doesn't exist")
+
+    if event.creator_id == user.user_id:
+        return make_api_response(ResponseTypes.BAD_REQUEST, message="Creator is already participating")
+
+    if event.is_private:
+        return make_api_response(ResponseTypes.FORBIDDEN, message="You can join public events only")
+
+    existing = Event_participants.query.filter_by(event_id=e_uuid, user_id=user.user_id).first()
+    if existing:
+        return make_api_response(ResponseTypes.CONFLICT, message="You are already participating in this event")
+
+    try:
+        participant = Event_participants(event_id=e_uuid, user_id=user.user_id)
+        db.session.add(participant)
+        event.participant_count = int(event.participant_count or 0) + 1
+        db.session.commit()
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        current_app.logger.error(f"Database error in join_event: {e}")
+        return make_api_response(ResponseTypes.SERVER_ERROR)
+
+    return make_api_response(ResponseTypes.SUCCESS, message="Joined event successfully", data={
+        "participant_count": int(event.participant_count or 0),
+    })
+
+@events_bp.route("/leave/<event_id>", methods=["DELETE"])
+@limiter.limit("100 per minute")
+@jwt_required()
+def leave_event(event_id):
+    user = get_current_user()
+    e_uuid = validate_uuid(event_id)
+
+    if not e_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Event ID")
+
+    event = db.session.get(Event, e_uuid)
+    if not event:
+        return make_api_response(ResponseTypes.NOT_FOUND, message="Event doesn't exist")
+
+    participant = Event_participants.query.filter_by(event_id=e_uuid, user_id=user.user_id).first()
+    if not participant:
+        return make_api_response(ResponseTypes.NOT_FOUND, message="You are not participating in this event")
+
+    try:
+        db.session.delete(participant)
+        event.participant_count = max(int(event.participant_count or 0) - 1, 0)
+        db.session.commit()
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        current_app.logger.error(f"Database error in leave_event: {e}")
+        return make_api_response(ResponseTypes.SERVER_ERROR)
+
+    return make_api_response(ResponseTypes.SUCCESS, message="Left event successfully", data={
+        "participant_count": int(event.participant_count or 0),
+    })

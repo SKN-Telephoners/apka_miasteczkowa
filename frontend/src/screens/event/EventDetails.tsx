@@ -6,7 +6,7 @@ import {
 import { useRoute } from "@react-navigation/native";
 import { tokenStorage } from "../../utils/storage";
 import { useState, useEffect, useRef } from "react";
-import { deleteEvent } from "../../services/events";
+import { deleteEvent, getParticipationStatus, joinEvent, leaveEvent } from "../../services/events";
 import { getComments, createComment, replyToComment } from "../../services/comments";
 import { useNavigation } from "@react-navigation/native";
 import { Comment } from "../../types/comment";
@@ -26,6 +26,9 @@ const EventDetails = () => {
 
   const [userID, setUserID] = useState('');
   const [isOwner, setIsOwner] = useState(false);
+  const [isParticipating, setIsParticipating] = useState(false);
+  const [isParticipationLoading, setIsParticipationLoading] = useState(false);
+  const [participantCount, setParticipantCount] = useState<number>(Number(event?.participant_count ?? 0));
   const [comments, setComments] = useState([]);
 
   const [commentValue, setCommentValue] = useState("");
@@ -97,6 +100,30 @@ const EventDetails = () => {
     }
   }, [userID, event.creator_id]);
 
+  useEffect(() => {
+    const fetchParticipationStatus = async () => {
+      if (!userID) {
+        setIsParticipating(false);
+        return;
+      }
+
+      try {
+        setIsParticipationLoading(true);
+        const status = await getParticipationStatus(event.id);
+        setParticipantCount(status.participant_count);
+        setIsParticipating(!isOwner && !isPrivateEvent ? status.is_participating : false);
+      } catch {
+        if (!isOwner && !isPrivateEvent) {
+          setIsParticipating(false);
+        }
+      } finally {
+        setIsParticipationLoading(false);
+      }
+    };
+
+    fetchParticipationStatus();
+  }, [userID, isOwner, isPrivateEvent, event.id]);
+
   const deleteGoBack = async () => {
     try {
       await deleteEvent(event.id);
@@ -119,6 +146,26 @@ const EventDetails = () => {
       },
       { text: 'Anuluj' },
     ]);
+
+  const handleJoinEvent = async () => {
+    try {
+      setIsParticipationLoading(true);
+
+      if (isParticipating) {
+        await leaveEvent(event.id);
+        setIsParticipating(false);
+        setParticipantCount((prev) => Math.max(prev - 1, 0));
+      } else {
+        await joinEvent(event.id);
+        setIsParticipating(true);
+        setParticipantCount((prev) => prev + 1);
+      }
+    } catch (err: any) {
+      Alert.alert("Błąd", err?.message || "Nie udało się zaktualizować udziału.");
+    } finally {
+      setIsParticipationLoading(false);
+    }
+  };
 
   return (
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -158,9 +205,10 @@ const EventDetails = () => {
                   Godzina: {event.time}
                 </Text>
 
-                <Text style={{ fontSize: 18, marginVertical: 10 }}>
-                  To wydarzenie jest {isPrivateEvent ? 'prywatne' : 'publiczne'}
-                </Text> 
+                <Text style={{ fontSize: 16, marginBottom: 6 }}>
+                  Liczba zapisanych osób: {participantCount}
+                </Text>
+
                 {isOwner && (<View style={{ flexDirection: "row", marginVertical: 10 }}>
                   <View style={{ marginHorizontal: 10 }}>
                     <TouchableOpacity onPress={() => {
@@ -177,8 +225,23 @@ const EventDetails = () => {
                     </TouchableOpacity>
                   </View>
                 </View>)}
+
+                {!isOwner && !isPrivateEvent && (
+                  <View style={{ marginVertical: 10 }}>
+                    <TouchableOpacity
+                      onPress={handleJoinEvent}
+                      disabled={isParticipationLoading}
+                      style={{ backgroundColor: '#045ddaff', paddingVertical: 10, borderRadius: 25, paddingHorizontal: 20 }}
+                    >
+                      <Text style={{ color: '#ffffff' }}>
+                        {isParticipationLoading ? 'Ładowanie...' : (isParticipating ? 'Wypisz się' : 'Weź udział')}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
                 <Text style={{ fontSize: 16, marginVertical: 10, marginHorizontal: 20 }}>{event.description}</Text>
-                <Text style={{ fontSize: 16, marginVertical: 10, fontWeight: "bold" }}>Komentarze</Text>
+                <Text style={{ fontSize: 16, marginVertical: 10, fontWeight: "bold" }}>Komentarze ({comments.length})</Text>
                 {comments.length === 0 && (
                   <Text style={{ fontSize: 14, color: '#919191ff', textAlign: 'center', marginBottom: 40 }}>Brak komentarzy</Text>
                 )}
