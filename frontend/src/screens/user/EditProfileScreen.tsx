@@ -9,7 +9,7 @@ const EditProfileScreen = () => {
 
     // Lokalne stany dla formularza
     // W przyszłości te wartości początkowe powinny pochodzić z UserContext / API
-    const [bio, setBio] = useState("Status: Dostępny w miasteczku!");
+    const [bio, setBio] = useState("Status: Zdałem AUE!?@!");
     const [email, setEmail] = useState(user?.email || "");
     const [username, setUsername] = useState(user?.username || "");
 
@@ -46,7 +46,7 @@ const EditProfileScreen = () => {
                     onChangeText={setUsername}
                     editable={false}
                 />
-                <Text style={styles.hint}>Nazwa użytkownika jest stała.</Text>
+                <Text style={styles.hint}>To też w w budowie!</Text>
 
                 <Text style={styles.label}>Email (Tylko do odczytu)</Text>
                 <TextInput

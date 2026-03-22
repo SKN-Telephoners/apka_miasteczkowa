@@ -1,6 +1,6 @@
 export type User = {
   id: string;
-  name: string;
+  username: string;
   email: string;
   avatarUrl?: string; // idk
 };
@@ -10,7 +10,7 @@ export type Request = {
   senderId: string;
   receiverId: string;
   createdAt: string; // Data wysłania zaproszenia
-  user: User; 
+  user: User;
 };
 
 export interface FriendsContextType {

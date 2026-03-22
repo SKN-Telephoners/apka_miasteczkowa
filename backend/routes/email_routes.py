@@ -43,7 +43,7 @@ def verify_request():
 
     return make_api_response(ResponseTypes.SUCCESS, message="If the account exists and is not verified, an email has been sent")
 
-@email_bp.route("/verify/<token>", methods=["POST"])
+@email_bp.route("/verify/<token>", methods=["POST", "GET"])
 @limiter.limit("100 per hour")
 def verify(token):
     try:
