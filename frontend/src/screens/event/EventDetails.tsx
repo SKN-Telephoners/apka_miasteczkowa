@@ -201,6 +201,10 @@ const EventDetails = () => {
               <View style={{ alignItems: "center" }}>
                 <Text style={{ fontSize: 28, fontWeight: "bold", marginTop: 10 }}>{event.name}</Text>
 
+                <Text style={{ fontSize: 14, color: '#59595aff', marginTop: 6 }}>
+                  Dodane przez: {event.creator_username || "nieznany użytkownik"}
+                </Text>
+
                 <Text style={{ fontSize: 18, marginVertical: 10 }}>
                   Lokalizacja: {event.location}
                 </Text>

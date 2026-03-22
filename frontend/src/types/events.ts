@@ -6,6 +6,7 @@ export type Event = {
     time: string;
     location: string;
     creator_id: string;
+    creator_username?: string | null;
     created_at?: string;
     updated_at?: string;
     is_edited?: boolean;

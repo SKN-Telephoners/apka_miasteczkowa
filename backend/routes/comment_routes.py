@@ -1,5 +1,5 @@
 from flask import Blueprint, request, current_app
-from backend.models import Event, Comment
+from backend.models import Event, Comment, User
 from backend.extensions import db, limiter
 from backend.constants import Constants
 from backend.responses import ResponseTypes, make_api_response
@@ -178,8 +178,22 @@ def get_comments_list(event_id):
 
         if not comments:
             return make_api_response(ResponseTypes.SUCCESS, message="Empty comments list", data={"comments": []})
+
+        user_ids = {c.user_id for c in comments if c.user_id is not None and not c.deleted}
+        users = User.query.filter(User.user_id.in_(user_ids)).all() if user_ids else []
+        usernames_by_id = {str(user.user_id): user.username for user in users}
+
         top_level_comments = [c for c in comments if c.parent_comment_id is None]
         comments_tree = [c.to_dict() for c in top_level_comments]
+
+        def attach_usernames(comment_node):
+            comment_user_id = comment_node.get("user_id")
+            comment_node["username"] = usernames_by_id.get(comment_user_id) if comment_user_id else None
+            for reply in comment_node.get("replies", []):
+                attach_usernames(reply)
+
+        for comment_node in comments_tree:
+            attach_usernames(comment_node)
 
         return make_api_response(ResponseTypes.SUCCESS, message="Comments list", data={"comments": comments_tree})
     except SQLAlchemyError as e:

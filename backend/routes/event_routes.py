@@ -254,6 +254,10 @@ def feed():
 
         pagination = events.paginate(page=page, per_page=limit, error_out=False)
 
+        creator_ids = {event.creator_id for event in pagination.items if event.creator_id is not None}
+        creator_users = User.query.filter(User.user_id.in_(creator_ids)).all() if creator_ids else []
+        creator_usernames = {str(user.user_id): user.username for user in creator_users}
+
         event_list=[
             {
                 "id": str(event.event_id),
@@ -263,6 +267,7 @@ def feed():
                 "time": event.date_and_time.astimezone(local_tz).strftime("%H:%M"),
                 "location": event.location,
                 "creator_id": str(event.creator_id),
+                "creator_username": creator_usernames.get(str(event.creator_id)),
                 "comment_count": str(event.comment_count),
                 "is_private": event.is_private,
             }
