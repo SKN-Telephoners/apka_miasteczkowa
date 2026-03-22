@@ -70,7 +70,7 @@ const EventDetails = () => {
 
     try {
       if (replyTo) {
-        await replyToComment(replyTo.comment_id, commentValue);
+        await replyToComment(replyTo.comment_id, event.id, commentValue);
       } else {
         await createComment(event.id, commentValue);
       }
