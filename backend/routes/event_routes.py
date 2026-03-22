@@ -178,6 +178,10 @@ def edit_event(event_id):
         if len(location) > Constants.MAX_LOCATION_LEN:
             return make_api_response(ResponseTypes.INVALID_DATA, message="Location name is too long")
         event.location = location
+
+    raw_is_private = event_data.get("is_private")
+    if raw_is_private is not None:
+        event.is_private = str(raw_is_private).strip().lower() in ['true', '1', 't', 'y', 'yes']
     
     date_str = event_data.get("date")
     time_str = event_data.get("time")
@@ -259,7 +263,8 @@ def feed():
                 "time": event.date_and_time.astimezone(local_tz).strftime("%H:%M"),
                 "location": event.location,
                 "creator_id": str(event.creator_id),
-                "comment_count": str(event.comment_count)
+                "comment_count": str(event.comment_count),
+                "is_private": event.is_private,
             }
             for event in pagination.items
         ]

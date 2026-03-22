@@ -20,6 +20,10 @@ const EventDetails = () => {
 
   const { event } = route.params;
 
+  const isPrivateEvent =
+    event?.is_private === true ||
+    String(event?.is_private).toLowerCase() === "true";
+
   const [userID, setUserID] = useState('');
   const [isOwner, setIsOwner] = useState(false);
   const [comments, setComments] = useState([]);
@@ -116,7 +120,6 @@ const EventDetails = () => {
       { text: 'Anuluj' },
     ]);
 
-
   return (
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -155,6 +158,9 @@ const EventDetails = () => {
                   Godzina: {event.time}
                 </Text>
 
+                <Text style={{ fontSize: 18, marginVertical: 10 }}>
+                  To wydarzenie jest {isPrivateEvent ? 'prywatne' : 'publiczne'}
+                </Text> 
                 {isOwner && (<View style={{ flexDirection: "row", marginVertical: 10 }}>
                   <View style={{ marginHorizontal: 10 }}>
                     <TouchableOpacity onPress={() => {

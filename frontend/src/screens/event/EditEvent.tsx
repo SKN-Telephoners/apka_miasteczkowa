@@ -5,10 +5,23 @@ import { useRoute } from "@react-navigation/native";
 import InputField from "../../components/InputField";
 import { editEvent } from "../../services/events";
 import DatePicker from "../../components/DateTimePicker";
+import Checkbox from 'expo-checkbox';
 
 const EditEvent = () => {
     const route = useRoute<any>();
     const { event } = route.params;
+
+    const parseBoolean = (value: unknown): boolean => {
+        if (typeof value === "boolean") return value;
+        if (typeof value === "number") return value === 1;
+        if (typeof value === "string") {
+            const normalized = value.trim().toLowerCase();
+            return ["true", "1", "t", "y", "yes"].includes(normalized);
+        }
+        return false;
+    };
+
+    const initialIsPrivate = parseBoolean(event?.is_private ?? event?.private ?? event?.isPrivate);
 
     const getInitialDateTime = () => {
         try {
@@ -36,6 +49,7 @@ const EditEvent = () => {
     const [location, setLocation] = useState(event.location || "");
     const [date, setDate] = useState(event.date || ""); 
     const [time, setTime] = useState(event.time || "");
+    const [isPrivate, setIsPrivate] = useState<boolean>(initialIsPrivate);
 
     const [dateObj, setDateObj] = useState<Date>(initialValues.date); 
     const [timeObj, setTimeObj] = useState<Date>(initialValues.time); 
@@ -90,7 +104,7 @@ const EditEvent = () => {
         return !titleValidation && !locationValidation && !descriptionValidation;
     };
 
-    const handleEditEvent = async () => {
+    const submitEditEvent = async () => {
         if (!validateInputs()) return;
         try {
             const eventId = event?.id || event?.event_id;
@@ -105,13 +119,30 @@ const EditEvent = () => {
                 description: description,
                 date: date,
                 time: time,
-                location: location
+                location: location,
+                is_private: isPrivate,
             });
             Alert.alert("Sukces", "Edytowano wydarzenie");
         } catch (error: any) {
             const msg = error?.message || "Wystąpił nieoczekiwany błąd.";
             Alert.alert("Błąd edycji", msg);
         }
+    };
+
+    const handleEditEvent = () => {
+        if (initialIsPrivate && !isPrivate) {
+            Alert.alert(
+                "Zmienić widoczność wydarzenia?",
+                "To zmieni wydarzenie z prywatnego na publiczne. Czy chcesz kontynuować?",
+                [
+                    { text: "Anuluj", style: "cancel" },
+                    { text: "Zmień", onPress: () => { submitEditEvent(); }, style: "destructive" },
+                ]
+            );
+            return;
+        }
+
+        submitEditEvent();
     };
 
     const handleDateTimeSelected = (selectedDate: string, selectedTime: string) => {
@@ -140,6 +171,15 @@ const EditEvent = () => {
                 initialDate={dateObj}
                 initialTime={timeObj}
             />
+
+             <View style={{ flexDirection: "row", marginVertical: 10, padding: 10 }}>
+                    <Checkbox
+                      value={isPrivate}
+                      onValueChange={setIsPrivate}
+                      color={isPrivate ? '#4630EB' : undefined}
+                    />
+                    <Text style={{marginLeft: 10}}>Wydarzenie prywatne</Text>
+            </View>
 
             <TouchableOpacity 
                 onPress={handleEditEvent} 
