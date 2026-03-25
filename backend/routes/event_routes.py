@@ -236,18 +236,26 @@ def feed():
 @jwt_required()
 def invite_for_event(event_id):
     
-    event=event_id_sefe(event_id)
-    jwt_check(event)
+    event = Event.query.get(event_id)
+    if not event:
+        return make_api_response(ResponseTypes.NOT_FOUND)
 
-    invent_data = request.get_json()
+    current_user_id = get_jwt_identity()
+
+    if str(event.creator_id) != str(current_user_id):
+        return make_api_response(ResponseTypes.FORBIDDEN)
+
+    invitation_data = request.get_json()
     required_keys = {"user_id"}
 
     
 
-    if not invent_data or not required_keys.issubset(invent_data.keys()):
-        return jsonify({"message": "Bad request"}), 400
+    if not invitation_data or not required_keys.issubset(invitation_data.keys()):
+        return make_api_response(ResponseTypes.BAD_REQUEST)
     
-    list_invite_id=invent_data.get("user_id")
+    list_invite_id=invitation_data.get("user_id")
+
+    list_invite_id = [uuid.UUID(uid) for uid in list_invite_id]
 
     existing_invites = Invite.query.filter(
     Invite.event_id == event_id,
@@ -278,9 +286,14 @@ def invite_for_event(event_id):
 @jwt_required()
 def invite_on_event(event_id):
 
-    event=event_id_sefe(event_id)
-    jwt_check(event)
+    event = Event.query.get(event_id)
+    if not event:
+        return make_api_response(ResponseTypes.NOT_FOUND)
+    current_user_id = get_jwt_identity()
 
+    if str(event.creator_id) != str(current_user_id):
+        return make_api_response(ResponseTypes.FORBIDDEN)
+    
     users=(db.session.query(User)
            .join(Invite, Invite.user_id == User.user_id)
            .filter(Invite.event_id == event_id)
@@ -302,16 +315,22 @@ def invite_on_event(event_id):
 @jwt_required()
 def delete_invite(event_id):
 
-    event=event_id_sefe(event_id)
-    jwt_check(event)
+    event = Event.query.get(event_id)
+    if not event:
+        return make_api_response(ResponseTypes.NOT_FOUND)
+    
+    current_user_id = get_jwt_identity()
 
-    invent_data = request.get_json()
+    if str(event.creator_id) != str(current_user_id):
+        return make_api_response(ResponseTypes.FORBIDDEN)
+
+    invitation_data = request.get_json()
     required_keys = {"user_id"}
 
-    if not invent_data or not required_keys.issubset(invent_data.keys()):
+    if not invitation_data or not required_keys.issubset(invitation_data.keys()):
         return make_api_response(ResponseTypes.BAD_REQUEST)
     
-    list_invite_id_to_delete=invent_data.get("user_id")
+    list_invite_id_to_delete=invitation_data.get("user_id")
 
     
     for invite_id in list_invite_id_to_delete:
@@ -329,19 +348,5 @@ def delete_invite(event_id):
                 return make_api_response(ResponseTypes.SERVER_ERROR)
     return make_api_response(ResponseTypes.DELETE)
 
-
-####sefty######
-
-def event_id_sefe(event_id):
-    event = Event.query.get(event_id)
-    if not event:
-        abort(404,description="Event not found")
-    return event
-    
-def jwt_check(event):
-    current_user_id = get_jwt_identity()
-
-    if str(event.creator_id) != str(current_user_id):
-        abort(403, description="Unauthorized")
                 
 

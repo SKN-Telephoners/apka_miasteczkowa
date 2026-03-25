@@ -113,3 +113,38 @@ def test_invite_unauthorized_user(client, registered_friend, event):
     )
 
     assert response.status_code == 403
+
+
+def test_invite_multiple_users_with_existing(client, logged_in_user, registered_friend, event):
+    user, token = logged_in_user
+    friend1, _= registered_friend
+
+    friend2 = User(
+        username="friend2",
+        password="test123",
+        email="friend2@test.com"
+    )
+    db.session.add(friend2)
+
+    db.session.add(Invite(
+        event_id=event.event_id,
+        user_id=friend1.user_id
+    ))
+
+    db.session.commit()
+
+    response = client.post(
+        f"/api/events/{event.event_id}/invite/new",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"user_id": [str(friend1.user_id), str(friend2.user_id)]}
+    )
+
+    assert response.status_code == 201
+
+    invites = Invite.query.filter_by(event_id=event.event_id).all()
+
+    invited_ids = {invite.user_id for invite in invites}
+
+    assert len(invites) == 2  # nie 3!
+    assert friend1.user_id in invited_ids
+    assert friend2.user_id in invited_ids

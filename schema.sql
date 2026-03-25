@@ -89,6 +89,23 @@ CREATE TABLE public.event (
 
 ALTER TABLE public.event OWNER TO postgres;
 
+CREATE TABLE public.event_invite (
+    invite_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id UUID NOT NULL,
+    user_id UUID NOT NULL,
+    CONSTRAINT unique_event_invite UNIQUE (event_id, user_id),
+    CONSTRAINT fk_event_invite_event
+        FOREIGN KEY (event_id)
+        REFERENCES event (event_id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_event_invite_user
+        FOREIGN KEY (user_id)
+        REFERENCES app_user (user_id)
+        ON DELETE CASCADE
+);
+
+ALTER TABLE public.event_invite OWNER TO postgres;
+
 --
 -- Name: friend_requests; Type: TABLE; Schema: public; Owner: postgres
 --
