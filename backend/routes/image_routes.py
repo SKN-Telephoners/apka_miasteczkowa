@@ -1,11 +1,7 @@
 from flask import Blueprint, request, current_app, jsonify
-from backend.models import Event, Comment
-from backend.extensions import db, limiter
-from backend.constants import Constants
+from backend.extensions import limiter
 from backend.responses import ResponseTypes, make_api_response
-from flask_jwt_extended import jwt_required, get_current_user
-from backend.helpers import validate_uuid, sanitize_input
-from sqlalchemy.exc import SQLAlchemyError
+from flask_jwt_extended import jwt_required
 
 import cloudinary
 
@@ -17,7 +13,6 @@ images_bp = Blueprint("images", __name__, url_prefix="/api/images")
 def upload_file():
     if 'file' not in request.files:
         return make_api_response(ResponseTypes.BAD_REQUEST, message="No file provided")
-        return jsonify({"status": "error", "message": "No file provided"}), 400
 
     file = request.files['file']
     
