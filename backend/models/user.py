@@ -12,6 +12,9 @@ class User(db.Model):
     password_hash = db.Column(db.String(128), nullable=False)
     email = db.Column(db.String(320), nullable=False, unique=True)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+    course_year = db.Column(db.String(100), nullable=True)
+    academy = db.Column(db.String(10), nullable=True)
+    academic_circle = db.Column(db.String(100), nullable=True)
     is_confirmed = db.Column(db.Boolean, default=False)
     password_changed_at = db.Column(db.DateTime(timezone=True), nullable=True)
     confirmed_at = db.Column(db.DateTime(timezone=True), nullable=True)
@@ -51,6 +54,16 @@ class User(db.Model):
 
     def __repr__(self):
         return f"User {self.username}"
+    
+    def to_dict(self):
+        #pętla rozbijająca długiego stringa z kołami naukowymi wymienionymi po przecinku na listę
+        #pętla rozbijająca długiego stringa z kierunkami wymienionymi po przecinku na listę
+
+        return {
+            #TODO
+            #"academic_circles": ["circle1", "circle2"]
+        }
+
     
 class ProfilePicture(db.Model):
     __tablename__="Profile_pictures"

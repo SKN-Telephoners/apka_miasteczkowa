@@ -300,4 +300,3 @@ ALTER TABLE ONLY public.token_blocklist
 --
 
 \unrestrict UNI903pW0XC68tzQCXCzGmUfFl5Or7blLoHMqOKiaRk21Ymdv9JvhQdu1x0vasH
-
