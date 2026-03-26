@@ -52,7 +52,7 @@ export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // --- PERSISTENCE: ZAPISYWANIE DANYCH DO CACHE ---
+  // --- ZAPISYWANIE DANYCH DO CACHE ---
   const saveCache = useCallback(
     async (data: {
       friends: User[];

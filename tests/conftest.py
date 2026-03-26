@@ -84,36 +84,25 @@ def create_events(app, logged_in_user):
     
     for event_id in range(1, 23):
         event_time = datetime.now(timezone.utc) + timedelta(days=event_id)
-        
-        new_event = Event(
-            name=f"{event_id}ssss",
-            description="Lore ipsum",
-            date_and_time=event_time,
-            location="Poland",
-            creator_id=user.user_id
-        )
-        events_to_insert.append(new_event)
-    
-    db.session.add_all(events_to_insert)
-    db.session.commit()
-    
-    return events_to_insert
+        payload = {"name": str(event_id)+"ssss", "description": "Lore ipsum", "date": event_time.strftime("%d.%m.%Y"), "time":event_time.strftime("%H:%M"), "location":"Poland", "is_private": False}
+        response=client.post("/create_event", json=payload, headers=headers)
+        assert response.status_code == 201
 
 @pytest.fixture
 def event(client, logged_in_user):
-    user, _ = logged_in_user
-    
-    future_date = datetime.now(timezone.utc) + timedelta(days=1)
-    
-    new_event = Event(
-        name="event1",
-        description="very cool event",
-        date_and_time=future_date,
-        location="here",
-        creator_id=user.user_id
-    )
-    
-    db.session.add(new_event)
-    db.session.commit()
-    
-    return new_event
+    token = logged_in_user[1]
+
+    future_date = (datetime.now(timezone.utc) + timedelta(days=1))
+
+    payload = {
+        "name": "event1",
+        "description": "very cool event",
+        "date": future_date.strftime("%d.%m.%Y"),
+        "time": "21:37",
+        "location": "here",
+        "is_private": False
+    }
+
+    client.post("/api/events/create", headers={"Authorization": f"Bearer {token}"}, json=payload)
+    event = Event.query.filter_by(event_name="event1").first()
+    return event

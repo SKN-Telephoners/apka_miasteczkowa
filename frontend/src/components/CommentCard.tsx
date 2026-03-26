@@ -90,7 +90,7 @@ const CommentCard = ({
             <View style={[styles.container, { marginLeft: item.parent_comment_id ? level * 16 : 0 }]}>
                 <View style={styles.header}>
                     <View style={{ flexDirection: "row", alignItems: "baseline" }}>
-                        <Text style={styles.username}>mock username</Text>
+                        <Text style={styles.username}>{item.username || "nieznany użytkownik"}</Text>
                         <Text style={{ fontSize: 14 }}>
                             {formatDate(date)} {formatTime(date)}
                         </Text>
