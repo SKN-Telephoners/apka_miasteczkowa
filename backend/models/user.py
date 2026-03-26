@@ -35,11 +35,12 @@ class User(db.Model):
         CheckConstraint(r"email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'", name="email_format"),
     )
     
-    def __init__(self, username, password, email):
+    def __init__(self, username, password, email, is_confirmed=False):
         self.username = username
         self.email = email # TODO! Add function that checks email using regex
         pass_hash = bcrypt.generate_password_hash(password).decode("utf-8")
         self.password_hash = pass_hash
+        self.is_confirmed = is_confirmed
         
     def validate_password(self, password):
         return bcrypt.check_password_hash(self.password_hash, password)
