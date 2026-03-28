@@ -1,26 +1,29 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
+import { useUser } from "../../contexts/UserContext";
 import { useFriends } from "../../contexts/FriendsContext";
+import { useEvents } from "../../contexts/EventContext";
 import { useNavigation } from "@react-navigation/native";
 import { THEME, MOCKS } from "../../utils/constants";
 import Button from "../../components/Button";
 import CollapsibleSection from "../../components/CollapsibleSection";
 import Avatar from "../../components/Avatar";
 
-// Mock do zmiany na wczoraj, jeśli backend obsłuży te pola
+// Zapasowe dane, dopóki backend nie ogarnie wydziału i kierunku
 const MOCK_EXTRAS = {
-  bio: "Status: Zew Miasteczka za 3,50!", // Domyślne bio
   faculty: "WIEiT",
   majorAndYear: "Teleinformatyka 1 rok"
 };
 
 const UserScreen = () => {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
+  const { user } = useUser();
   const { friends } = useFriends();
+  const { events } = useEvents();
   const navigation = useNavigation<any>();
 
-  const handleEditProfile = () => {
+  const gotoEditProfile = () => {
     navigation.navigate("EditProfile");
   };
 
@@ -33,13 +36,19 @@ const UserScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
       {/* 1. Nagłówek: Avatar + Nazwa + Statystyki */}
       <View style={styles.headerRow}>
-        <Avatar uri={MOCKS.AVATAR} size={80} style={{ marginRight: THEME.spacing.m }} />
+        <Avatar uri={user?.avatar || MOCKS.AVATAR} size={80} style={{ marginRight: THEME.spacing.m }} />
 
         <View style={styles.headerInfo}>
           <Text style={styles.userName}>{user?.username || "Użytkownik"}</Text>
+          <Text style={styles.statsText}>
+            Znajomi: <Text style={styles.statsNumber}>{friends.length}</Text>
+          </Text>
+          <Text style={styles.statsText}>
+            Dołączył: <Text style={styles.statsNumber}>{user?.joinedDate || "Nieznana"}</Text>
+          </Text>
         </View>
       </View>
 
@@ -48,16 +57,48 @@ const UserScreen = () => {
       <Text style={styles.majorText}>{MOCK_EXTRAS.majorAndYear}</Text>
 
       {/* 3. Biografia / Opis */}
-      <Text style={styles.userBio}>{MOCK_EXTRAS.bio}</Text>
+      <Text style={styles.userBio}>{user?.bio || "Brak opisu"}</Text>
 
       {/* 4. Przycisk Edycji */}
       <Button
         title="Edytuj profil"
-        onPress={handleEditProfile}
+        onPress={gotoEditProfile}
         style={styles.editButton}
       />
 
       {/* 5. Zwijane Sekcje */}
+      <CollapsibleSection title="Znajomi">
+        {friends.length > 0 ? (
+          friends.map((friend) => (
+            <TouchableOpacity key={friend.id} onPress={() => goToFriendProfile(friend.username)} style={styles.listItem}>
+              <Avatar uri={MOCKS.AVATAR} size={40} />
+              <Text style={styles.listText}>{friend.username}</Text>
+            </TouchableOpacity>
+          ))
+        ) : (
+          <Text style={styles.infoText}>Brak znajomych na liście</Text>
+        )}
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Moje wydarzenia">
+        {events.length > 0 ? (
+          events.map((event) => (
+            <View key={event.id} style={styles.listItem}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.listTitle}>{event.name}</Text>
+                <Text style={styles.listSubtitle}>{event.date} o {event.time} • {event.location}</Text>
+              </View>
+            </View>
+          ))
+        ) : (
+          <Text style={styles.infoText}>Nie utworzyłeś jeszcze żadnych wydarzeń</Text>
+        )}
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Zapisane wydarzenia">
+        <Text style={styles.infoText}>Brak zapisanych wydarzeń (Oczekuje na endpoint w backendzie)</Text>
+      </CollapsibleSection>
+
       <CollapsibleSection
         title="Zdjęcia"
         rightActionIcon="add"
@@ -72,11 +113,7 @@ const UserScreen = () => {
         </View>
       </CollapsibleSection>
 
-      <CollapsibleSection title="Wpisy">
-        <Text style={styles.infoText}>Historia wpisów (w budowie)</Text>
-      </CollapsibleSection>
-
-    </View>
+    </ScrollView>
   );
 };
 
@@ -142,6 +179,30 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
+  },
+  listItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: THEME.spacing.s,
+    borderBottomWidth: 1,
+    borderBottomColor: THEME.colors.lm_bg,
+  },
+  listText: {
+    ...THEME.typography.text,
+    marginLeft: THEME.spacing.m,
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  listTitle: {
+    ...THEME.typography.text,
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  listSubtitle: {
+    ...THEME.typography.text,
+    fontSize: 14,
+    color: THEME.colors.lm_txt,
+    marginTop: 2,
   }
 });
 

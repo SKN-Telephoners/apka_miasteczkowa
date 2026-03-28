@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { StatusBar, ActivityIndicator, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "./contexts/AuthContext";
+import { UserProvider } from "./contexts/UserContext";
 import { EventProvider } from "./contexts/EventContext";
 import { FriendsProvider } from "./contexts/FriendsContext";
 import AppNavigator from "./navigation/AppNavigator";
@@ -35,12 +36,14 @@ const App = () => {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <EventProvider>
-          <FriendsProvider>
-            <StatusBar barStyle="dark-content" />
-            <AppNavigator />
-          </FriendsProvider>
-        </EventProvider>
+        <UserProvider>
+          <EventProvider>
+            <FriendsProvider>
+              <StatusBar barStyle="dark-content" />
+              <AppNavigator />
+            </FriendsProvider>
+          </EventProvider>
+        </UserProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );
