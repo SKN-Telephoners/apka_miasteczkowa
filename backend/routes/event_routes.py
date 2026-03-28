@@ -1,4 +1,4 @@
-from flask import jsonify, Blueprint, request, current_app
+from flask import Blueprint, request, current_app
 from backend.models.event import Event, Event_visibility, Event_participants, Invites, InviteRequestStatus
 from backend.models import User, Friendship
 from backend.extensions import db, limiter
@@ -79,6 +79,11 @@ def create_event():
         )
         db.session.add(new_event)
         db.session.flush()
+
+        creator_participant = Event_participants(event_id=new_event.event_id, user_id=user.user_id)
+        db.session.add(creator_participant)
+        new_event.participant_count = 1
+
         if is_private and shared_list:
             for shared_with_id in shared_list:
                 u_uuid = validate_uuid(shared_with_id)
@@ -296,7 +301,10 @@ def participation_status(event_id):
 
     event = db.session.get_or_404(Event, e_uuid)
 
-    is_participating = Event_participants.query.filter_by(event_id=e_uuid, user_id=user.user_id).first() is not None
+    if event.creator_id == user.user_id:
+        is_participating = True
+    else:
+        is_participating = db.session.query(Event_participants).filter_by(event_id=e_uuid, user_id=user.user_id).first() is not None
 
     return make_api_response(ResponseTypes.SUCCESS, data={
         "is_participating": is_participating,
@@ -319,17 +327,20 @@ def join_event(event_id):
         return make_api_response(ResponseTypes.BAD_REQUEST, message="Creator is already participating")
 
     if event.is_private:
-        return make_api_response(ResponseTypes.FORBIDDEN, message="You can join public events only")
+        has_access = db.session.query(Event_visibility).filter_by(event_id=e_uuid, shared_with=user.user_id).first()
+        if not has_access:
+            return make_api_response(ResponseTypes.FORBIDDEN, message="This event is private and has not been shared with you lol")
 
-    existing = Event_participants.query.filter_by(event_id=e_uuid, user_id=user.user_id).first()
+    existing = db.session.query(Event_participants).filter_by(event_id=e_uuid, user_id=user.user_id).first()
     if existing:
         return make_api_response(ResponseTypes.CONFLICT, message="You are already participating in this event")
 
     try:
         participant = Event_participants(event_id=e_uuid, user_id=user.user_id)
         db.session.add(participant)
-        event.participant_count = int(event.participant_count or 0) + 1
+        event.participant_count = Event.participant_count + 1
         db.session.commit()
+        db.session.refresh(event) #pobranie aktualnego stanu licznika, ochrona przed race condition
     except SQLAlchemyError as e:
         db.session.rollback()
         current_app.logger.error(f"Database error in join_event: {e}")
@@ -351,14 +362,18 @@ def leave_event(event_id):
 
     event = db.session.get_or_404(Event, e_uuid)
 
-    participant = Event_participants.query.filter_by(event_id=e_uuid, user_id=user.user_id).first()
+    if event.creator_id == user.user_id:
+        return make_api_response(ResponseTypes.BAD_REQUEST, message="Creator cannot leave their own event")
+
+    participant = db.session.query(Event_participants).filter_by(event_id=e_uuid, user_id=user.user_id).first()
     if not participant:
         return make_api_response(ResponseTypes.NOT_FOUND, message="You are not participating in this event")
 
     try:
         db.session.delete(participant)
-        event.participant_count = max(int(event.participant_count or 0) - 1, 0)
+        event.participant_count = Event.participant_count - 1
         db.session.commit()
+        db.session.refresh(event)
     except SQLAlchemyError as e:
         db.session.rollback()
         current_app.logger.error(f"Database error in leave_event: {e}")
@@ -496,7 +511,7 @@ def change_invite_status(invite_id):
 
     try:
         if new_status == "accepted":
-            invite.stat  = InviteRequestStatus.accepted
+            invite.status  = InviteRequestStatus.accepted
             already_in = db.session.query(Event_participants).filter_by(event_id=invite.event_id, user_id=u_uuid).first()
             if not already_in:
                 participant = Event_participants(
@@ -517,4 +532,4 @@ def change_invite_status(invite_id):
         current_app.logger.error(f"Error in change_invite_status: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
     
-    return make_api_response(ResponseTypes.SUCCESS, message="Invide status changed successfully")
+    return make_api_response(ResponseTypes.SUCCESS, message="Invite status changed successfully")

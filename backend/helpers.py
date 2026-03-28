@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from backend.extensions import db
 from flask_jwt_extended import decode_token
 from backend.models import TokenBlocklist
+from backend.models.event import Event_visibility
 from sqlalchemy.exc import NoResultFound
 import uuid
 import bleach
@@ -79,3 +80,16 @@ def sanitize_input(text):
     if not text:
         return text
     return bleach.clean(text, tags=[], attributes=[], strip=True)
+
+def has_event_access(user_id, event):
+    if not event.is_private:
+        return True
+    if event.creator_id == user_id:
+        return True
+
+    access = Event_visibility.query.filter_by(
+        event_id=event.event_id, 
+        shared_with=user_id
+    ).first()
+    
+    return access is not None

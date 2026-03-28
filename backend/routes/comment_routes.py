@@ -4,7 +4,7 @@ from backend.extensions import db, limiter
 from backend.constants import Constants
 from backend.responses import ResponseTypes, make_api_response
 from flask_jwt_extended import jwt_required, get_current_user
-from backend.helpers import validate_uuid, sanitize_input
+from backend.helpers import validate_uuid, sanitize_input, has_event_access
 from sqlalchemy.exc import SQLAlchemyError
 
 comments_bp = Blueprint("comments", __name__, url_prefix="/api/comments")
@@ -169,10 +169,18 @@ def edit_comment(comment_id):
 @comments_bp.route("/event/<event_id>", methods=["GET"])
 @jwt_required()
 def get_comments_list(event_id):
+    user = get_current_user()
     e_uuid = validate_uuid(event_id)
     if not e_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid event ID")
     
+    event = db.session.get(Event, e_uuid)
+    if not event:
+        return make_api_response(ResponseTypes.NOT_FOUND)
+    
+    if not has_event_access(user.user_id, event):
+        return make_api_response(ResponseTypes.FORBIDDEN, message="You do not have access to this event")
+
     try:
         comments = Comment.query.filter_by(event_id=event_id).order_by(Comment.created_at.asc()).all()
 
