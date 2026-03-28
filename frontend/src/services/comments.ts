@@ -52,11 +52,13 @@ export const deleteComment = async (commentId: string): Promise<string> => {
     }
 };
 
-export const replyToComment = async (parentCommentId: string, content: string): Promise<string> => {
+export const replyToComment = async (parentCommentId: string, eventId: string, content: string): Promise<string> => {
     try {
-        const response = await api.post<ApiMessage>(`api/comments/reply/${parentCommentId}`, {
-            content: content
-        });
+        const response = await api.post<ApiMessage>(
+            `api/comments/reply/${parentCommentId}`,
+            { content: content },
+            { headers: { event_id: eventId } }
+        );
         return response.data.message ?? "Created a response";
     }
     // error handling 

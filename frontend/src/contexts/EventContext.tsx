@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useState } from "react";
 import { Event } from "../types";
-import { createEvent, deleteEvent } from "../services/events";
+import { createEvent, CreateEventData, deleteEvent } from "../services/events";
 
 interface EventContextType {
   events: Event[];
   isLoading: boolean;
-  addEvent: (eventData: { name: string; description: string; date: string; time: string; location: string }) => Promise<void>;
+  addEvent: (eventData: CreateEventData) => Promise<void>;
   removeEvent: (eventId: string) => Promise<void>;
 }
 
@@ -15,7 +15,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const addEvent = async (eventData: { name: string; description: string; date: string; time: string; location: string }) => {
+  const addEvent = async (eventData: CreateEventData) => {
     setIsLoading(true);
     try {
       const response = await createEvent(eventData);
@@ -26,9 +26,11 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         date: eventData.date,
         time: eventData.time,
         location: eventData.location,
-        creator_id: 'current_user', // Placeholder, bo backend nie zwraca
+        creator_id: response.creator_id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        comment_count: 0,
+        is_private: eventData.is_private,
       };
       setEvents(prev => [...prev, newEvent]);
     } catch (error) {
