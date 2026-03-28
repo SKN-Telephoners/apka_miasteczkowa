@@ -1,6 +1,6 @@
 from flask import jsonify, Blueprint, request, current_app
-from backend.models.event import Event, Event_visibility, Event_participants
-from backend.models import User
+from backend.models.event import Event, Event_visibility, Event_participants, Invites, InviteRequestStatus
+from backend.models import User, Friendship
 from backend.extensions import db, limiter
 from backend.constants import Constants
 from backend.responses import ResponseTypes, make_api_response
@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import or_
+from sqlalchemy import or_, and_
 
 events_bp = Blueprint("events", __name__, url_prefix="/api/events")
 local_tz = ZoneInfo("Europe/Warsaw")
@@ -97,7 +97,7 @@ def create_event():
                     sharing=user.user_id,
                     shared_with=u_uuid
                 )
-            db.session.add(new_event_visibility)
+                db.session.add(new_event_visibility)
         db.session.commit()        
         
     except SQLAlchemyError as e:
@@ -145,10 +145,7 @@ def edit_event(event_id):
     if not e_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid event UD format")
 
-    event = db.session.get(Event, e_uuid)
-
-    if not event:
-        return make_api_response(ResponseTypes.NOT_FOUND, message="Event doesn't exist")
+    event = db.session.get_or_404(Event, e_uuid)
 
     if user.user_id != event.creator_id:
         current_app.logger.warning(f"SECURITY: User {user.user_id} attempted to edit event {event_id} without permissions.")
@@ -297,9 +294,7 @@ def participation_status(event_id):
     if not e_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Event ID")
 
-    event = db.session.get(Event, e_uuid)
-    if not event:
-        return make_api_response(ResponseTypes.NOT_FOUND, message="Event doesn't exist")
+    event = db.session.get_or_404(Event, e_uuid)
 
     is_participating = Event_participants.query.filter_by(event_id=e_uuid, user_id=user.user_id).first() is not None
 
@@ -318,9 +313,7 @@ def join_event(event_id):
     if not e_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Event ID")
 
-    event = db.session.get(Event, e_uuid)
-    if not event:
-        return make_api_response(ResponseTypes.NOT_FOUND, message="Event doesn't exist")
+    event = db.session.get_or_404(Event, e_uuid)
 
     if event.creator_id == user.user_id:
         return make_api_response(ResponseTypes.BAD_REQUEST, message="Creator is already participating")
@@ -356,9 +349,7 @@ def leave_event(event_id):
     if not e_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Event ID")
 
-    event = db.session.get(Event, e_uuid)
-    if not event:
-        return make_api_response(ResponseTypes.NOT_FOUND, message="Event doesn't exist")
+    event = db.session.get_or_404(Event, e_uuid)
 
     participant = Event_participants.query.filter_by(event_id=e_uuid, user_id=user.user_id).first()
     if not participant:
@@ -376,3 +367,154 @@ def leave_event(event_id):
     return make_api_response(ResponseTypes.SUCCESS, message="Left event successfully", data={
         "participant_count": int(event.participant_count or 0),
     })
+
+@events_bp.route("/invite/<event_id>", methods=["POST"])
+@limiter.limit("100 per minute")
+@jwt_required()
+def invite_to_event(event_id):
+    user = get_current_user()
+    e_uuid = validate_uuid(event_id)
+    u_uuid = validate_uuid(user.user_id)
+
+    invite_data = request.get_json(silent=True)
+
+    if not invite_data or "invited" not in invite_data:
+        return make_api_response(ResponseTypes.BAD_REQUEST, message="Invited ID missing")
+
+    i_uuid = validate_uuid(invite_data.get("invited"))
+
+    if not e_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Event ID")
+    if not u_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Inviter ID")
+    if not i_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Invited0 ID")
+    
+    if u_uuid == i_uuid:
+        return make_api_response(ResponseTypes.BAD_REQUEST, message="You cannot invite yourself")
+    
+    event = db.session.get_or_404(Event, e_uuid)
+
+    is_friend = db.session.query(Friendship).filter(
+        or_(
+            and_(Friendship.user_id == u_uuid, Friendship.friend_id == i_uuid),
+            and_(Friendship.user_id == i_uuid, Friendship.friend_id == u_uuid)
+        )
+    ).first()
+
+    if not is_friend: 
+        return make_api_response(ResponseTypes.FORBIDDEN, message="You can only invite your friends")
+    
+    if event.is_private:
+                # na razie tylko autor ma możliwość zapraszania na swój event osoby, którym udostępnił do wyświetlania
+        if event.creator_id != u_uuid:
+            return make_api_response(ResponseTypes.FORBIDDEN, message="Only creator of the private event can invite")
+        
+        has_visibility = db.session.query(Event_visibility).filter_by(event_id=e_uuid, shared_with=i_uuid).first()
+        if not has_visibility:
+            return make_api_response(ResponseTypes.FORBIDDEN, message=f"User does not have priviledges to view this event")
+
+    is_already_participant = db.session.query(Event_participants).filter_by(event_id=e_uuid, user_id=i_uuid).first()
+    if is_already_participant:
+        return make_api_response(ResponseTypes.CONFLICT, message="User is already participating in this event")
+        
+    existing_invite = db.session.query(Invites).filter_by(event_id=e_uuid, inviter_id=u_uuid, invited_id=i_uuid).first()
+    if existing_invite:
+        return make_api_response(ResponseTypes.CONFLICT, message="Invite already sent")
+        
+    try:
+        new_invite = Invites(
+            event_id=e_uuid,
+            inviter_id=u_uuid,
+            invited_id=i_uuid,
+            status=InviteRequestStatus.pending
+        )
+        db.session.add(new_invite)
+        db.session.commit()
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        current_app.logger.error(f"Database error in invite_to_event: {e}")
+        return make_api_response(ResponseTypes.SERVER_ERROR)
+    
+    return make_api_response(ResponseTypes.CREATED, message="Invite created successfully")
+       
+@events_bp.route("/delete_invite/<event_id>")
+@limiter.limit("100 per minute")
+@jwt_required()
+def delete_invite(event_id):
+    user = get_current_user()
+    u_uuid = validate_uuid(user.user_id)
+    e_uuid = validate_uuid(event_id)
+
+    invite_data = request.get_json(silent=True)
+    i_uuid = validate_uuid(invite_data.get("invited") if invite_data else None)
+
+    if not u_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid inviter ID")
+    if not e_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid event ID")
+    if not i_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid invited ID")
+    
+    invite = db.session.query(Invites).filter_by(event_id=e_uuid, inviter_id=u_uuid, invited_id=i_uuid).first()
+    if not invite:
+        return make_api_response(ResponseTypes.NOT_FOUND, message=f"invitattion to event: {e_uuid} from: {u_uuid} to: {i_uuid} does not exist")
+    
+    try:
+        db.session.delete(invite)
+        db.session.commit()
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        current_app.logger.error(f"Database error in delete_invite: {e}")
+        return make_api_response(ResponseTypes.SERVER_ERROR)
+    
+    return make_api_response(ResponseTypes.SUCCESS, message="Invite deleted successfully")
+    
+@events_bp.route("/change_invite_status/<invite_id>", methods=["POST"])
+@limiter.limit("100 per minute")
+@jwt_required()
+def change_invite_status(invite_id):
+    user = get_current_user()
+    u_uuid = validate_uuid(user.user_id)
+    i_uuid = validate_uuid(invite_id)
+
+    if not u_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid user ID")
+    if not i_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid invite ID")
+    
+    invite = db.session.get_or_404(Invites, i_uuid)
+
+    if invite.invited_id != u_uuid:
+        return make_api_response(ResponseTypes.FORBIDDEN, message="You can only change status of the invites meant to you")
+    
+    if invite.status != InviteRequestStatus.pending:
+        return make_api_response(ResponseTypes.CONFLICT, message="This invite is already accepted/declined")
+    
+    invite_data = request.get_json(silent=True)
+    new_status = sanitize_input(str(invite_data.get("status"))).lower()
+
+    try:
+        if new_status == "accepted":
+            invite.stat  = InviteRequestStatus.accepted
+            already_in = db.session.query(Event_participants).filter_by(event_id=invite.event_id, user_id=u_uuid).first()
+            if not already_in:
+                participant = Event_participants(
+                    event_id=invite.event_id,
+                    user_id=u_uuid,
+                )
+                db.session.add(participant)
+                event = db.session.get(Event, invite.event_id)
+                if event:
+                    event.participant_count = Event.participant_count + 1
+        elif new_status == "declined":
+            invite.status = InviteRequestStatus.declined
+        else:
+            return make_api_response(ResponseTypes.INVALID_DATA, message="Incorrect status, choose declined/accepted")
+        db.session.commit()
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error in change_invite_status: {e}")
+        return make_api_response(ResponseTypes.SERVER_ERROR)
+    
+    return make_api_response(ResponseTypes.SUCCESS, message="Invide status changed successfully")
