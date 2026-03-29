@@ -1,11 +1,13 @@
 import React from "react";
-import { View, TouchableOpacity, Text, Alert } from "react-native";
-import { useState } from "react"; 
+import { View, TouchableOpacity, Text, Alert, TextInput } from "react-native";
+import { useEffect, useState } from "react"; 
 import { useRoute } from "@react-navigation/native";
 import InputField from "../../components/InputField";
 import { editEvent } from "../../services/events";
 import DatePicker from "../../components/DateTimePicker";
 import Checkbox from 'expo-checkbox';
+import UserCard from "../../components/UserCard";
+import api from "../../services/api";
 
 const EditEvent = () => {
     const route = useRoute<any>();
@@ -50,12 +52,29 @@ const EditEvent = () => {
     const [date, setDate] = useState(event.date || ""); 
     const [time, setTime] = useState(event.time || "");
     const [isPrivate, setIsPrivate] = useState<boolean>(initialIsPrivate);
+    const [currentUsername, setCurrentUsername] = useState("użytkownik");
 
     const [dateObj, setDateObj] = useState<Date>(initialValues.date); 
     const [timeObj, setTimeObj] = useState<Date>(initialValues.time); 
 
     const [titleError, setTitleError] = useState("");
     const [locationError, setLocationError] = useState("");
+
+    useEffect(() => {
+        const loadCurrentUser = async () => {
+            try {
+                const response = await api.get("/api/users/me");
+                const username = response?.data?.user?.username;
+                if (typeof username === "string" && username.trim()) {
+                    setCurrentUsername(username.trim());
+                }
+            } catch {
+                setCurrentUsername("użytkownik");
+            }
+        };
+
+        loadCurrentUser();
+    }, []);
 
     const validateTitle = (text: string): string | null => {
         if (!text) return "Pole tytuł jest wymagane";
@@ -162,7 +181,12 @@ const EditEvent = () => {
 
     return (
         <View style={{ flex: 1, padding: 10, marginVertical: 10 }}>
-            <InputField placeholder="Tytuł" errorMessage={titleError} onChangeText={setTitle} value={title} />
+            <UserCard
+                creatorDisplayName={currentUsername}
+                showCreatedAt={false}
+                showMetaIcon={false}
+            />
+            <TextInput placeholder="Tytuł" onChangeText={setTitle} value={title} ></TextInput>
             <InputField placeholder="Opis" onChangeText={setDescription} value={description} />
             <InputField placeholder="Lokalizacja" errorMessage={locationError} onChangeText={setLocation} value={location} />
 

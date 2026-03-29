@@ -111,14 +111,14 @@ const EventScreen = () => {
     }
 
     useEffect(() => {
-        // Listen for screen focus to lazy-load events
+        // Refresh feed whenever screen regains focus (e.g. after creating event).
         const unsubscribe = navigation.addListener('focus', () => {
-            if (data.length === 0 && !error) {
-                loadEvents(1, false);
-            }
+            setError(false);
+            setHasMore(true);
+            loadEvents(1, false);
         });
         return unsubscribe;
-    }, [navigation, data.length, error]);
+    }, [navigation]);
 
     const handleRefresh = useCallback(() => {
         setRefreshing(true);

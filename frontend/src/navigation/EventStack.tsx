@@ -27,7 +27,7 @@ const EventStack = () => {
       <Stack.Screen name="EventScreen" component={EventScreen} options={{ headerShown: false }} />
       <Stack.Screen name="EventDetails" component={EventDetails} options={{ title: "Szczegóły Wydarzenia" }} />
       <Stack.Screen name="EventComments" component={EventCommentsScreen} options={{ title: "Komentarze" }} />
-      <Stack.Screen name="AddEvent" component={AddEvent} options={{title: "Dodaj wydarzenie"}} />
+      <Stack.Screen name="AddEvent" component={AddEvent} options={{ title: "Dodaj wydarzenie" }} />
       <Stack.Screen name="EditEvent" component={EditEvent} options={{title: "Edytuj wydarzenie"}} />
       <Stack.Screen name="EventFilters" component={EventFiltersScreen} options={{title: "Filtrowanie"}} />
     </Stack.Navigator>

@@ -1,4 +1,4 @@
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, getFocusedRouteNameFromRoute } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import WelcomeScreen from "../screens/auth/WelcomeScreen";
@@ -67,29 +67,40 @@ const MainTabs = () => {
         tabBarShowLabel: false,
         tabBarActiveTintColor: THEME.colors.transparentOrange,
 
-        headerRight: () => (
-          <View style={{ flexDirection: 'row' }}>
-            <TouchableOpacity
-              style={{ marginHorizontal: 20 }}
-              onPress={() => navigation.navigate('Wydarzenia', { screen: 'AddEvent' })}
-            >
-              <View style={{ width: ICON_SIZE, height: ICON_SIZE, overflow: 'hidden' }}>
-                <Image
-                  source={require('../../assets/iconset2.jpg')}
-                  style={{
-                    width: IMAGE_WIDTH,
-                    height: IMAGE_HEIGHT,
-                    transform: [
-                      { translateX: SEARCH_ICON_OFFSET.x },
-                      { translateY: SEARCH_ICON_OFFSET.y }
-                    ]
-                  }}
-                  resizeMode="cover"
-                />
-              </View>
-            </TouchableOpacity>
-          </View>
-        ),
+        headerRight: () => {
+          if (route.name !== 'Wydarzenia') {
+            return null;
+          }
+
+          const focusedRoute = getFocusedRouteNameFromRoute(route) ?? 'EventScreen';
+          if (focusedRoute !== 'EventScreen') {
+            return null;
+          }
+
+          return (
+            <View style={{ flexDirection: 'row' }}>
+              <TouchableOpacity
+                style={{ marginHorizontal: 20 }}
+                onPress={() => navigation.navigate('Wydarzenia', { screen: 'AddEvent' })}
+              >
+                <View style={{ width: ICON_SIZE, height: ICON_SIZE, overflow: 'hidden' }}>
+                  <Image
+                    source={require('../../assets/iconset2.jpg')}
+                    style={{
+                      width: IMAGE_WIDTH,
+                      height: IMAGE_HEIGHT,
+                      transform: [
+                        { translateX: SEARCH_ICON_OFFSET.x },
+                        { translateY: SEARCH_ICON_OFFSET.y }
+                      ]
+                    }}
+                    resizeMode="cover"
+                  />
+                </View>
+              </TouchableOpacity>
+            </View>
+          );
+        },
 
         tabBarIcon: ({ focused }) => {
           const offset = getIconOffset(route.name);

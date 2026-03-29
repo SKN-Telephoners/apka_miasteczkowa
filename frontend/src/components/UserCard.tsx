@@ -6,8 +6,11 @@ import { THEME } from "../utils/constants";
 
 type UserCardProps = {
     creatorDisplayName: string;
-    createdAtDisplay: string;
+    createdAtDisplay?: string;
     avatarUri?: string;
+    showCreatedAt?: boolean;
+    showMetaIcon?: boolean;
+    metaPrefix?: string;
 };
 
 const BASE_TILE_SIZE = 30;
@@ -19,7 +22,18 @@ const USERNAME_ICON_SIZE = 22;
 const USERNAME_SPRITE_SCALE = USERNAME_ICON_SIZE / BASE_TILE_SIZE;
 const USERNAME_ICON_OFFSET = { x: -BASE_TILE_SIZE * 2, y: -BASE_TILE_SIZE };
 
-const UserCard = ({ creatorDisplayName, createdAtDisplay, avatarUri }: UserCardProps) => {
+const UserCard = ({
+    creatorDisplayName,
+    createdAtDisplay,
+    avatarUri,
+    showCreatedAt = true,
+    showMetaIcon = true,
+    metaPrefix = "wydział • kierunek",
+}: UserCardProps) => {
+    const metaText = showCreatedAt && createdAtDisplay
+        ? `${metaPrefix} • ${createdAtDisplay}`
+        : metaPrefix;
+
     return (
         <View style={styles.container}>
             <Avatar
@@ -42,14 +56,16 @@ const UserCard = ({ creatorDisplayName, createdAtDisplay, avatarUri }: UserCardP
                         </View>
                     </View>
                     <View style={styles.authorMetaRow}>
-                        <Text style={styles.authorMetaText}>wydział • kierunek • {createdAtDisplay}</Text>
-                        <View style={styles.metaIconContainer}>
-                            <Image
-                                source={require("../../assets/iconset2.jpg")}
-                                style={styles.metaIconImage}
-                                resizeMode="cover"
-                            />
-                        </View>
+                        <Text style={styles.authorMetaText}>{metaText}</Text>
+                        {showMetaIcon && (
+                            <View style={styles.metaIconContainer}>
+                                <Image
+                                    source={require("../../assets/iconset2.jpg")}
+                                    style={styles.metaIconImage}
+                                    resizeMode="cover"
+                                />
+                            </View>
+                        )}
                     </View>
                 </View>
             </View>
