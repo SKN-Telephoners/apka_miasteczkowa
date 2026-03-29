@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
   Alert,
   FlatList,
+  RefreshControl,
   StyleSheet,
   Keyboard,
   TouchableWithoutFeedback,
@@ -40,6 +41,7 @@ const EventCommentsScreen = () => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentValue, setCommentValue] = useState("");
   const [replyTo, setReplyTo] = useState<Comment | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -79,6 +81,15 @@ const EventCommentsScreen = () => {
       setCommentCount(data.comment_count);
     }
   };
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refreshComments();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [event.id]);
 
   useEffect(() => {
     refreshComments();
@@ -138,6 +149,13 @@ const EventCommentsScreen = () => {
           )}
           removeClippedSubviews
           keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={THEME.colors.transparentOrange}
+            />
+          }
           contentContainerStyle={{ paddingBottom: 90 }}
           ListHeaderComponent={
             <View style={styles.headerContainer}>
