@@ -3,7 +3,7 @@ import {
     TouchableOpacity, Alert,
     TextInput, Modal, Pressable, Image,
 } from "react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { Comment } from "../types/comment";
@@ -104,6 +104,12 @@ const CommentCard = ({
         y: 0,
     });
     const hasParent = Boolean(item.parent_comment_id);
+
+    useEffect(() => {
+        setDisplayContent(item.content);
+        setCommentValue(item.content);
+        setIsEdited(item.edited);
+    }, [item.content, item.edited]);
 
 
     const handleEditComment = async () => {
