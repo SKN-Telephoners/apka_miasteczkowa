@@ -1,6 +1,6 @@
 from flask import jsonify, Blueprint, request, current_app
 from backend.models.event import Event, Event_visibility, Event_participants
-from backend.models import User
+from backend.models import User, Comment
 from backend.extensions import db, limiter
 from backend.constants import Constants
 from backend.responses import ResponseTypes, make_api_response
@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 
 events_bp = Blueprint("events", __name__, url_prefix="/api/events")
 local_tz = ZoneInfo("Europe/Warsaw")
@@ -254,6 +254,15 @@ def feed():
 
         pagination = events.paginate(page=page, per_page=limit, error_out=False)
 
+        event_ids = [event.event_id for event in pagination.items]
+        counts_rows = (
+            db.session.query(Comment.event_id, func.count(Comment.comment_id))
+            .filter(Comment.event_id.in_(event_ids), Comment.deleted.is_(False))
+            .group_by(Comment.event_id)
+            .all()
+        ) if event_ids else []
+        comment_counts = {event_id: int(count) for event_id, count in counts_rows}
+
         creator_ids = {event.creator_id for event in pagination.items if event.creator_id is not None}
         creator_users = User.query.filter(User.user_id.in_(creator_ids)).all() if creator_ids else []
         creator_usernames = {str(user.user_id): user.username for user in creator_users}
@@ -269,7 +278,7 @@ def feed():
                 "creator_id": str(event.creator_id),
                 "creator_username": creator_usernames.get(str(event.creator_id)),
                 "created_at": event.created_at.isoformat() if event.created_at else None,
-                "comment_count": str(event.comment_count),
+                "comment_count": str(comment_counts.get(event.event_id, 0)),
                 "is_private": event.is_private,
             }
             for event in pagination.items

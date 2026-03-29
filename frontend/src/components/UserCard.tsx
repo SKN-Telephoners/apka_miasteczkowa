@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Image, StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Avatar from "./Avatar";
 import { THEME } from "../utils/constants";
 
@@ -10,7 +10,10 @@ type UserCardProps = {
     avatarUri?: string;
     showCreatedAt?: boolean;
     showMetaIcon?: boolean;
+    showMetaRow?: boolean;
     metaPrefix?: string;
+    avatarSize?: number;
+    onMetaIconPress?: (event: any) => void;
 };
 
 const BASE_TILE_SIZE = 30;
@@ -28,7 +31,10 @@ const UserCard = ({
     avatarUri,
     showCreatedAt = true,
     showMetaIcon = true,
+    showMetaRow = true,
     metaPrefix = "wydział • kierunek",
+    avatarSize = 55,
+    onMetaIconPress,
 }: UserCardProps) => {
     const metaText = showCreatedAt && createdAtDisplay
         ? `${metaPrefix} • ${createdAtDisplay}`
@@ -37,7 +43,7 @@ const UserCard = ({
     return (
         <View style={styles.container}>
             <Avatar
-                size={55}
+                size={avatarSize}
                 uri={
                     avatarUri ||
                     "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
@@ -55,18 +61,25 @@ const UserCard = ({
                             />
                         </View>
                     </View>
-                    <View style={styles.authorMetaRow}>
-                        <Text style={styles.authorMetaText}>{metaText}</Text>
-                        {showMetaIcon && (
-                            <View style={styles.metaIconContainer}>
-                                <Image
-                                    source={require("../../assets/iconset2.jpg")}
-                                    style={styles.metaIconImage}
-                                    resizeMode="cover"
-                                />
-                            </View>
-                        )}
-                    </View>
+                    {showMetaRow && (
+                        <View style={styles.authorMetaRow}>
+                            <Text style={styles.authorMetaText}>{metaText}</Text>
+                            {showMetaIcon && (
+                                <TouchableOpacity
+                                    style={styles.metaIconContainer}
+                                    onPress={onMetaIconPress}
+                                    disabled={!onMetaIconPress}
+                                    activeOpacity={0.8}
+                                >
+                                    <Image
+                                        source={require("../../assets/iconset2.jpg")}
+                                        style={styles.metaIconImage}
+                                        resizeMode="cover"
+                                    />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    )}
                 </View>
             </View>
         </View>

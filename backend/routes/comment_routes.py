@@ -36,9 +36,10 @@ def create_comment(event_id):
         return make_api_response(ResponseTypes.INVALID_DATA, message="Comment too long")
     
     try:
-        new_comment = Comment(user_id=user.user_id, event_id=event_id, content=comment_data["content"])
+        new_comment = Comment(user_id=user.user_id, event_id=event_id, content=content)
 
         db.session.add(new_comment)
+        event.comment_count = int(event.comment_count or 0) + 1
         db.session.commit()
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -84,11 +85,12 @@ def reply_to_comment(parent_comment_id):
         new_comment = Comment(
             user_id=user.user_id,
             event_id=parent_comment.event_id,
-            content=comment_data["content"],
+            content=content,
             parent_comment_id=parent_comment_id
             )
 
         db.session.add(new_comment)
+        event.comment_count = int(event.comment_count or 0) + 1
         db.session.commit()
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -114,9 +116,15 @@ def delete_comment(comment_id):
 
     if user.user_id != comment.user_id:
         return make_api_response(ResponseTypes.FORBIDDEN, message="You can delete your own comments only")
+
+    if comment.deleted:
+        return make_api_response(ResponseTypes.BAD_REQUEST, message="Comment already deleted")
         
     try: 
+        event = db.session.get(Event, comment.event_id)
         comment.soft_delete()
+        if event is not None:
+            event.comment_count = max(int(event.comment_count or 0) - 1, 0)
         db.session.commit()
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -175,9 +183,10 @@ def get_comments_list(event_id):
     
     try:
         comments = Comment.query.filter_by(event_id=event_id).order_by(Comment.created_at.asc()).all()
+        active_comment_count = sum(1 for c in comments if not c.deleted)
 
         if not comments:
-            return make_api_response(ResponseTypes.SUCCESS, message="Empty comments list", data={"comments": []})
+            return make_api_response(ResponseTypes.SUCCESS, message="Empty comments list", data={"comments": [], "comment_count": 0})
 
         user_ids = {c.user_id for c in comments if c.user_id is not None and not c.deleted}
         users = User.query.filter(User.user_id.in_(user_ids)).all() if user_ids else []
@@ -195,7 +204,7 @@ def get_comments_list(event_id):
         for comment_node in comments_tree:
             attach_usernames(comment_node)
 
-        return make_api_response(ResponseTypes.SUCCESS, message="Comments list", data={"comments": comments_tree})
+        return make_api_response(ResponseTypes.SUCCESS, message="Comments list", data={"comments": comments_tree, "comment_count": active_comment_count})
     except SQLAlchemyError as e:
         current_app.logger.error(f"Database error get_comment_list: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)

@@ -2,7 +2,6 @@ import { createStackNavigator } from "@react-navigation/stack";
 import React from "react";
 import { SafeAreaView, StyleSheet, Text, View } from "react-native";
 import EventScreen from "../screens/home/EventScreen";
-import EventDetails from "../screens/event/EventDetails";
 import EventCommentsScreen from "../screens/event/EventCommentsScreen";
 import AddEvent from "../screens/event/AddEvent";
 import EditEvent from "../screens/event/EditEvent";
@@ -21,15 +20,26 @@ const EventFiltersScreen = () => {
   );
 };
 
+const CommentFiltersScreen = () => {
+  return (
+    <SafeAreaView style={styles.screen}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Filtrowanie komentarzy</Text>
+        <Text style={styles.subtitle}>Placeholder filtrowania komentarzy dla posta</Text>
+      </View>
+    </SafeAreaView>
+  );
+};
+
 const EventStack = () => {
   return (
     <Stack.Navigator>
       <Stack.Screen name="EventScreen" component={EventScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="EventDetails" component={EventDetails} options={{ title: "Szczegóły Wydarzenia" }} />
       <Stack.Screen name="EventComments" component={EventCommentsScreen} options={{ title: "Komentarze" }} />
       <Stack.Screen name="AddEvent" component={AddEvent} options={{ title: "Dodaj wydarzenie" }} />
       <Stack.Screen name="EditEvent" component={EditEvent} options={{title: "Edytuj wydarzenie"}} />
       <Stack.Screen name="EventFilters" component={EventFiltersScreen} options={{title: "Filtrowanie"}} />
+      <Stack.Screen name="CommentFilters" component={CommentFiltersScreen} options={{title: "Filtry komentarzy"}} />
     </Stack.Navigator>
   );
 };
