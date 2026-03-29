@@ -6,7 +6,7 @@ import { THEME } from '../utils/constants';
 import Button from "./Button";
 import { tokenStorage } from "../utils/storage";
 import { getParticipationStatus, joinEvent, leaveEvent } from "../services/events";
-import Avatar from "./Avatar";
+import UserCard from "./UserCard";
 
 const parseEventDateTime = (event: Event): Date | null => {
     if (!event?.date || !event?.time) return null;
@@ -83,6 +83,7 @@ const TRAILING_SPRITE_SCALE = TRAILING_ICON_SIZE / BASE_TILE_SIZE;
 const HEART_ICON_OFFSET = { x: 0, y: -BASE_TILE_SIZE * 2 };
 const COMMENT_ICON_OFFSET = { x: -BASE_TILE_SIZE, y: -BASE_TILE_SIZE * 2 };
 const SHARE_ICON_OFFSET = { x: -BASE_TILE_SIZE * 2, y: -BASE_TILE_SIZE * 2 };
+const EDIT_MENU_ICON_OFFSET = { x: -BASE_TILE_SIZE * 2, y: -BASE_TILE_SIZE };
 
 
 const EventCard = ({ item }: { item: Event }) => {
@@ -161,7 +162,32 @@ const EventCard = ({ item }: { item: Event }) => {
     return (
         <View key={item.id} style={[styles.container, isPastEvent && styles.pastContainer]}>
             <View>
-                <Text style={[styles.title, isPastEvent && styles.text]}>{item.name}</Text>
+                <View style={styles.eventHeaderRow}>
+                    <Text style={[styles.title, styles.eventTitle, isPastEvent && styles.text]}>{item.name}</Text>
+                    {isOwner && (
+                        <TouchableOpacity
+                            onPress={() => navigation.navigate("EditEvent", { event: item })}
+                            style={styles.eventMenuButton}
+                            activeOpacity={0.8}
+                        >
+                            <View style={styles.metaIconContainer}>
+                                <Image
+                                    source={require("../../assets/iconset2.jpg")}
+                                    style={[
+                                        styles.metaIconImage,
+                                        {
+                                            transform: [
+                                                { translateX: EDIT_MENU_ICON_OFFSET.x * META_SPRITE_SCALE },
+                                                { translateY: EDIT_MENU_ICON_OFFSET.y * META_SPRITE_SCALE },
+                                            ],
+                                        },
+                                    ]}
+                                    resizeMode="cover"
+                                />
+                            </View>
+                        </TouchableOpacity>
+                    )}
+                </View>
                 {item.description?.trim() ? (
                     <Text style={[styles.text, isPastEvent && styles.text]}>
                         {item.description}
@@ -184,37 +210,8 @@ const EventCard = ({ item }: { item: Event }) => {
                 </View>
                 <Text style={[styles.textMuted, isPastEvent && styles.text]}>• placeholder_kierunek </Text>
 
-                <View style={{ paddingVertical: 20 }}>
-                    <View style={{ flexDirection: "row" }}>
-                        <Avatar
-                            size={55}
-                            uri="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-                        />
-                        <View style={styles.authorInfoContainer}>
-                            <View>
-                                <View style={styles.usernameRow}>
-                                    <Text style={styles.title}>{creatorDisplayName}</Text>
-                                    <View style={styles.usernameIconContainer}>
-                                        <Image
-                                            source={require("../../assets/iconset1.jpg")}
-                                            style={styles.usernameIconImage}
-                                            resizeMode="cover"
-                                        />
-                                    </View>
-                                </View>
-                                <View style={styles.authorMetaRow}>
-                                    <Text style={[styles.textMuted, styles.authorMetaText]}>wydział • kierunek • {createdAtDisplay}</Text>
-                                    <View style={styles.metaIconContainer}>
-                                        <Image
-                                            source={require("../../assets/iconset2.jpg")}
-                                            style={styles.metaIconImage}
-                                            resizeMode="cover"
-                                        />
-                                    </View>
-                                </View>
-                            </View>
-                        </View>
-                    </View>
+                <View style={{ paddingBottom: 10, paddingTop: 20 }}>
+                    <UserCard creatorDisplayName={creatorDisplayName} createdAtDisplay={createdAtDisplay} />
 
                     {!isOwner && !isPrivateEvent && (
                         <View style={styles.joinButtonContainer}>
@@ -229,19 +226,19 @@ const EventCard = ({ item }: { item: Event }) => {
                     <View style={styles.trailingIconsRow}>
                         <View style={styles.trailingActionItem}>
                             <View style={styles.trailingIconContainer}>
-                            <Image
-                                source={require("../../assets/iconset1.jpg")}
-                                style={[
-                                    styles.trailingIconImage,
-                                    {
-                                        transform: [
-                                            { translateX: HEART_ICON_OFFSET.x * TRAILING_SPRITE_SCALE },
-                                            { translateY: HEART_ICON_OFFSET.y * TRAILING_SPRITE_SCALE },
-                                        ],
-                                    },
-                                ]}
-                                resizeMode="cover"
-                            />
+                                <Image
+                                    source={require("../../assets/iconset1.jpg")}
+                                    style={[
+                                        styles.trailingIconImage,
+                                        {
+                                            transform: [
+                                                { translateX: HEART_ICON_OFFSET.x * TRAILING_SPRITE_SCALE },
+                                                { translateY: HEART_ICON_OFFSET.y * TRAILING_SPRITE_SCALE },
+                                            ],
+                                        },
+                                    ]}
+                                    resizeMode="cover"
+                                />
                             </View>
                             <Text style={styles.trailingCountText}>{participantCount}</Text>
                         </View>
@@ -269,19 +266,19 @@ const EventCard = ({ item }: { item: Event }) => {
                         </TouchableOpacity>
                         <View style={styles.trailingActionItem}>
                             <View style={styles.trailingIconContainer}>
-                            <Image
-                                source={require("../../assets/iconset1.jpg")}
-                                style={[
-                                    styles.trailingIconImage,
-                                    {
-                                        transform: [
-                                            { translateX: SHARE_ICON_OFFSET.x * TRAILING_SPRITE_SCALE },
-                                            { translateY: SHARE_ICON_OFFSET.y * TRAILING_SPRITE_SCALE - 2 },
-                                        ],
-                                    },
-                                ]}
-                                resizeMode="cover"
-                            />
+                                <Image
+                                    source={require("../../assets/iconset1.jpg")}
+                                    style={[
+                                        styles.trailingIconImage,
+                                        {
+                                            transform: [
+                                                { translateX: SHARE_ICON_OFFSET.x * TRAILING_SPRITE_SCALE },
+                                                { translateY: SHARE_ICON_OFFSET.y * TRAILING_SPRITE_SCALE - 2 },
+                                            ],
+                                        },
+                                    ]}
+                                    resizeMode="cover"
+                                />
                             </View>
                             <Text style={styles.trailingCountText}>0</Text>
                         </View>
@@ -305,6 +302,25 @@ const styles = StyleSheet.create({
     },
 
     title: THEME.typography.eventTitle,
+
+    eventHeaderRow: {
+        paddingBottom: 10,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+    },
+
+    eventTitle: {
+        flex: 1,
+        minWidth: 0,
+        paddingRight: 8,
+    },
+
+    eventMenuButton: {
+        alignItems: "center",
+        justifyContent: "center",
+        marginLeft: 8,
+    },
 
     text: THEME.typography.text,
 
@@ -412,7 +428,7 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "flex-start",
         alignSelf: "flex-start",
-        marginTop: 6,
+        marginTop: 20,
     },
 
     trailingActionItem: {

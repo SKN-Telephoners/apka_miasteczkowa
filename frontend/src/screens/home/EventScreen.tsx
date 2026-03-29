@@ -7,6 +7,8 @@ import {
     FlatList,
     RefreshControl,
     TouchableOpacity,
+    Image,
+    StyleSheet,
 } from "react-native";
 import EventCard from "../../components/EventCard"
 import { Event } from "../../types";
@@ -15,6 +17,13 @@ import { getEvents } from "../../services/events";
 import { useNavigation } from "@react-navigation/native";
 import { THEME } from "../../utils/constants";
 import ItemSeparator from "../../components/ItemSeparator"
+
+const BASE_TILE_SIZE = 30;
+const FILTER_ICON_SIZE = 30;
+const FILTER_SPRITE_WIDTH = 90;
+const FILTER_SPRITE_HEIGHT = 90;
+const FILTER_SPRITE_SCALE = FILTER_ICON_SIZE / BASE_TILE_SIZE;
+const FILTER_ICON_OFFSET = { x: -BASE_TILE_SIZE, y: 0 };
 
 const parseEventDateTime = (event: Event): Date | null => {
     if (!event?.date || !event?.time) return null;
@@ -186,15 +195,29 @@ const EventScreen = () => {
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: THEME.colors.lm_bg }}>
-            <View style={{marginHorizontal: 10, marginTop: 5}}>
-                <InputField
-                    placeholder="Szukaj"
-                    onChangeText={(query) => handleSearch(query)}
-                    value={searchQuery}
-                    showSearchSpriteIcon
-                    reserveErrorSpace={false}
-                />
-
+            <View style={styles.searchRowContainer}>
+                <View style={styles.searchInputContainer}>
+                    <InputField
+                        placeholder="Szukaj"
+                        onChangeText={(query) => handleSearch(query)}
+                        value={searchQuery}
+                        showSearchSpriteIcon
+                        reserveErrorSpace={false}
+                    />
+                </View>
+                <TouchableOpacity
+                    onPress={() => navigation.navigate("EventFilters")}
+                    style={styles.filterButton}
+                    activeOpacity={0.8}
+                >
+                    <View style={styles.filterIconContainer}>
+                        <Image
+                            source={require("../../../assets/iconset1.jpg")}
+                            style={styles.filterIconImage}
+                            resizeMode="cover"
+                        />
+                    </View>
+                </TouchableOpacity>
             </View>
 
 
@@ -219,6 +242,39 @@ const EventScreen = () => {
         </SafeAreaView>
     );
 }
+
+const styles = StyleSheet.create({
+    searchRowContainer: {
+        marginHorizontal: 10,
+        marginTop: 5,
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    searchInputContainer: {
+        flex: 1,
+    },
+    filterButton: {
+        marginLeft: 10,
+        width: 38,
+        height: 38,
+        borderRadius: 19,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    filterIconContainer: {
+        width: FILTER_ICON_SIZE,
+        height: FILTER_ICON_SIZE,
+        overflow: "hidden",
+    },
+    filterIconImage: {
+        width: FILTER_SPRITE_WIDTH * FILTER_SPRITE_SCALE,
+        height: FILTER_SPRITE_HEIGHT * FILTER_SPRITE_SCALE,
+        transform: [
+            { translateX: FILTER_ICON_OFFSET.x * FILTER_SPRITE_SCALE },
+            { translateY: FILTER_ICON_OFFSET.y * FILTER_SPRITE_SCALE },
+        ],
+    },
+});
 
 
 
