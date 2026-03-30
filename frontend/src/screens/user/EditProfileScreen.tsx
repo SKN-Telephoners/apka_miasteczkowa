@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TextInput, Alert, TouchableOpacity, Image } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUser } from '../../contexts/UserContext';
 import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../../contexts/ThemeContext';
 import { THEME, MOCKS } from '../../utils/constants';
 import Button from '../../components/Button';
 import Avatar from '../../components/Avatar';
@@ -10,6 +11,9 @@ import Avatar from '../../components/Avatar';
 const EditProfileScreen = () => {
     const { user, updateUser } = useUser();
     const navigation = useNavigation();
+    const { colors } = useTheme();
+
+    const styles = useMemo(() => getStyles(colors), [colors]);
 
     // Lokalne stany dla formularza
     const [bio, setBio] = useState(user?.bio || "");
@@ -73,7 +77,7 @@ const EditProfileScreen = () => {
                     onChangeText={setBio}
                     multiline
                     placeholder="Napisz coś o sobie..."
-                    placeholderTextColor={THEME.colors.lm_srch_wrd}
+                    placeholderTextColor={colors.searchWord}
                 />
             </View>
 
@@ -83,10 +87,10 @@ const EditProfileScreen = () => {
     );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: THEME.colors.lm_bg,
+        backgroundColor: colors.background,
         padding: THEME.spacing.m,
     },
     avatarSection: {
@@ -95,7 +99,7 @@ const styles = StyleSheet.create({
     },
     changeAvatarText: {
         ...THEME.typography.text,
-        color: THEME.colors.lm_highlight,
+        color: colors.highlight,
         fontWeight: 'bold',
     },
     formSection: {
@@ -103,20 +107,21 @@ const styles = StyleSheet.create({
     },
     label: {
         ...THEME.typography.text,
-        color: THEME.colors.lm_txt,
+        color: colors.text,
         marginBottom: THEME.spacing.xs,
     },
     input: {
         ...THEME.typography.text,
         borderWidth: 1,
-        borderColor: THEME.colors.lm_src_br,
+        borderColor: colors.border,
         borderRadius: THEME.borderRadius.m,
         padding: THEME.spacing.m,
-        backgroundColor: THEME.colors.lm_bg,
+        backgroundColor: colors.background,
+        color: colors.text,
     },
     disabledInput: {
-        backgroundColor: THEME.colors.lm_src_br,
-        color: THEME.colors.lm_ico,
+        backgroundColor: colors.border,
+        color: colors.icon,
     },
     bioInput: {
         height: 100,
@@ -124,7 +129,7 @@ const styles = StyleSheet.create({
     },
     hint: {
         ...THEME.typography.text,
-        color: THEME.colors.lm_ico,
+        color: colors.icon,
         marginBottom: THEME.spacing.s,
         marginTop: THEME.spacing.xs,
     }

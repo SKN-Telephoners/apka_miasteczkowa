@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 import { useUser } from "../../contexts/UserContext";
 import { useFriends } from "../../contexts/FriendsContext";
 import { useEvents } from "../../contexts/EventContext";
+import { useTheme } from "../../contexts/ThemeContext";
 import { useNavigation } from "@react-navigation/native";
 import { THEME, MOCKS } from "../../utils/constants";
 import Button from "../../components/Button";
@@ -21,7 +22,10 @@ const UserScreen = () => {
   const { user } = useUser();
   const { friends } = useFriends();
   const { events } = useEvents();
+  const { colors } = useTheme();
   const navigation = useNavigation<any>();
+
+  const styles = useMemo(() => getStyles(colors), [colors]);
 
   const gotoEditProfile = () => {
     navigation.navigate("EditProfile");
@@ -117,11 +121,11 @@ const UserScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
   container: {
     flex: 1,
     padding: THEME.spacing.m,
-    backgroundColor: THEME.colors.lm_bg,
+    backgroundColor: colors.background,
   },
   headerRow: {
     flexDirection: "row",
@@ -137,10 +141,11 @@ const styles = StyleSheet.create({
     fontWeight: "700" as const,
     lineHeight: 20,
     fontSize: 20,
+    color: colors.text,
   },
   statsText: {
     ...THEME.typography.text,
-    color: THEME.colors.lm_txt,
+    color: colors.text,
   },
   statsNumber: {
     fontWeight: "bold",
@@ -149,14 +154,16 @@ const styles = StyleSheet.create({
     ...THEME.typography.faculty,
     fontSize: 18,
     lineHeight: 20.5,
+    color: colors.text,
   },
   majorText: {
     ...THEME.typography.text,
     marginBottom: THEME.spacing.s,
+    color: colors.text,
   },
   userBio: {
     ...THEME.typography.text,
-    color: THEME.colors.lm_txt,
+    color: colors.text,
     marginBottom: THEME.spacing.m,
   },
   editButton: {
@@ -164,7 +171,7 @@ const styles = StyleSheet.create({
   },
   infoText: {
     ...THEME.typography.text,
-    color: THEME.colors.lm_ico,
+    color: colors.icon,
     fontStyle: "italic",
     textAlign: "center",
     padding: THEME.spacing.m,
@@ -185,23 +192,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: THEME.spacing.s,
     borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.lm_bg,
+    borderBottomColor: colors.border,
   },
   listText: {
     ...THEME.typography.text,
     marginLeft: THEME.spacing.m,
     fontSize: 16,
     fontWeight: "500",
+    color: colors.text,
   },
   listTitle: {
     ...THEME.typography.text,
     fontWeight: "bold",
     fontSize: 16,
+    color: colors.text,
   },
   listSubtitle: {
     ...THEME.typography.text,
     fontSize: 14,
-    color: THEME.colors.lm_txt,
+    color: colors.text,
     marginTop: 2,
   }
 });

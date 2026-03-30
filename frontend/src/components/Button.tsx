@@ -8,6 +8,7 @@ import {
     ViewStyle,
     TextStyle
 } from 'react-native';
+import { useTheme } from '../../contexts/ThemeContext';
 import { THEME } from '../utils/constants';
 
 interface ButtonProps extends TouchableOpacityProps {
@@ -28,6 +29,8 @@ const Button: React.FC<ButtonProps> = ({
     textStyle,
     ...rest
 }) => {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
 
     const getButtonStyle = () => {
         switch (type) {
@@ -67,7 +70,7 @@ const Button: React.FC<ButtonProps> = ({
             {...rest}
         >
             {loading ? (
-                <ActivityIndicator color={type === 'outline' ? THEME.colors.lm_highlight : '#FFF'} />
+                <ActivityIndicator color={type === 'outline' ? colors.highlight : '#FFF'} />
             ) : (
                 <Text style={[styles.text, getTextStyle(), textStyle]}>
                     {title}
@@ -77,7 +80,7 @@ const Button: React.FC<ButtonProps> = ({
     );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     button: {
         width: '100%',
         height: 48,
@@ -88,30 +91,30 @@ const styles = StyleSheet.create({
         marginVertical: THEME.spacing.s,
     },
     primaryButton: {
-        backgroundColor: THEME.colors.lm_highlight,
+        backgroundColor: colors.highlight,
     },
     secondaryButton: {
-        backgroundColor: THEME.colors.lm_src_br,
+        backgroundColor: colors.border,
     },
     outlineButton: {
         backgroundColor: 'transparent',
         borderWidth: 1,
-        borderColor: THEME.colors.lm_highlight,
+        borderColor: colors.highlight,
     },
     disabledButton: {
         opacity: 0.5,
     },
     text: {
-        ...THEME.typography.text,
+        ...THEME.typography.title,
     },
     primaryText: {
         color: '#FFFFFF',
     },
     secondaryText: {
-        color: THEME.colors.lm_txt,
+        color: colors.text,
     },
     outlineText: {
-        color: THEME.colors.lm_highlight,
+        color: colors.highlight,
     }
 });
 
