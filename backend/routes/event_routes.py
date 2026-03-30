@@ -256,7 +256,7 @@ def feed():
 
         creator_ids = {event.creator_id for event in pagination.items if event.creator_id is not None}
         creator_users = User.query.filter(User.user_id.in_(creator_ids)).all() if creator_ids else []
-        creator_usernames = {str(user.user_id): user.username for user in creator_users}
+        creator_usernames = {str(user.user_id): user.display_name for user in creator_users}
 
         event_list=[
             {

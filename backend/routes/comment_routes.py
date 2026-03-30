@@ -181,7 +181,7 @@ def get_comments_list(event_id):
 
         user_ids = {c.user_id for c in comments if c.user_id is not None and not c.deleted}
         users = User.query.filter(User.user_id.in_(user_ids)).all() if user_ids else []
-        usernames_by_id = {str(user.user_id): user.username for user in users}
+        usernames_by_id = {str(user.user_id): user.display_name for user in users}
 
         top_level_comments = [c for c in comments if c.parent_comment_id is None]
         comments_tree = [c.to_dict() for c in top_level_comments]

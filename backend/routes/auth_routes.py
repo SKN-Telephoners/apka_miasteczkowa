@@ -91,7 +91,7 @@ def login_user():
         return make_api_response(ResponseTypes.INVALID_CREDENTIALS)
 
     user = User.query.filter_by(username=username).first()
-    if not user or not user.validate_password(password):
+    if not user or not user.validate_password(password) or user.deleted:
         return make_api_response(ResponseTypes.INVALID_CREDENTIALS)
     if not user.is_confirmed:
        return make_api_response(ResponseTypes.ACCOUNT_NOT_VERIFIED)

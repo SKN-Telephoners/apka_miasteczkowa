@@ -12,18 +12,19 @@ class User(db.Model):
     password_hash = db.Column(db.String(128), nullable=False)
     email = db.Column(db.String(320), nullable=False, unique=True)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+    
+    is_confirmed = db.Column(db.Boolean, default=False)
+    password_changed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    confirmed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    
+    description = db.Column(db.String(320))
     academy = db.Column(db.String(10), nullable=True)
     course = db.Column(db.String(100), nullable=True)
     year = db.Column(db.SmallInteger, nullable=True)
     academic_circles = db.Column(ARRAY(db.String(100)), nullable=True)
-    is_confirmed = db.Column(db.Boolean, default=False)
-    password_changed_at = db.Column(db.DateTime(timezone=True), nullable=True)
-    confirmed_at = db.Column(db.DateTime(timezone=True), nullable=True)
-    description = db.Column(db.String(320))
 
-    is_deleted = db.Column(db.Boolean, default=False)
+    deleted = db.Column(db.Boolean, default=False)
     pending_email = db.Column(db.String(320), nullable=True)
-    tokens_revoked_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
     profile_pictures = db.relationship("ProfilePicture", back_populates="user", cascade="all, delete-orphan")
     blocks_initiated = db.relationship(
@@ -44,12 +45,13 @@ class User(db.Model):
         CheckConstraint("year >= 1 AND year <= 6", name="valid_year")
     )
     
-    def __init__(self, username, password, email, is_confirmed=False):
+    def __init__(self, username, password, email, is_confirmed=False, deleted=False):
         self.username = username
-        self.email = email # TODO! Add function that checks email using regex
+        self.email = email
         pass_hash = bcrypt.generate_password_hash(password).decode("utf-8")
         self.password_hash = pass_hash
         self.is_confirmed = is_confirmed
+        self.deleted = deleted
         
     def validate_password(self, password):
         return bcrypt.check_password_hash(self.password_hash, password)
@@ -61,16 +63,12 @@ class User(db.Model):
     def __repr__(self):
         return f"User {self.username}"
     
-    def to_dict(self):
-        #pętla rozbijająca długiego stringa z kołami naukowymi wymienionymi po przecinku na listę
-        #pętla rozbijająca długiego stringa z kierunkami wymienionymi po przecinku na listę
+    @property
+    def display_name(self):
+        if self.deleted:
+            return "[deleted]"
+        return self.username
 
-        return {
-            #TODO
-            #"academic_circles": ["circle1", "circle2"]
-        }
-
-    
 class ProfilePicture(db.Model):
     __tablename__="Profile_pictures"
     

@@ -1,9 +1,5 @@
-from dotenv import load_dotenv
-import os
 from flask_migrate import Migrate
 from backend.extensions import db
-
-load_dotenv()
 
 from backend import create_app
 
