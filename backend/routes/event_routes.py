@@ -150,7 +150,9 @@ def edit_event(event_id):
     if not e_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid event UD format")
 
-    event = db.session.get_or_404(Event, e_uuid)
+    event = db.session.get(Event, e_uuid)
+    if event is None:
+        return make_api_response(ResponseTypes.NOT_FOUND, message="This event does not exist")
 
     if user.user_id != event.creator_id:
         current_app.logger.warning(f"SECURITY: User {user.user_id} attempted to edit event {event_id} without permissions.")
@@ -299,8 +301,10 @@ def participation_status(event_id):
     if not e_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Event ID")
 
-    event = db.session.get_or_404(Event, e_uuid)
-
+    event = db.session.get(Event, e_uuid)
+    if event is None:
+        return make_api_response(ResponseTypes.NOT_FOUND, message="This event does not exist")
+    
     if event.creator_id == user.user_id:
         is_participating = True
     else:
@@ -321,7 +325,9 @@ def join_event(event_id):
     if not e_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Event ID")
 
-    event = db.session.get_or_404(Event, e_uuid)
+    event = db.session.get(Event, e_uuid)
+    if event is None:
+        return make_api_response(ResponseTypes.NOT_FOUND, message="This event does not exist")
 
     if event.creator_id == user.user_id:
         return make_api_response(ResponseTypes.BAD_REQUEST, message="Creator is already participating")
@@ -360,7 +366,9 @@ def leave_event(event_id):
     if not e_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Event ID")
 
-    event = db.session.get_or_404(Event, e_uuid)
+    event = db.session.get(Event, e_uuid)
+    if event is None:
+        return make_api_response(ResponseTypes.NOT_FOUND, message="This event does not exist")
 
     if event.creator_id == user.user_id:
         return make_api_response(ResponseTypes.BAD_REQUEST, message="Creator cannot leave their own event")
@@ -408,7 +416,9 @@ def invite_to_event(event_id):
     if u_uuid == i_uuid:
         return make_api_response(ResponseTypes.BAD_REQUEST, message="You cannot invite yourself")
     
-    event = db.session.get_or_404(Event, e_uuid)
+    event = db.session.get(Event, e_uuid)
+    if event is None:
+        return make_api_response(ResponseTypes.NOT_FOUND, message="This event does not exist")
 
     is_friend = db.session.query(Friendship).filter(
         or_(
@@ -453,7 +463,7 @@ def invite_to_event(event_id):
     
     return make_api_response(ResponseTypes.CREATED, message="Invite created successfully")
        
-@events_bp.route("/delete_invite/<event_id>")
+@events_bp.route("/delete_invite/<event_id>", methods=["DELETE"])
 @limiter.limit("100 per minute")
 @jwt_required()
 def delete_invite(event_id):
@@ -498,7 +508,9 @@ def change_invite_status(invite_id):
     if not i_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid invite ID")
     
-    invite = db.session.get_or_404(Invites, i_uuid)
+    invite = db.session.get(Invites, i_uuid)
+    if invite is None:
+        return make_api_response(ResponseTypes.NOT_FOUND, message="This invite does not exist")
 
     if invite.invited_id != u_uuid:
         return make_api_response(ResponseTypes.FORBIDDEN, message="You can only change status of the invites meant to you")
