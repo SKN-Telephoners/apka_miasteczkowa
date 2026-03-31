@@ -1,10 +1,6 @@
 import React from 'react';
 import { View, Image, ImageSourcePropType, StyleProp, ViewStyle } from 'react-native';
 
-//=============================================================================
-// 1. REJESTR IKON (Uzupełniaj go w miarę dodawania nowych ikon do projektu)
-//=============================================================================
-
 export const ICON_REGISTRY = {
   // Prawy górny róg w iconset1.jpg (kolumna 2, wiersz 0)
   'Home': { source: require('../../assets/iconset1.jpg'), sheetWidth: 90, sheetHeight: 90, iconWidth: 30, iconHeight: 30, col: 2, row: 0 },
@@ -18,15 +14,9 @@ export const ICON_REGISTRY = {
   // Prawa strona środek (kolumna 2, wiersz 1)
   'Profil': { source: require('../../assets/iconset1.jpg'), sheetWidth: 90, sheetHeight: 90, iconWidth: 30, iconHeight: 30, col: 2, row: 1 },
 
-  // Przykład jak można dodać ikonę z zupełnie innego pliku/sprite'a
-  // 'InnaIkona': { source: require('../../assets/innySprite.png'), sheetWidth: 120, sheetHeight: 60, iconWidth: 60, iconHeight: 60, col: 0, row: 0 },
 } as const;
 
 export type IconName = keyof typeof ICON_REGISTRY;
-
-//=============================================================================
-// 2. LOGIKA WYCINANIA (Dzięki niej nie musisz już myśleć o offsetach XYZ)
-//=============================================================================
 
 interface BaseSpriteCropperProps {
   source: ImageSourcePropType;
@@ -76,33 +66,21 @@ const BaseSpriteCropper: React.FC<BaseSpriteCropperProps> = ({
   );
 };
 
-//=============================================================================
-// 3. KOMPONENT GŁÓWNY, z którego zawsze będziesz korzystać w projekcie.
-//=============================================================================
-
 interface AppIconProps {
-  /** Nazwa ikony (np. zdefiniowanej w ICON_REGISTRY w tym pliku) */
-  name: IconName | string; // Wymuszamy typowanie dla podpowiedzi IDE, ale dajemy elastyczność fallbacku
-  /** Rozmiar ikony docelowo wyświetlanej na ekranie */
+  name: IconName | string;
   size?: number;
-  /** Jasność (jeśli ikona jest w pasku aktualnie aktywna - 1; jeśli nie - 0.4) */
   focused?: boolean;
-  /** Zewnętrzne style (marginesy itd.) */
   style?: StyleProp<ViewStyle>;
 }
 
 const AppIcon: React.FC<AppIconProps> = ({ name, size = 30, focused = true, style }) => {
-  // Wydobywamy z rejestru parametry zarejestrowanej uprzednio figury
-  // @ts-ignore
   const config = ICON_REGISTRY[name];
 
   if (!config) {
-    // Gdyby ktoś podał ikonę, której jeszcze nie wpisaliśmy do rejestru wyżej, renderujemy szary kwadrat 'fallback'
     console.warn(`Ikona o nazwie "${name}" nie została znaleziona w ICON_REGISTRY. Upewnij się, że ją zdefiniowałeś.`);
     return <View style={[{ width: size, height: size, backgroundColor: '#888' }, style]} />;
   }
 
-  // Oddelegowujemy czarną magię wycinanej siatki w dół
   return (
     <BaseSpriteCropper
       source={config.source}
