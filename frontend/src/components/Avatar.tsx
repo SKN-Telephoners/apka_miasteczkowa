@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Image, StyleSheet, StyleProp, ViewStyle } from 'react-native';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { THEME } from '../utils/constants';
 
 interface AvatarProps {

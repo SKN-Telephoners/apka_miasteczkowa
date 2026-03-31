@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
     View,
     Text,
@@ -10,7 +10,7 @@ import {
     Platform,
     UIManager
 } from 'react-native';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { THEME } from '../utils/constants';
 import Icon from 'react-native-vector-icons/Ionicons';
 
