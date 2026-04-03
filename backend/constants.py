@@ -3,6 +3,7 @@ class Constants:
     MAX_USERNAME_LEN = 32
     MIN_USERNAME_LEN = 3
     MAX_PASSWORD_LEN = 128
+    MAX_USER_DESCRIPTION_LEN = 320
     MIN_EVENT_NAME = 3
     MAX_EVENT_NAME = 32
     MAX_LOCATION_LEN = 32
@@ -12,6 +13,7 @@ class Constants:
     USERNAME_PATTERN = r"^[A-Za-z0-9_.'-]+$"
     PASSWORD_PATTERN = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,72}$"
     RESET_PASSWORD_EXPIRES = 15
+    CHANGE_EMAIL_EXPIRES = 15
     PAGINATION_DEFAULT_LIMIT = 20
     MAX_PAGINATION_LIMIT = 50
-    
+    PRIMARY_ACADEMY = "AGH"

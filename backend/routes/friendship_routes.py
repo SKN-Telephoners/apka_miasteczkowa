@@ -162,7 +162,7 @@ def get_friends_list():
         for friend in friends:
             friends_data.append({
                 "id": str(friend.user_id),
-                "username": friend.username
+                "username": friend.display_name
             })
         return make_api_response(ResponseTypes.SUCCESS, message="Friends list", data={"friends": friends_data})
     except SQLAlchemyError as e:

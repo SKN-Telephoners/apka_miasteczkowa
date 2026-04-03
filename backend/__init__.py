@@ -1,5 +1,5 @@
 from flask import Flask, jsonify, make_response
-from backend.extensions import db, bcrypt, jwt, mail, limiter, CORS, celery_init_app
+from backend.extensions import db, bcrypt, jwt, mail, limiter, CORS, celery_init_app, load_static_data
 from backend.config import Config, TestConfig
 from werkzeug.exceptions import HTTPException
 from flask_talisman import Talisman
@@ -15,6 +15,8 @@ def create_app(test_mode=False, dev_mode=False):
         app.config.from_object(TestConfig)
     else:
         app.config.from_object(Config)
+
+    load_static_data(app)
 
     db.init_app(app)
     bcrypt.init_app(app)
