@@ -4,7 +4,7 @@ from backend.models import User
 from backend.extensions import db, limiter
 from backend.constants import Constants
 from backend.responses import ResponseTypes, make_api_response
-from flask_jwt_extended import jwt_required, get_current_user
+from flask_jwt_extended import jwt_required, get_current_user,get_jwt_identity
 from backend.helpers import validate_uuid, sanitize_input
 import uuid
 from datetime import datetime, timezone
