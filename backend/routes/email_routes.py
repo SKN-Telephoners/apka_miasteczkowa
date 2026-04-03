@@ -8,14 +8,13 @@ from backend.helpers import add_token_to_db, revoke_token, is_token_revoked, rev
 from backend.tasks import send_email_async
 import re
 from flask_mail import Message
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 email_bp = Blueprint("email", __name__, url_prefix="/api/email")
 
 @email_bp.route("/verify_request",methods=["POST"])
 def verify_request():
-    user_data = request.get_json()
-
+    user_data = request.get_json(silent=True)    
     if not user_data or not "email" in user_data.keys():
         return make_api_response(ResponseTypes.BAD_REQUEST)
     
@@ -24,7 +23,13 @@ def verify_request():
 
     if user and not user.is_confirmed:
         try:
-            auth_token = create_access_token(identity=user.email, expires_delta=timedelta(hours=24))
+            revoke_all_user_tokens(user.user_id, token_type="email_verification")
+            auth_token = create_access_token(
+                identity=user.user_id, 
+                expires_delta=timedelta(hours=24),
+                additional_claims={"type": "email_verification"}
+                )
+            add_token_to_db(auth_token)
             auth_url = url_for("email.verify", token=auth_token, _external=True)
 
             msg = Message(
@@ -43,9 +48,12 @@ def verify_request():
 def verify(token):
     try:
         decoded = decode_token(token)
-        user_email = decoded["sub"]
-
-        user = User.query.filter_by(email=user_email).first()
+        if decoded.get("type") != "email_verification":
+            return make_api_response(ResponseTypes.INCORRECT_TOKEN)
+        if is_token_revoked(decoded):
+            return make_api_response(ResponseTypes.BAD_REQUEST, message="Link already used or expired")
+        user_id = decoded["sub"]
+        user = db.session.get(User, user_id)
 
         if not user:
             return make_api_response(ResponseTypes.NOT_FOUND, message="Verification failed")
@@ -54,13 +62,16 @@ def verify(token):
             return make_api_response(ResponseTypes.BAD_REQUEST, message="Account already varified")
     
         user.is_confirmed=True
+        user.confirmed_at = datetime.now(timezone.utc)
+        revoke_token(decoded["jti"], user.user_id)
+        revoke_all_user_tokens(user.user_id, token_type="email_verification")
         db.session.commit()
 
         return make_api_response(ResponseTypes.SUCCESS, message="Verification succesful")
     except Exception as e:
         current_app.logger.erro(f"Mail auth token error: {e}")
         return make_api_response(ResponseTypes.BAD_REQUEST, message="Invalid or expired link")
-
+    
 @email_bp.route("/reset_password_request", methods=["POST"])
 @limiter.limit("500 per hour")   # for tests, 500 password resets for IP per hour, change before deployment to 5
 def reset_password_request():
@@ -75,8 +86,9 @@ def reset_password_request():
         
     user = User.query.filter_by(email=email).first()  
     
-    #now there will be multiple active tokens for password resetting (we don't want that) - to be fixed
     if user:
+        revoke_all_user_tokens(user.user_id, token_type="password_reset")
+
         reset_token = create_access_token(
             identity=user.user_id,
             expires_delta=timedelta(minutes=Constants.RESET_PASSWORD_EXPIRES),
@@ -117,7 +129,7 @@ def reset_password(token):
     except Exception:
         return make_api_response(ResponseTypes.UNAUTHORIZED)
     
-    user = User.query.filter_by(user_id=user_id).first()
+    user = db.session.get(User, user_id)
 
     if not user:
         return make_api_response(ResponseTypes.NOT_FOUND, message="User not found")
@@ -131,11 +143,13 @@ def reset_password(token):
         return make_api_response(ResponseTypes.INVALID_CREDENTIALS, message="Incorrect password format")
     
     user.update_password(new_password)
+    user.password_changed_at = datetime.now(timezone.utc)
     db.session.commit()
 
     try:
         revoke_token(decoded["jti"], decoded["sub"])
-        revoke_all_user_tokens(user.user_id)
+        revoke_all_user_tokens(user.user_id, token_type="access")
+        revoke_all_user_tokens(user.user_id, token_type="refresh")
     except Exception as e:
         current_app.logger.error(f"Failed to revoke all tokens after password reset: {e}")
 

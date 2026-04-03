@@ -1,3 +1,4 @@
+from datetime import timedelta
 from flask import Blueprint, request, url_for
 from backend.models import User
 from backend.extensions import db, mail, limiter
@@ -40,8 +41,15 @@ def register_user():
     if User.query.filter_by(email=email).first() is not None:
         return make_api_response(ResponseTypes.CONFLICT, message="Account with this email already exists")
 
+    db.session.add(new_user)
+    db.session.flush()
     #send auth email
-    auth_token = create_access_token(identity=email)
+    auth_token = create_access_token(
+        identity=new_user.user_id,
+        expires_delta=timedelta(hours=24),
+        additional_claims={"type": "email_verification"}
+        )
+    add_token_to_db(auth_token)
     auth_url = url_for("email.verify", token=auth_token, _external=True)
 
     msg = Message(
@@ -51,12 +59,11 @@ def register_user():
         )
     
     try:
-        db.session.add(new_user)
         db.session.commit()
         mail.send(msg)
     except Exception as e:
-        db.session.rollback()
         db.session.delete(new_user)
+        db.session.rollback()
         db.session.commit()
         return make_api_response(ResponseTypes.SERVER_ERROR, message="Registration failed (mail eror)")
     
@@ -86,7 +93,7 @@ def login_user():
     if not user or not user.validate_password(password):
         return make_api_response(ResponseTypes.INVALID_CREDENTIALS)
     if not user.is_confirmed:
-        return make_api_response(ResponseTypes.ACCOUNT_NOT_VERIFIED)
+       return make_api_response(ResponseTypes.ACCOUNT_NOT_VERIFIED)
     
     limiter.reset()
 

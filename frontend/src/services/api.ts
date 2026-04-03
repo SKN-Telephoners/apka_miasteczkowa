@@ -5,6 +5,10 @@ import { API_BASE_URL, STORAGE_KEYS } from "../utils/constants";
 const MAX_RETRY_ATTEMPTS = 2;
 const INITIAL_RETRY_DELAY = 500; // in milliseconds
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms)); // helper function for delay
+<<<<<<< HEAD
+=======
+let refreshPromise: Promise<string> | null = null;
+>>>>>>> 9c42500a4eb4d70dc0669bea7839855b7fa818a3
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -20,6 +24,36 @@ export async function handleSessionExpiry() {
   console.log("Token refresh failed, logging out");
   await tokenStorage.clearTokens();
     //TO DO : redirect to login screen
+}
+
+async function refreshAccessToken(): Promise<string> {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      const refreshToken = await tokenStorage.getRefreshToken();
+
+      if (!refreshToken) {
+        throw new Error("Missing refresh token");
+      }
+
+      console.log("Attempting token refresh");
+      const response = await axios.post(`${API_BASE_URL}/api/auth/refresh`, {}, {
+        headers: { Authorization: `Bearer ${refreshToken}` },
+      });
+
+      const { access_token, refresh_token } = response.data;
+
+      if (!access_token || !refresh_token) {
+        throw new Error("Invalid refresh response");
+      }
+
+      await tokenStorage.saveTokens(access_token, refresh_token);
+      return access_token;
+    })().finally(() => {
+      refreshPromise = null;
+    });
+  }
+
+  return refreshPromise;
 }
 // Request interceptor - adds auth token to all requests
 api.interceptors.request.use(
@@ -42,13 +76,17 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    console.log('Response error Błąd:', error.response?.status, 'dla URL:', originalRequest.url);
+    console.log('Response error Błąd:', error.response?.status, 'dla URL:', originalRequest?.url);
+
+    if (!originalRequest) {
+      return Promise.reject(error);
+    }
     
-    // if 401 and not already retried, try to refresh token
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
+<<<<<<< HEAD
         const refreshToken = await tokenStorage.getRefreshToken();
 
         if (refreshToken) {
@@ -64,8 +102,13 @@ api.interceptors.response.use(
           originalRequest.headers.Authorization = `Bearer ${access_token}`;
           return api(originalRequest);
         } 
+=======
+        const newAccessToken = await refreshAccessToken();
+
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        return api(originalRequest);
+>>>>>>> 9c42500a4eb4d70dc0669bea7839855b7fa818a3
       } catch (refreshError) {
-        // refresh failed, clear tokens and redirect to login
         await handleSessionExpiry();
         return Promise.reject(new Error("Session expired. Please log in again."));
       }
@@ -90,11 +133,11 @@ api.interceptors.response.use(
 
 export const authService = {
   login: async (username: string, password: string) => {
-    const response = await api.post("/api/login", { username, password });
+    const response = await api.post("/api/auth/login", { username, password });
     return response.data;
   },
   register: async (username: string, email: string, password: string) => {
-    const response = await api.post("/api/register", {
+    const response = await api.post("/api/auth/register", {
       username,
       email,
       password,
@@ -102,11 +145,11 @@ export const authService = {
     return response.data;
   },
   resetPassword: async (email: string) => {
-    const response = await api.post("/api/reset-password", { email });
+    const response = await api.post("/api/email/reset_password_request", { email });
     return response.data;
   },
   logout: async () => {
-    const response = await api.post("/api/logout");
+    const response = await api.post("/api/auth/logout");
     return response.data;
   },
 };

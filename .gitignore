@@ -41,8 +41,18 @@ yarn-error.*
 apka_miasteczkowa/
 
 venv/
-backend/.venv/
 .venv/
+backend/.venv
 
 backend/__pycache__/
 tests/__pycache__/
+backend/routes/__pycache__/
+backend/models/__pycache__/
+.pytest_cache/
+
+
+# migrations
+backend/migrations
+
+# DB schema 
+schema.sql

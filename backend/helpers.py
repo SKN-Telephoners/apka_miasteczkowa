@@ -1,14 +1,15 @@
-import datetime
+from datetime import datetime, timezone
 from backend.extensions import db
 from flask_jwt_extended import decode_token
 from backend.models import TokenBlocklist
+from backend.models.event import Event_visibility
 from sqlalchemy.exc import NoResultFound
 import uuid
 import bleach
 
 def add_token_to_db(encoded_token):
     decoded_token = decode_token(encoded_token)
-    token_expires = datetime.datetime.fromtimestamp(decoded_token["exp"], tz=datetime.timezone.utc)
+    token_expires = datetime.fromtimestamp(decoded_token["exp"], tz=timezone.utc)
     token = TokenBlocklist(
         jti=decoded_token["jti"],
         token_type=decoded_token["type"],
@@ -29,7 +30,7 @@ def revoke_token(token_jti, user_id):
     try:
         token = TokenBlocklist.query.filter_by(jti=token_jti, user_id=user_id).one()
         if token:
-            token.revoked_at = datetime.datetime.now(datetime.timezone.utc)
+            token.revoked_at = datetime.now(timezone.utc)
             db.session.commit()
             return True
     except NoResultFound:
@@ -53,11 +54,15 @@ def is_token_revoked(jwt_payload):
         print(f"Database error in is_token_revoked: {e}")
         return True
 
-def revoke_all_user_tokens(user_id):
+def revoke_all_user_tokens(user_id, token_type=None):
     try:
-        tokens = TokenBlocklist.query.filter_by(user_id=user_id, revoked_at=None).all()
+        query = TokenBlocklist.query.filter_by(user_id=user_id, revoked_at=None)
+        if token_type:
+            query = query.filter_by(token_type=token_type)
+
+        tokens = query.all()
         for token in tokens:
-            token.revoked_at = datetime.datetime.now(datetime.timezone.utc)
+            token.revoked_at = datetime.now(timezone.utc)
         db.session.commit()
         return True
     except Exception as e:
@@ -65,13 +70,29 @@ def revoke_all_user_tokens(user_id):
         print(f"Error revoking all tokens from user: {user_id}: {e}")
         raise
 
-def validate_uuid(uuid_string):
+def validate_uuid(uuid_val):
+    if isinstance(uuid_val, uuid.UUID):
+        return uuid_val
     try:
-        return uuid.UUID(uuid_string)
-    except (ValueError, TypeError):
+        return uuid.UUID(str(uuid_val))
+    except (ValueError, TypeError, AttributeError):
         return None
-    
+
 def sanitize_input(text):
-    if not text:
-        return text
-    return bleach.clean(text, tags=[], attributes=[], strip=True)
+    if text is None:
+        return ""
+    clean_text = bleach.clean(str(text), tags=[], attributes=[], strip=True)
+    return clean_text
+
+def has_event_access(user_id, event):
+    if not event.is_private:
+        return True
+    if event.creator_id == user_id:
+        return True
+
+    access = Event_visibility.query.filter_by(
+        event_id=event.event_id, 
+        shared_with=user_id
+    ).first()
+    
+    return access is not None

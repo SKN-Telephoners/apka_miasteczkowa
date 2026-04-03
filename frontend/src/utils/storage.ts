@@ -1,4 +1,9 @@
+<<<<<<< HEAD
 import * as SecureStore from 'expo-secure-store';
+=======
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
+>>>>>>> 9c42500a4eb4d70dc0669bea7839855b7fa818a3
 import { STORAGE_KEYS } from "./constants";
 
 export const tokenStorage = {
@@ -18,5 +23,22 @@ export const tokenStorage = {
   clearTokens: async () => {
     await SecureStore.deleteItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
     await SecureStore.deleteItemAsync(STORAGE_KEYS.REFRESH_TOKEN);
+<<<<<<< HEAD
+=======
+  },
+
+  getUserId: async () => {
+    const accessToken = await SecureStore.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+
+    if (!accessToken) {
+      return null;
+    }
+
+    const payload = accessToken.split(".")[1];
+    const decodedPayload = JSON.parse(atob(payload));
+    const plainObject = JSON.parse(JSON.stringify(decodedPayload));
+
+    return plainObject.sub;
+>>>>>>> 9c42500a4eb4d70dc0669bea7839855b7fa818a3
   },
 };
