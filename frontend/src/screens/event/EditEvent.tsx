@@ -3,21 +3,32 @@ import { View, TouchableOpacity, Text, Alert } from "react-native";
 import { useState } from "react"; 
 import { useRoute } from "@react-navigation/native";
 import InputField from "../../components/InputField";
-import { createEvent } from "../../services/events";
+import { editEvent } from "../../services/events";
 import DatePicker from "../../components/DateTimePicker";
+import Checkbox from 'expo-checkbox';
 
 const EditEvent = () => {
     const route = useRoute<any>();
     const { event } = route.params;
 
-    // Helper function moved here so it can be used during state initialization
+    const parseBoolean = (value: unknown): boolean => {
+        if (typeof value === "boolean") return value;
+        if (typeof value === "number") return value === 1;
+        if (typeof value === "string") {
+            const normalized = value.trim().toLowerCase();
+            return ["true", "1", "t", "y", "yes"].includes(normalized);
+        }
+        return false;
+    };
+
+    const initialIsPrivate = parseBoolean(event?.is_private ?? event?.private ?? event?.isPrivate);
+
     const getInitialDateTime = () => {
         try {
             if (event.date && event.time) {
                 const [day, month, year] = event.date.split('.').map(Number);
                 const [hours, minutes] = event.time.split(':').map(Number);
                 
-                // JavaScript Date: months are 0-indexed (0 = Jan, 11 = Dec)
                 const dateObj = new Date(year, month - 1, day);
                 const timeObj = new Date(year, month - 1, day, hours, minutes);
                 
@@ -31,7 +42,6 @@ const EditEvent = () => {
         return { date: now, time: now };
     };
 
-    // Calculate these ONCE immediately, before the render happens
     const initialValues = getInitialDateTime();
 
     const [title, setTitle] = useState(event.name || "");
@@ -39,6 +49,7 @@ const EditEvent = () => {
     const [location, setLocation] = useState(event.location || "");
     const [date, setDate] = useState(event.date || ""); 
     const [time, setTime] = useState(event.time || "");
+    const [isPrivate, setIsPrivate] = useState<boolean>(initialIsPrivate);
 
     const [dateObj, setDateObj] = useState<Date>(initialValues.date); 
     const [timeObj, setTimeObj] = useState<Date>(initialValues.time); 
@@ -93,21 +104,45 @@ const EditEvent = () => {
         return !titleValidation && !locationValidation && !descriptionValidation;
     };
 
-    const handleEditEvent = async () => {
+    const submitEditEvent = async () => {
         if (!validateInputs()) return;
         try {
-            await createEvent({
+            const eventId = event?.id || event?.event_id;
+
+            if (!eventId) {
+                Alert.alert("Błąd", "Brak identyfikatora wydarzenia.");
+                return;
+            }
+
+            await editEvent(eventId, {
                 name: title,
                 description: description,
                 date: date,
                 time: time,
-                location: location
+                location: location,
+                is_private: isPrivate,
             });
             Alert.alert("Sukces", "Edytowano wydarzenie");
         } catch (error: any) {
-            const msg = error.response?.data?.message || "Wystąpił nieoczekiwany błąd.";
+            const msg = error?.message || "Wystąpił nieoczekiwany błąd.";
             Alert.alert("Błąd edycji", msg);
         }
+    };
+
+    const handleEditEvent = () => {
+        if (initialIsPrivate && !isPrivate) {
+            Alert.alert(
+                "Zmienić widoczność wydarzenia?",
+                "To zmieni wydarzenie z prywatnego na publiczne. Czy chcesz kontynuować?",
+                [
+                    { text: "Anuluj", style: "cancel" },
+                    { text: "Zmień", onPress: () => { submitEditEvent(); }, style: "destructive" },
+                ]
+            );
+            return;
+        }
+
+        submitEditEvent();
     };
 
     const handleDateTimeSelected = (selectedDate: string, selectedTime: string) => {
@@ -136,6 +171,15 @@ const EditEvent = () => {
                 initialDate={dateObj}
                 initialTime={timeObj}
             />
+
+             <View style={{ flexDirection: "row", marginVertical: 10, padding: 10 }}>
+                    <Checkbox
+                      value={isPrivate}
+                      onValueChange={setIsPrivate}
+                      color={isPrivate ? '#4630EB' : undefined}
+                    />
+                    <Text style={{marginLeft: 10}}>Wydarzenie prywatne</Text>
+            </View>
 
             <TouchableOpacity 
                 onPress={handleEditEvent} 

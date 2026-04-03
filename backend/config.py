@@ -15,7 +15,7 @@ class Config:
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
     
     MAIL_SERVER = os.getenv("MAIL_SERVER")  #SMTP server ex. smtp.gmail.com
-    MAIL_PORT = int(os.getenv("MAIL_PORT",587))  #TLS or 465 for SSL
+    MAIL_PORT = int(os.getenv("MAIL_PORT"))  #TLS or 465 for SSL
     MAIL_USE_TLS = os.getenv("MAIL_USE_TLS", "True") == "True"
     MAIL_USE_SSL = os.getenv("MAIL_USE_SSL", "False") == "True"
     MAIL_USERNAME = os.getenv("MAIL_USERNAME")
@@ -32,6 +32,8 @@ class Config:
     
     
 class TestConfig(Config):
+    BCRYPT_LOG_ROUNDS = 4
+    
     MAIL_SUPPRESS_SEND = True
     MAIL_BACKEND = 'flask_mail.backends.locmem.EmailBackend'
     TESTING = True

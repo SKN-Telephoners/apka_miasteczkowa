@@ -5,8 +5,9 @@ from werkzeug.exceptions import HTTPException
 from flask_talisman import Talisman
 import logging
 from backend.routes import register_blueprints
+import os
 
-def create_app(test_mode=False):
+def create_app(test_mode=False, dev_mode=False):
     app = Flask(__name__)
     CORS(app, resources={r"/api/*": {"origins": "https://production-api.com"}})
 
@@ -32,13 +33,17 @@ def create_app(test_mode=False):
         'form-action': "'none'"
     }
 
+    # Keep transport security in production, but allow plain HTTP for local dev.
+    flask_debug = os.getenv("FLASK_DEBUG", "").lower() in {"1", "true", "yes"}
+    secure_transport = not (test_mode or dev_mode or flask_debug)
+
     Talisman(
         app,
         content_security_policy=csp,
-        force_https=not test_mode,
-        session_cookie_secure=not test_mode,
+        force_https=secure_transport,
+        session_cookie_secure=secure_transport,
         session_cookie_http_only=True,
-        strict_transport_security=True,
+        strict_transport_security=secure_transport,
         strict_transport_security_max_age=31536000, #1 rok
         referrer_policy='no-referrer'
     )

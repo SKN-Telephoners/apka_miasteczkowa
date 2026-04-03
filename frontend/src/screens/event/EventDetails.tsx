@@ -6,7 +6,7 @@ import {
 import { useRoute } from "@react-navigation/native";
 import { tokenStorage } from "../../utils/storage";
 import { useState, useEffect, useRef } from "react";
-import { deleteEvent } from "../../services/events";
+import { deleteEvent, getParticipationStatus, joinEvent, leaveEvent } from "../../services/events";
 import { getComments, createComment, replyToComment } from "../../services/comments";
 import { useNavigation } from "@react-navigation/native";
 import { Comment } from "../../types/comment";
@@ -20,8 +20,16 @@ const EventDetails = () => {
 
   const { event } = route.params;
 
+  const isPrivateEvent =
+    event?.is_private === true ||
+    String(event?.is_private).toLowerCase() === "true";
+
   const [userID, setUserID] = useState('');
   const [isOwner, setIsOwner] = useState(false);
+  const [isParticipating, setIsParticipating] = useState(false);
+  const [isParticipationLoading, setIsParticipationLoading] = useState(false);
+  const [participantCount, setParticipantCount] = useState<number>(Number(event?.participant_count ?? 0));
+  const [commentCount, setCommentCount] = useState<number>(Number(event?.comment_count ?? 0));
   const [comments, setComments] = useState([]);
 
   const [commentValue, setCommentValue] = useState("");
@@ -55,6 +63,11 @@ const EventDetails = () => {
     setComments(data.comments);
   };
 
+  const handleCommentDeleted = async () => {
+    setCommentCount((prev) => Math.max(prev - 1, 0));
+    await refreshComments();
+  };
+
   const handleAddComment = async () => {
     if (!commentValue.trim()) {
       Alert.alert("Komentarz nie może być pusty");
@@ -63,10 +76,12 @@ const EventDetails = () => {
 
     try {
       if (replyTo) {
-        await replyToComment(replyTo.comment_id, commentValue);
+        await replyToComment(replyTo.comment_id, event.id, commentValue);
       } else {
         await createComment(event.id, commentValue);
       }
+
+      setCommentCount((prev) => prev + 1);
 
       setCommentValue("");
       setReplyTo(null);
@@ -93,6 +108,30 @@ const EventDetails = () => {
     }
   }, [userID, event.creator_id]);
 
+  useEffect(() => {
+    const fetchParticipationStatus = async () => {
+      if (!userID) {
+        setIsParticipating(false);
+        return;
+      }
+
+      try {
+        setIsParticipationLoading(true);
+        const status = await getParticipationStatus(event.id);
+        setParticipantCount(status.participant_count);
+        setIsParticipating(!isOwner && !isPrivateEvent ? status.is_participating : false);
+      } catch {
+        if (!isOwner && !isPrivateEvent) {
+          setIsParticipating(false);
+        }
+      } finally {
+        setIsParticipationLoading(false);
+      }
+    };
+
+    fetchParticipationStatus();
+  }, [userID, isOwner, isPrivateEvent, event.id]);
+
   const deleteGoBack = async () => {
     try {
       await deleteEvent(event.id);
@@ -116,6 +155,25 @@ const EventDetails = () => {
       { text: 'Anuluj' },
     ]);
 
+  const handleJoinEvent = async () => {
+    try {
+      setIsParticipationLoading(true);
+
+      if (isParticipating) {
+        await leaveEvent(event.id);
+        setIsParticipating(false);
+        setParticipantCount((prev) => Math.max(prev - 1, 0));
+      } else {
+        await joinEvent(event.id);
+        setIsParticipating(true);
+        setParticipantCount((prev) => prev + 1);
+      }
+    } catch (err: any) {
+      Alert.alert("Błąd", err?.message || "Nie udało się zaktualizować udziału.");
+    } finally {
+      setIsParticipationLoading(false);
+    }
+  };
 
   return (
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -128,7 +186,7 @@ const EventDetails = () => {
               <CommentCard
                 item={item}
                 userID={userID}
-                onDeleted={refreshComments}
+                onDeleted={handleCommentDeleted}
                 onReply={(comment) => {
                   setReplyTo(comment);
                   inputRef.current?.focus();
@@ -143,6 +201,10 @@ const EventDetails = () => {
               <View style={{ alignItems: "center" }}>
                 <Text style={{ fontSize: 28, fontWeight: "bold", marginTop: 10 }}>{event.name}</Text>
 
+                <Text style={{ fontSize: 14, color: '#59595aff', marginTop: 6 }}>
+                  Dodane przez: {event.creator_username || "nieznany użytkownik"}
+                </Text>
+
                 <Text style={{ fontSize: 18, marginVertical: 10 }}>
                   Lokalizacja: {event.location}
                 </Text>
@@ -153,6 +215,10 @@ const EventDetails = () => {
 
                 <Text style={{ fontSize: 18, marginVertical: 10 }}>
                   Godzina: {event.time}
+                </Text>
+
+                <Text style={{ fontSize: 16, marginBottom: 6 }}>
+                  Liczba zapisanych osób: {participantCount}
                 </Text>
 
                 {isOwner && (<View style={{ flexDirection: "row", marginVertical: 10 }}>
@@ -171,8 +237,23 @@ const EventDetails = () => {
                     </TouchableOpacity>
                   </View>
                 </View>)}
+
+                {!isOwner && !isPrivateEvent && (
+                  <View style={{ marginVertical: 10 }}>
+                    <TouchableOpacity
+                      onPress={handleJoinEvent}
+                      disabled={isParticipationLoading}
+                      style={{ backgroundColor: '#045ddaff', paddingVertical: 10, borderRadius: 25, paddingHorizontal: 20 }}
+                    >
+                      <Text style={{ color: '#ffffff' }}>
+                        {isParticipationLoading ? 'Ładowanie...' : (isParticipating ? 'Wypisz się' : 'Weź udział')}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
                 <Text style={{ fontSize: 16, marginVertical: 10, marginHorizontal: 20 }}>{event.description}</Text>
-                <Text style={{ fontSize: 16, marginVertical: 10, fontWeight: "bold" }}>Komentarze</Text>
+                <Text style={{ fontSize: 16, marginVertical: 10, fontWeight: "bold" }}>Komentarze ({commentCount})</Text>
                 {comments.length === 0 && (
                   <Text style={{ fontSize: 14, color: '#919191ff', textAlign: 'center', marginBottom: 40 }}>Brak komentarzy</Text>
                 )}

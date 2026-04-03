@@ -14,10 +14,52 @@ import InputField from "../../components/InputField";
 import { getEvents } from "../../services/events";
 import { useNavigation } from "@react-navigation/native";
 
+const parseEventDateTime = (event: Event): Date | null => {
+    if (!event?.date || !event?.time) return null;
+
+    const [day, month, year] = event.date.split('.').map(Number);
+    const [hours, minutes] = event.time.split(':').map(Number);
+
+    if ([day, month, year, hours, minutes].some(Number.isNaN)) {
+        return null;
+    }
+
+    return new Date(year, month - 1, day, hours, minutes, 0, 0);
+};
+
+const sortEventsByTime = (events: Event[]): Event[] => {
+    const now = new Date();
+    const upcoming: Event[] = [];
+    const past: Event[] = [];
+
+    for (const event of events) {
+        const dateTime = parseEventDateTime(event);
+        if (dateTime && dateTime >= now) {
+            upcoming.push(event);
+        } else {
+            past.push(event);
+        }
+    }
+
+    upcoming.sort((a, b) => {
+        const aTime = parseEventDateTime(a)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+        const bTime = parseEventDateTime(b)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+        return aTime - bTime;
+    });
+
+    past.sort((a, b) => {
+        const aTime = parseEventDateTime(a)?.getTime() ?? 0;
+        const bTime = parseEventDateTime(b)?.getTime() ?? 0;
+        return bTime - aTime;
+    });
+
+    return [...upcoming, ...past];
+};
+
 const EventScreen = () => {
 
     const [searchQuery, setSearchQuery] = useState("");
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
     const [data, setData] = useState<Event[]>([]);
     const [error, setError] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
@@ -39,9 +81,9 @@ const EventScreen = () => {
             const response = await getEvents(p, 20);
 
             if (isLoadMore) {
-                setData(prevData => [...prevData, ...response.data]);
+                setData(prevData => sortEventsByTime([...prevData, ...response.data]));
             } else {
-                setData(response.data);
+                setData(sortEventsByTime(response.data));
             }
 
             setCurrentPage(response.pagination.page);
@@ -58,8 +100,14 @@ const EventScreen = () => {
     }
 
     useEffect(() => {
-        loadEvents(1, false);
-    }, []);
+        // Listen for screen focus to lazy-load events
+        const unsubscribe = navigation.addListener('focus', () => {
+            if (data.length === 0 && !error) {
+                loadEvents(1, false);
+            }
+        });
+        return unsubscribe;
+    }, [navigation, data.length, error]);
 
     const handleRefresh = useCallback(() => {
         setRefreshing(true);
@@ -91,7 +139,7 @@ const EventScreen = () => {
                 description?.toLowerCase().includes(lowerCaseQuery)
 
         })
-        setData(filteredData)
+        setData(sortEventsByTime(filteredData))
     }
 
     const renderFooter = () => {

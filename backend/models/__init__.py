@@ -1,5 +1,5 @@
 from .user import User
-from .event import Event, Invite
+from .event import Event
 from .friend import Friendship, FriendRequest
 from .comment import Comment
 from .tokenblocklist import TokenBlocklist
@@ -10,6 +10,5 @@ __all__ = [
     "Friendship",
     "FriendRequest",
     "Comment",
-    "TokenBlocklist",
-    "Invite"
+    "TokenBlocklist"
 ]

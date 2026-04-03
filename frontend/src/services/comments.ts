@@ -4,7 +4,7 @@ type ApiMessage = { message?: string };
 
 export const getComments = async (eventId: string) => {
     try {
-        const response = await api.get(`/get_comments_list/${eventId}`);
+        const response = await api.get(`api/comments/event/${eventId}`);
         return response.data;
     }
     // error handling 
@@ -16,7 +16,7 @@ export const getComments = async (eventId: string) => {
 
 export const createComment = async (eventId: string, content: string): Promise<string> => {
     try {
-        const response = await api.post<ApiMessage>(`/create_comment/${eventId}`, { content });
+        const response = await api.post<ApiMessage>(`api/comments/create/${eventId}`, { content });
         return response.data.message ?? "Comment created";
     }
     // error handling 
@@ -28,7 +28,7 @@ export const createComment = async (eventId: string, content: string): Promise<s
 
 export const editComment = async (commentId: string, content: string): Promise<string> => {
     try {
-        const response = await api.post<ApiMessage>(`/edit_comment/${commentId}`, {
+        const response = await api.post<ApiMessage>(`api/comments/edit/${commentId}`, {
             new_content: content
         });
         return response.data.message ?? "Comment edited";
@@ -42,7 +42,7 @@ export const editComment = async (commentId: string, content: string): Promise<s
 
 export const deleteComment = async (commentId: string): Promise<string> => {
     try {
-        const response = await api.delete<ApiMessage>(`/delete_comment/${commentId}`);
+        const response = await api.delete<ApiMessage>(`api/comments/delete/${commentId}`);
         return response.data.message ?? "Comment deleted";// return, delete if unnecessary
     }
     // error handling 
@@ -52,11 +52,13 @@ export const deleteComment = async (commentId: string): Promise<string> => {
     }
 };
 
-export const replyToComment = async (parentCommentId: string, content: string): Promise<string> => {
+export const replyToComment = async (parentCommentId: string, eventId: string, content: string): Promise<string> => {
     try {
-        const response = await api.post<ApiMessage>(`/reply_to_comment/${parentCommentId}`, {
-            content: content
-        });
+        const response = await api.post<ApiMessage>(
+            `api/comments/reply/${parentCommentId}`,
+            { content: content },
+            { headers: { event_id: eventId } }
+        );
         return response.data.message ?? "Created a response";
     }
     // error handling 

@@ -1,136 +1,118 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, Button, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Alert, TouchableOpacity, Image } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
+import { THEME, MOCKS } from '../../utils/constants';
+import Button from '../../components/Button';
+import Avatar from '../../components/Avatar';
 
 const EditProfileScreen = () => {
     const { user } = useAuth();
     const navigation = useNavigation();
 
     // Lokalne stany dla formularza
-    // W przyszłości te wartości początkowe powinny pochodzić z UserContext / API
-    const [bio, setBio] = useState("Status: Dostępny w miasteczku!");
+    const [bio, setBio] = useState("Status: Zdałem AUE!?@!");
     const [email, setEmail] = useState(user?.email || "");
     const [username, setUsername] = useState(user?.username || "");
 
-    // Mock zapisu
     const handleSave = () => {
-        // Tu powinno być wywołanie API: await updateUserProfile({ bio, email ... })
+        // Tu wywołanie bazy
         console.log("Zapisywanie profilu:", { username, bio, email });
-
         Alert.alert(
             "Sukces",
             "Zaktualizowano profil (Mock)",
-            [
-                { text: "OK", onPress: () => navigation.goBack() }
-            ]
+            [{ text: "OK", onPress: () => navigation.goBack() }]
         );
     };
 
     return (
-        <ScrollView style={styles.container}>
+        <View style={styles.container}>
+            {/* Sekcja Avatara */}
             <View style={styles.avatarSection}>
-                <View style={styles.avatarPlaceholder}>
-                    <Text style={styles.avatarEmoji}>👤</Text>
-                </View>
-                <TouchableOpacity onPress={() => Alert.alert("Info", "Zmiana avatara dostępna wkrótce!")}>
+                <Avatar uri={MOCKS.AVATAR} size={100} style={{ marginBottom: THEME.spacing.s }} />
+                <TouchableOpacity onPress={() => Alert.alert("Info", "Zmiana avatara udostępniona po wpięciu do API!")}>
                     <Text style={styles.changeAvatarText}>Zmień zdjęcie</Text>
                 </TouchableOpacity>
             </View>
 
+            {/* Sekcja Formularza */}
             <View style={styles.formSection}>
                 <Text style={styles.label}>Nazwa użytkownika</Text>
                 <TextInput
-                    style={styles.input}
+                    style={[styles.input, styles.disabledInput]}
                     value={username}
-                    onChangeText={setUsername}
                     editable={false}
                 />
-                <Text style={styles.hint}>Nazwa użytkownika jest stała.</Text>
+                <Text style={styles.hint}>Tylko do odczytu</Text>
 
-                <Text style={styles.label}>Email (Tylko do odczytu)</Text>
+                <Text style={styles.label}>Email</Text>
                 <TextInput
                     style={[styles.input, styles.disabledInput]}
                     value={email}
                     editable={false}
                 />
 
-                <Text style={styles.label}>Bio / Status</Text>
+                <Text style={[styles.label, { marginTop: THEME.spacing.m }]}>Bio / Status</Text>
                 <TextInput
                     style={[styles.input, styles.bioInput]}
                     value={bio}
                     onChangeText={setBio}
                     multiline
                     placeholder="Napisz coś o sobie..."
+                    placeholderTextColor={THEME.colors.lm_srch_wrd}
                 />
             </View>
 
-            <View style={styles.buttonSection}>
-                <Button title="Zapisz zmiany" onPress={handleSave} />
-            </View>
-        </ScrollView>
+            {/* Przycisk zapisu */}
+            <Button title="Zapisz zmiany" onPress={handleSave} />
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
-        padding: 20,
+        backgroundColor: THEME.colors.lm_bg,
+        padding: THEME.spacing.m,
     },
     avatarSection: {
         alignItems: 'center',
-        marginVertical: 20,
-    },
-    avatarPlaceholder: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        backgroundColor: '#f0f0f0',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 10,
-    },
-    avatarEmoji: {
-        fontSize: 50,
+        marginVertical: THEME.spacing.l,
     },
     changeAvatarText: {
-        color: '#007AFF',
-        fontSize: 16,
+        ...THEME.typography.text,
+        color: THEME.colors.lm_highlight,
+        fontWeight: 'bold',
     },
     formSection: {
-        marginBottom: 30,
+        flex: 1, // Pozwala przyciskowi odsunąć się na dół, jeśli jest mało miejsca
     },
     label: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 5,
-        color: '#333',
+        ...THEME.typography.text,
+        color: THEME.colors.lm_txt,
+        marginBottom: THEME.spacing.xs,
     },
     input: {
+        ...THEME.typography.text,
         borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 8,
-        padding: 12,
-        fontSize: 16,
-        marginBottom: 5,
-        backgroundColor: '#fafafa',
+        borderColor: THEME.colors.lm_src_br,
+        borderRadius: THEME.borderRadius.m,
+        padding: THEME.spacing.m,
+        backgroundColor: THEME.colors.lm_bg,
     },
     disabledInput: {
-        backgroundColor: '#eee',
-        color: '#888',
+        backgroundColor: THEME.colors.lm_src_br,
+        color: THEME.colors.lm_ico,
     },
     bioInput: {
         height: 100,
-        textAlignVertical: 'top', // Dla Androida
+        textAlignVertical: 'top', // Wyrównanie do góry na Androidzie
     },
     hint: {
-        fontSize: 12,
-        color: '#888',
-        marginBottom: 15,
-    },
-    buttonSection: {
-        marginBottom: 40,
+        ...THEME.typography.text,
+        color: THEME.colors.lm_ico,
+        marginBottom: THEME.spacing.s,
+        marginTop: THEME.spacing.xs,
     }
 });
 
