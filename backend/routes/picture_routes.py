@@ -2,12 +2,11 @@ from flask import Blueprint, request, current_app, jsonify
 from backend.extensions import limiter
 from backend.responses import ResponseTypes, make_api_response
 from flask_jwt_extended import jwt_required
+import cloudinary.uploader
 
-import cloudinary
+pictures_bp = Blueprint("pictures", __name__, url_prefix="/api/pictures")
 
-images_bp = Blueprint("images", __name__, url_prefix="/api/images")
-
-@images_bp.route("/upload", methods=["POST"])
+@pictures_bp.route("/upload", methods=["POST"])
 @jwt_required()
 @limiter.limit("600 per minute")
 def upload_file():
@@ -16,7 +15,7 @@ def upload_file():
 
     file = request.files['file']
     
-    # 2. Get manual tags from the request body
+    # Get manual tags from the request body
     # We expect a comma-separated string from the frontend, e.g., "sunset, vacation, 2024"
     manual_tags = request.form.get('tags', '') 
 
@@ -31,15 +30,15 @@ def upload_file():
         )
 
         return make_api_response(ResponseTypes.CREATED, data={
-            "image_url": response.get('eager')[0].get('secure_url'),
-            "public_id": response.get('public_id'),
+            "picture_url": response.get('eager')[0].get('secure_url'),
+            "clout_id": response.get('cloud_id'),
             "tags": response.get('tags', [])
-        }, message="Image uploaded and tagged successfully") # Returns the tags as a Python list
+        }, message="Picture uploaded and tagged successfully") # Returns the tags as a Python list
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@images_bp.route("/upload-batch", methods=["POST"])
+@pictures_bp.route("/upload-batch", methods=["POST"])
 @jwt_required()
 @limiter.limit("100 per minute")
 def upload_multiple_files():
@@ -52,7 +51,7 @@ def upload_multiple_files():
         return make_api_response(ResponseTypes.BAD_REQUEST, message="File list is empty")
 
     if len(files) > 5:
-        return make_api_response(ResponseTypes.BAD_REQUEST, message="Maximum 5 images allowed per upload")
+        return make_api_response(ResponseTypes.BAD_REQUEST, message="Maximum 5 pictures allowed per upload")
 
     manual_tags = request.form.get('tags', '') 
     
@@ -74,8 +73,8 @@ def upload_multiple_files():
             )
             
             uploaded_data.append({
-                "image_url": response.get('eager')[0].get('secure_url'),
-                "public_id": response.get('public_id')
+                "picture_url": response.get('eager')[0].get('secure_url'),
+                "cloud_id": response.get('cloud_id')
             })
 
         except Exception as e:
@@ -84,12 +83,12 @@ def upload_multiple_files():
 
     # If all uploads failed
     if not uploaded_data and errors:
-        return make_api_response(ResponseTypes.SERVER_ERROR, message="Failed to upload images", data={"errors": errors})
+        return make_api_response(ResponseTypes.SERVER_ERROR, message="Failed to upload pictures", data={"errors": errors})
 
     # Return partial or full success
-    message = "All images uploaded successfully" if not errors else "Some images failed to upload"
+    message = "All pictures uploaded successfully" if not errors else "Some pictures failed to upload"
     
     return make_api_response(ResponseTypes.CREATED, data={
-        "images": uploaded_data,
+        "pictures": uploaded_data,
         "errors": errors 
     }, message=message)

@@ -4,7 +4,7 @@ from .friendship_routes import friends_bp
 from .event_routes import events_bp
 from .comment_routes import comments_bp
 from .email_routes import email_bp
-from .image_routes import images_bp
+from .picture_routes import pictures_bp
 from . import tokens
 
 __all__ = [
@@ -15,7 +15,7 @@ __all__ = [
     "events_bp",
     "comments_bp",
     "email_bp",
-    "images_bp"
+    "pictures_bp"
 ]
 
 def register_blueprints(app):
@@ -25,4 +25,4 @@ def register_blueprints(app):
     app.register_blueprint(events_bp)
     app.register_blueprint(comments_bp)
     app.register_blueprint(email_bp)
-    app.register_blueprint(images_bp)
+    app.register_blueprint(pictures_bp)
