@@ -34,7 +34,6 @@ def create_friend_request(friend_id):
 
     if existing_friend_request is not None:
         return make_api_response(ResponseTypes.CONFLICT, message="Request already exists")
-
     existing_friendship = Friendship.query.filter(
         or_(
             and_(Friendship.user_id == user.user_id, Friendship.friend_id == friend_id),
@@ -80,7 +79,6 @@ def cancel_friend_request(friend_id):
         db.session.rollback()
         current_app.logger.error(f"Database error: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
-
     return make_api_response(ResponseTypes.SUCCESS, message="Friend request cancelled", data={"friend_id": str(friend_id)})
 
 @friends_bp.route("/request/<friend_id>/accept", methods=["POST"])
@@ -113,7 +111,6 @@ def accept_friend_request(friend_id):
         db.session.rollback()
         current_app.logger.error(f"Database error: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
-
     return make_api_response(ResponseTypes.SUCCESS, message="Friend request accepted", data={"friend_id": str(friend_id)})
 
 @friends_bp.route("/request/<friend_id>/decline", methods=["POST"])
@@ -136,7 +133,6 @@ def decline_friend_request(friend_id):
         db.session.rollback()
         current_app.logger.error(f"Database error: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
-
     return make_api_response(ResponseTypes.SUCCESS, message="Friend request declined")
 
 @friends_bp.route("/list", methods=["GET"])
