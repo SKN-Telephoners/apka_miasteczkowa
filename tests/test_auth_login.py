@@ -66,7 +66,7 @@ def test_jwt_login(client, registered_user, app):
         assert "refresh_token" in data
 
         token = data["access_token"]
-        protected_response = client.get("api/users/me", headers={
+        protected_response = client.get("/api/users/profile", headers={
             "Authorization": f"Bearer {token}"
         })
 
@@ -75,7 +75,7 @@ def test_jwt_login(client, registered_user, app):
 def test_jwt_invalid_token(client, app):
     with app.app_context():
         invalid_token = "invalid_token"
-        protected_response = client.get("api/users/me", headers={
+        protected_response = client.get("/api/users/profile", headers={
             "Authorization": f"Bearer {invalid_token}"
         })
 
@@ -84,7 +84,7 @@ def test_jwt_invalid_token(client, app):
 
 def test_jwt_no_token(client, app):
     with app.app_context():
-        protected_response = client.get("api/users/me")
+        protected_response = client.get("/api/users/profile")
 
         assert protected_response.get_json()["message"] == "Missing or invalid token"
         assert protected_response.status_code == 401
@@ -93,7 +93,7 @@ def test_jwt_revoke_access(client, logged_in_user, app):
     with app.app_context():
         user, token = logged_in_user
 
-        protected_response1 = client.get("api/users/me", headers={
+        protected_response1 = client.get("/api/users/profile", headers={
             "Authorization": f"Bearer {token}"
         })
         assert protected_response1.status_code == 200
@@ -104,7 +104,7 @@ def test_jwt_revoke_access(client, logged_in_user, app):
         assert revoke_response.status_code == 200
         assert revoke_response.get_json()["message"] == "Access token revoked"
 
-        protected_response2 = client.get("/api/users/me", headers={
+        protected_response2 = client.get("/api/users/profile", headers={
             "Authorization": f"Bearer {token}"
         })
         assert protected_response2.status_code == 401

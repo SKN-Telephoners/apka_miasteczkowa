@@ -43,7 +43,7 @@ def verify_request():
 
     return make_api_response(ResponseTypes.SUCCESS, message="If the account exists and is not verified, an email has been sent")
 
-@email_bp.route("/verify/<token>", methods=["POST", "GET"])
+@email_bp.route("/verify/<token>", methods=["POST"])
 @limiter.limit("100 per hour")
 def verify(token):
     try:
@@ -69,7 +69,7 @@ def verify(token):
 
         return make_api_response(ResponseTypes.SUCCESS, message="Verification succesful")
     except Exception as e:
-        current_app.logger.erro(f"Mail auth token error: {e}")
+        current_app.logger.error(f"Mail auth token error: {e}")
         return make_api_response(ResponseTypes.BAD_REQUEST, message="Invalid or expired link")
     
 @email_bp.route("/reset_password_request", methods=["POST"])
@@ -154,3 +154,29 @@ def reset_password(token):
         current_app.logger.error(f"Failed to revoke all tokens after password reset: {e}")
 
     return make_api_response(ResponseTypes.SUCCESS, message="Password changed successfully")
+
+@email_bp.route("/confirm_change/<token>", methods=["POST"])
+@limiter.limit("100 per hour")
+def confirm_change(token):
+    try:
+        decoded = decode_token(token)
+        if decoded.get("type") != "email_change":
+            return make_api_response(ResponseTypes.INCORRECT_TOKEN)
+        if is_token_revoked(decoded):
+            return make_api_response(ResponseTypes.BAD_REQUEST, message="Link already used or expired")
+        user_id = decoded["sub"]
+        user = db.session.get(User, user_id)
+
+        if not user:
+            return make_api_response(ResponseTypes.NOT_FOUND, message="Email change failed")
+    
+        user.email = user.pending_email
+        user.confirmed_at = datetime.now(timezone.utc)
+        revoke_token(decoded["jti"], user.user_id)
+        revoke_all_user_tokens(user.user_id, token_type="email_change")
+        db.session.commit()
+
+        return make_api_response(ResponseTypes.SUCCESS, message="Email changed succesfully")
+    except Exception as e:
+        current_app.logger.error(f"Mail email change token error: {e}")
+        return make_api_response(ResponseTypes.BAD_REQUEST, message="Invalid or expired link")

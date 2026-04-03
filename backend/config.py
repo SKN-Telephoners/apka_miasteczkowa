@@ -22,6 +22,9 @@ class Config:
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
     MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER")
 
+    MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH"))
+    MAX_FORM_MEMORY_SIZE = 16777216  
+
     CELERY_BROKER_URL = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
     CELERY = dict(

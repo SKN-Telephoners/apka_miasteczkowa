@@ -39,7 +39,7 @@ def rollback_db(app):
 
 @pytest.fixture
 def registered_user(app):
-    password = "Secret123"
+    password = "Secret123!"
 
     user = User(
         username="user_fixture", 
@@ -54,7 +54,7 @@ def registered_user(app):
 
 @pytest.fixture
 def registered_friend(app):
-    password = "FriendSecret123"
+    password = "FriendSecret123!"
 
     friend = User(
         username="friend", 
@@ -85,6 +85,20 @@ def create_events(app, logged_in_user):
     for event_id in range(1, 23):
         event_time = datetime.now(timezone.utc) + timedelta(days=event_id)
         payload = {"name": str(event_id)+"ssss", "description": "Lore ipsum", "date": event_time.strftime("%d.%m.%Y"), "time":event_time.strftime("%H:%M"), "location":"Poland", "is_private": False}
+        response=client.post("/create_event", json=payload, headers=headers)
+        assert response.status_code == 201
+
+
+@pytest.fixture
+def create_events(client, logged_in_user):
+    # cerate 21 events for tests
+    headers = {"Authorization": f"Bearer {logged_in_user[1]}"}
+
+    event_id=0
+    while(event_id!=22):
+        event_id+=1
+        event_time = datetime.now(timezone.utc) + timedelta(days=event_id)
+        payload = {"name": str(event_id)+"ssss", "description": "Lore ipsum", "date": event_time.strftime("%d.%m.%Y"), "time":event_time.strftime("%H:%M"), "location":"Poland"}
         response=client.post("/create_event", json=payload, headers=headers)
         assert response.status_code == 201
 
