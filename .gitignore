@@ -54,5 +54,5 @@ backend/models/__pycache__/
 # migrations
 backend/migrations
 
-# DB schema 
-schema.sql
+# DB schema stays on github for test database 
+# schema.sql
