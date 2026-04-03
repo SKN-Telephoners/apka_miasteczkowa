@@ -9,6 +9,7 @@ class Constants:
     MAX_LOCATION_LEN = 32
     MAX_DESCRIPTION_LEN = 1000
     MAX_COMMENT_LEN = 1000
+    MAX_PICTURES_COUNT = 5
     EMAIL_PATTERN = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
     USERNAME_PATTERN = r"^[A-Za-z0-9_.'-]+$"
     PASSWORD_PATTERN = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,72}$"

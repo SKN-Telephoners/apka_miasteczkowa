@@ -39,7 +39,7 @@ def rollback_db(app):
 
 @pytest.fixture
 def registered_user(app):
-    password = "Secret123"
+    password = "Secret123!"
 
     user = User(
         username="user_fixture", 
@@ -54,7 +54,7 @@ def registered_user(app):
 
 @pytest.fixture
 def registered_friend(app):
-    password = "FriendSecret123"
+    password = "FriendSecret123!"
 
     friend = User(
         username="friend", 

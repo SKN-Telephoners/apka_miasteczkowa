@@ -1,15 +1,16 @@
 from flask import Blueprint, request, current_app
-from backend.models.event import Event, Event_visibility, Event_participants, Invites, InviteRequestStatus
+from backend.models.event import Event, Event_visibility, Event_participants, Invites, InviteRequestStatus, Pictures
 from backend.models import User, Friendship
 from backend.extensions import db, limiter
 from backend.constants import Constants
 from backend.responses import ResponseTypes, make_api_response
-from flask_jwt_extended import jwt_required, get_current_user,get_jwt_identity
+from flask_jwt_extended import jwt_required, get_current_user
 from backend.helpers import validate_uuid, sanitize_input
-import uuid
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from sqlalchemy.exc import SQLAlchemyError
+import cloudinary.uploader
+from cloudinary.utils import cloudinary_url
 from sqlalchemy import or_, and_
 
 events_bp = Blueprint("events", __name__, url_prefix="/api/events")
@@ -68,6 +69,17 @@ def create_event():
     except ValueError:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid date format. Use DD.MM.YYYY and HH:MM")
 
+    # IMPORTANT: Before calling create/event endpoint frontend needs to call /upload and upload pictures to the cloud one by one
+    # or use /upload-batch to upload multiple pictures
+    # then frontend needs to send a list with picture data to /create or /edit
+
+    pictures_data = event_data.get("pictures", [])
+    if not isinstance(pictures_data, list):
+        return make_api_response(ResponseTypes.BAD_REQUEST, message="Pictures must be a list")
+    
+    if len(pictures_data) > Constants.MAX_PICTURES_COUNT:
+        return make_api_response(ResponseTypes.BAD_REQUEST, message=f"Maximum of {Constants.MAX_PICTURES_COUNT} pictures allowed per event")
+
     try:
         new_event = Event(
             event_name=name,
@@ -79,6 +91,18 @@ def create_event():
         )
         db.session.add(new_event)
         db.session.flush()
+
+        for pic in pictures_data:
+            pub_id = pic.get("cloud_id")
+            
+            if pub_id:
+                new_picture = Pictures(
+                    event_id=new_event.event_id,
+                    cloud_id=pub_id
+                )
+                db.session.add(new_picture)
+
+        db.session.commit()
 
         creator_participant = Event_participants(event_id=new_event.event_id, user_id=user.user_id)
         db.session.add(creator_participant)
@@ -130,6 +154,12 @@ def delete_event(event_id):
         current_app.logger.warning(f"Użytkownik {user.user_id} próbował usunąć event {event_id} bez uprawnień do niego")
         return make_api_response(ResponseTypes.FORBIDDEN, message="You can delete your own events only")
     try:
+        for picture in event.pictures:
+            try:
+                cloudinary.uploader.destroy(picture.cloud_id)
+            except Exception as cloud_err:
+                current_app.logger.error(f"Failed to delete picture {picture.cloud_id} from Cloudinary: {cloud_err}")
+
         db.session.delete(event)
         db.session.commit()
     except SQLAlchemyError as e:
@@ -207,9 +237,38 @@ def edit_event(event_id):
             event.date_and_time = date_and_time
         except ValueError:
             return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid date format. Use DD.MM.YYYY and HH:MM")
-        event.is_edited = True
+
+    raw_pictures = event_data.get("pictures")
+    if raw_pictures is not None:
+        if not isinstance(raw_pictures, list):
+            return make_api_response(ResponseTypes.BAD_REQUEST, message="Pictures must be a list")
+        
+        if len(raw_pictures) > Constants.MAX_PICTURES_COUNT: #TODO: impove!!
+            return make_api_response(ResponseTypes.BAD_REQUEST, message=f"Maximum of {Constants.MAX_PICTURES_COUNT} pictures allowed per event")
+
+        existing_pictures_map = {pic.cloud_id: pic for pic in event.pictures}
+        existing_ids = set(existing_pictures_map.keys())
+        
+        incoming_ids = {pic["cloud_id"] for pic in raw_pictures if pic.get("cloud_id")}
+
+        ids_to_delete = existing_ids - incoming_ids
+        ids_to_add = incoming_ids - existing_ids
+
+        for pic_id in ids_to_delete:
+            pic_to_remove = existing_pictures_map[pic_id]
+            try:
+                cloudinary.uploader.destroy(pic_id)
+            except Exception as cloud_err:
+                current_app.logger.error(f"Failed to delete picture {pic_id} from Cloudinary: {cloud_err}")
+
+            event.pictures.remove(pic_to_remove)
+
+        for new_id in ids_to_add:
+            new_picture = Pictures(cloud_id=new_id)
+            event.pictures.append(new_picture)
 
     try:
+        event.is_edited = True
         db.session.commit()
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -230,7 +289,6 @@ def feed():
 
         user_id = user.user_id
 
-        #walidacja danych wejściowych
         if page < 1:
             page = 1
         if limit < 1:
@@ -270,6 +328,13 @@ def feed():
                 "time": event.date_and_time.astimezone(local_tz).strftime("%H:%M"),
                 "location": event.location,
                 "creator_id": str(event.creator_id),
+                "pictures": [
+                    {
+                        "cloud_id": pic.cloud_id,
+                        "url": cloudinary_url(pic.cloud_id, secure=True)[0]
+                    } 
+                    for pic in event.pictures
+                ],
                 "creator_username": creator_usernames.get(str(event.creator_id)),
                 "comment_count": str(event.comment_count),
                 "is_private": event.is_private,
@@ -345,7 +410,7 @@ def join_event(event_id):
         db.session.add(participant)
         event.participant_count = Event.participant_count + 1
         db.session.commit()
-        db.session.refresh(event) #pobranie aktualnego stanu licznika, ochrona przed race condition
+        db.session.refresh(event) # pobranie aktualnego stanu licznika, ochrona przed race condition
     except SQLAlchemyError as e:
         db.session.rollback()
         current_app.logger.error(f"Database error in join_event: {e}")
@@ -410,7 +475,7 @@ def invite_to_event(event_id):
     if not u_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Inviter ID")
     if not i_uuid:
-        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Invited0 ID")
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Invited ID")
     
     if u_uuid == i_uuid:
         return make_api_response(ResponseTypes.BAD_REQUEST, message="You cannot invite yourself")
@@ -430,7 +495,7 @@ def invite_to_event(event_id):
         return make_api_response(ResponseTypes.FORBIDDEN, message="You can only invite your friends")
     
     if event.is_private:
-                # na razie tylko autor ma możliwość zapraszania na swój event osoby, którym udostępnił do wyświetlania
+        # na razie tylko autor ma możliwość zapraszania na swój event osoby, którym udostępnił do wyświetlania
         if event.creator_id != u_uuid:
             return make_api_response(ResponseTypes.FORBIDDEN, message="Only creator of the private event can invite")
         
