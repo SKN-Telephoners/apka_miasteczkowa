@@ -6,6 +6,7 @@ from re import search
 from flask_jwt_extended import create_access_token
 from backend.helpers import add_token_to_db
 from backend.constants import Constants
+from unittest.mock import patch
 
 # =============================================================================
 # Helper for Auth Headers
@@ -133,7 +134,7 @@ def test_change_password_success(client, logged_in_user):
     user, token = logged_in_user
     
     payload = {
-        "old_password": "Secret123", # From fixture
+        "old_password": "Secret123!", #from fixture
         "new_password": "NewStrongPassword!1"
     }
 
@@ -261,7 +262,7 @@ def test_logout_all(client, logged_in_user):
 # =============================================================================
 def test_delete_account_success(client, logged_in_user):
     user, token = logged_in_user
-    payload = {"password": "Secret123"} 
+    payload = {"password": "Secret123!"} 
 
     response = client.delete("/api/users/settings/delete_account", json=payload, headers=get_auth_header(token))
     
@@ -454,3 +455,95 @@ def test_comments_show_deleted_author(client, app, logged_in_user):
     assert len(comments) == 1
     assert comments[0]["content"] == "This is a comment from the past."
     assert comments[0]["username"] == "[deleted]"
+
+# =============================================================================
+# Tests for profile pictures Lifecycle
+# =============================================================================
+
+def test_get_profile_no_picture(client, logged_in_user, app):
+    _, token = logged_in_user
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    response = client.get("/api/users/profile", headers=headers)
+    
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["profile_picture"] is None
+
+
+def test_update_profile_add_picture(client, logged_in_user, app):
+    _, token = logged_in_user
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    payload = {
+        "profile_picture": {"cloud_id": "profile_pic_123"}
+    }
+    
+    response = client.put("/api/users/update_profile", json=payload, headers=headers)
+    assert response.status_code == 200
+    
+    profile_res = client.get("/api/users/profile", headers=headers)
+    pic_data = profile_res.get_json()["profile_picture"]
+    
+    assert pic_data is not None
+    assert pic_data["cloud_id"] == "profile_pic_123"
+    assert "url" in pic_data 
+
+
+@patch('cloudinary.uploader.destroy')
+def test_update_profile_replace_picture(mock_destroy, client, logged_in_user, app):
+    user, token = logged_in_user
+    headers = {"Authorization": f"Bearer {token}"}
+
+    client.put("/api/users/update_profile", json={"profile_picture": {"cloud_id": "old_pic"}}, headers=headers)
+    
+    replace_payload = {
+        "profile_picture": {"cloud_id": "new_pic"}
+    }
+    response = client.put("/api/users/update_profile", json=replace_payload, headers=headers)
+    assert response.status_code == 200
+    
+    mock_destroy.assert_called_once_with("old_pic")
+    
+    with app.app_context():
+        user = User.query.filter_by(user_id=user.user_id).first()
+        assert user.profile_picture == "new_pic"
+
+
+@patch('cloudinary.uploader.destroy')
+def test_update_profile_delete_picture(mock_destroy, client, logged_in_user, app):
+    user, token = logged_in_user
+    headers = {"Authorization": f"Bearer {token}"}
+
+    client.put("/api/users/update_profile", json={"profile_picture": {"cloud_id": "to_delete_pic"}}, headers=headers)
+
+    delete_payload = {
+        "profile_picture": None
+    }
+    response = client.put("/api/users/update_profile", json=delete_payload, headers=headers)
+    assert response.status_code == 200
+
+    mock_destroy.assert_called_once_with("to_delete_pic")
+    
+    with app.app_context():
+        user = User.query.filter_by(user_id=user.user_id).first()
+        assert user.profile_picture == None
+
+
+@patch('cloudinary.uploader.destroy')
+def test_delete_account_removes_picture(mock_destroy, client, logged_in_user, app):
+    user, token = logged_in_user
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    client.put("/api/users/update_profile", json={"profile_picture": {"cloud_id": "account_del_pic"}}, headers=headers)
+    
+    delete_payload = {"password": "Secret123!"} 
+    
+    response = client.delete("/api/users/settings/delete_account", json=delete_payload, headers=headers)
+    assert response.status_code == 200
+    
+    mock_destroy.assert_called_once_with("account_del_pic")
+    
+    with app.app_context():
+        user = User.query.filter_by(user_id=user.user_id).first()
+        assert user.profile_picture == None

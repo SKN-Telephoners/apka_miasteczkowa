@@ -26,7 +26,7 @@ class User(db.Model):
     deleted = db.Column(db.Boolean, default=False)
     pending_email = db.Column(db.String(320), nullable=True)
 
-    profile_pictures = db.relationship("ProfilePicture", back_populates="user", cascade="all, delete-orphan")
+    profile_picture = db.Column(db.String(255), nullable=True, default=None)
     blocks_initiated = db.relationship(
         "BlockList",
         foreign_keys="BlockList.user_id",
@@ -68,15 +68,6 @@ class User(db.Model):
         if self.deleted:
             return "[deleted]"
         return self.username
-
-class ProfilePicture(db.Model):
-    __tablename__="Profile_pictures"
-    
-    profile_picture_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
-    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey("User.user_id", ondelete='CASCADE'), nullable=False, index=True)
-    picture_link = db.Column(db.String(1000))
-
-    user = db.relationship("User", back_populates="profile_pictures", foreign_keys=[user_id])
     
 class BlockList(db.Model):
     __tablename__="Block_list"
@@ -87,6 +78,3 @@ class BlockList(db.Model):
 
     user = db.relationship("User", foreign_keys=[user_id], back_populates="blocks_initiated")
     blocked_user = db.relationship("User", foreign_keys=[blocked_user_id], back_populates="blocks_received")
-    
-    
-    

@@ -5,6 +5,7 @@ from werkzeug.exceptions import HTTPException
 from flask_talisman import Talisman
 import logging
 from backend.routes import register_blueprints
+import cloudinary
 import os
 
 def create_app(test_mode=False, dev_mode=False):
@@ -24,6 +25,8 @@ def create_app(test_mode=False, dev_mode=False):
     mail.init_app(app)
     limiter.init_app(app)
     celery_init_app(app)
+    
+    cloudinary.config(secure=True)
 
     register_blueprints(app)
 

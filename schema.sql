@@ -2,7 +2,11 @@
 -- PostgreSQL database dump
 --
 
+<<<<<<< HEAD
 \restrict BydDvjq5ybPFJdEQG5sbmUsKW50RfI71JpxL2MaMDiGEbLSb7KC0pFqtfq6TPDP
+=======
+\restrict h5jfLWAQOXwGPIHTxpFtbR9AZr1tgB7DFD14ruHAQGqtFSkkwTtsN7kfg58tFeP
+>>>>>>> 72dedd9b85e375076fa1c23a5dbf856961e3fe52
 
 -- Dumped from database version 16.13 (Ubuntu 16.13-0ubuntu0.24.04.1)
 -- Dumped by pg_dump version 16.13 (Ubuntu 16.13-0ubuntu0.24.04.1)
@@ -108,8 +112,8 @@ ALTER TABLE public."Event" OWNER TO postgres;
 
 CREATE TABLE public."Event_Pictures" (
     event_picture_id uuid NOT NULL,
-    event_picture_link character varying(64) NOT NULL,
-    event_id uuid NOT NULL
+    event_id uuid NOT NULL,
+    cloud_id character varying(255) NOT NULL
 );
 
 
@@ -193,19 +197,6 @@ CREATE TABLE public."Private_events_shared" (
 ALTER TABLE public."Private_events_shared" OWNER TO postgres;
 
 --
--- Name: Profile_pictures; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public."Profile_pictures" (
-    profile_picture_id uuid NOT NULL,
-    user_id uuid NOT NULL,
-    picture_link character varying(1000)
-);
-
-
-ALTER TABLE public."Profile_pictures" OWNER TO postgres;
-
---
 -- Name: Token_blocklist; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -238,9 +229,10 @@ CREATE TABLE public."User" (
     academy character varying(10),
     course character varying(100),
     year smallint,
-    academic_circles character varying(100)[],
     deleted boolean,
     pending_email character varying(320),
+    academic_clubs character varying(100)[],
+    profile_picture character varying(255),
     CONSTRAINT email_format CHECK (((email)::text ~* '^[A-Za-z0-9._%%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'::text))
 );
 
@@ -291,19 +283,19 @@ ALTER TABLE ONLY public."Comments"
 
 
 --
+-- Name: Event_Pictures Event_Pictures_cloud_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public."Event_Pictures"
+    ADD CONSTRAINT "Event_Pictures_cloud_id_key" UNIQUE (cloud_id);
+
+
+--
 -- Name: Event_Pictures Event_Pictures_event_picture_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public."Event_Pictures"
     ADD CONSTRAINT "Event_Pictures_event_picture_id_key" UNIQUE (event_picture_id);
-
-
---
--- Name: Event_Pictures Event_Pictures_event_picture_link_key; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public."Event_Pictures"
-    ADD CONSTRAINT "Event_Pictures_event_picture_link_key" UNIQUE (event_picture_link);
 
 
 --
@@ -408,22 +400,6 @@ ALTER TABLE ONLY public."Private_events_shared"
 
 ALTER TABLE ONLY public."Private_events_shared"
     ADD CONSTRAINT "Private_events_shared_private_shared_id_key" UNIQUE (private_shared_id);
-
-
---
--- Name: Profile_pictures Profile_pictures_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public."Profile_pictures"
-    ADD CONSTRAINT "Profile_pictures_pkey" PRIMARY KEY (profile_picture_id);
-
-
---
--- Name: Profile_pictures Profile_pictures_profile_picture_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public."Profile_pictures"
-    ADD CONSTRAINT "Profile_pictures_profile_picture_id_key" UNIQUE (profile_picture_id);
 
 
 --
@@ -643,13 +619,6 @@ CREATE INDEX "ix_Private_events_shared_sharing" ON public."Private_events_shared
 
 
 --
--- Name: ix_Profile_pictures_user_id; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX "ix_Profile_pictures_user_id" ON public."Profile_pictures" USING btree (user_id);
-
-
---
 -- Name: ix_Token_blocklist_user_id; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -809,14 +778,6 @@ ALTER TABLE ONLY public."Private_events_shared"
 
 
 --
--- Name: Profile_pictures Profile_pictures_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public."Profile_pictures"
-    ADD CONSTRAINT "Profile_pictures_user_id_fkey" FOREIGN KEY (user_id) REFERENCES public."User"(user_id) ON DELETE CASCADE;
-
-
---
 -- Name: Token_blocklist Token_blocklist_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -828,5 +789,5 @@ ALTER TABLE ONLY public."Token_blocklist"
 -- PostgreSQL database dump complete
 --
 
-\unrestrict BydDvjq5ybPFJdEQG5sbmUsKW50RfI71JpxL2MaMDiGEbLSb7KC0pFqtfq6TPDP
+\unrestrict h5jfLWAQOXwGPIHTxpFtbR9AZr1tgB7DFD14ruHAQGqtFSkkwTtsN7kfg58tFeP
 

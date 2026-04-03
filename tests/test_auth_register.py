@@ -41,7 +41,7 @@ def test_register_missing_key(client, app):
 
 def test_register_invalid_credentials(client, app):
     with app.app_context():
-        username = "a" # Too short
+        username = "a" 
         password = "Secret123"
         email = "user1@gmail.com"
         
@@ -59,7 +59,7 @@ def test_register_invalid_credentials(client, app):
         
         username = "goodusername"
         password = "Secret123"
-        email = "@gmail[]'user1@gmail.com" # Invalid email
+        email = "@gmail[]'user1@gmail.com" 
         
         payload = {
             "username": username,

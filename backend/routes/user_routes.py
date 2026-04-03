@@ -1,21 +1,21 @@
 from flask import Blueprint, request, current_app, url_for
-from flask_jwt_extended import jwt_required, get_current_user, get_jwt, create_access_token
-from backend.extensions import db, mail, limiter
+from flask_jwt_extended import jwt_required, get_current_user, create_access_token
+from backend.extensions import db, limiter
 from backend.models import User
 from backend.responses import ResponseTypes, make_api_response
 from backend.tasks import send_email_async
 from backend.helpers import (
     sanitize_input, 
     revoke_all_user_tokens, 
-    add_token_to_db, 
-    revoke_token
+    add_token_to_db
 )
 from backend.constants import Constants
-from flask_mail import Message
 from datetime import datetime, timezone, timedelta
 import re
 import uuid
 from sqlalchemy.exc import SQLAlchemyError
+import cloudinary.uploader
+from cloudinary.utils import cloudinary_url
 
 users_bp = Blueprint("users", __name__, url_prefix="/api/users")
 
@@ -27,6 +27,14 @@ def get_user_info():
     if not user:
         return make_api_response(ResponseTypes.NOT_FOUND, message="User not found")
     
+    profile_pic_data = None
+    if user.profile_picture:
+        url, _ = cloudinary_url(user.profile_picture, secure=True)
+        profile_pic_data = {
+            "cloud_id": user.profile_picture,
+            "url": url
+        }
+
     user_data = {
         "user_id": str(user.user_id),
         "username": user.display_name,
@@ -37,6 +45,7 @@ def get_user_info():
         "year": user.year,
         "academic_clubs": user.academic_clubs,
         "description": user.description,
+        "profile_picture": profile_pic_data,
         "deleted": user.deleted
     }
 
@@ -135,6 +144,33 @@ def update_profile():
                     return make_api_response(ResponseTypes.BAD_REQUEST, message=f"Club '{club}' doesn't exist")
             
             user.academic_clubs = user_clubs
+
+    if "profile_picture" in user_data:
+        pic_data = user_data["profile_picture"]
+        current_pic = user.profile_picture if user.profile_picture else None
+
+        if pic_data is None:
+            if current_pic:
+                try:
+                    cloudinary.uploader.destroy(current_pic)
+                except Exception as cloud_err:
+                    current_app.logger.error(f"Cloudinary delete error: {cloud_err}")
+                
+                user.profile_picture = None
+
+        elif isinstance(pic_data, dict) and "cloud_id" in pic_data:
+            new_cloud_id = pic_data["cloud_id"]
+            
+            if current_pic:
+                if current_pic != new_cloud_id:
+                    try:
+                        cloudinary.uploader.destroy(current_pic)
+                    except Exception as cloud_err:
+                        current_app.logger.error(f"Cloudinary delete error: {cloud_err}")
+                    
+                    user.profile_picture = new_cloud_id
+            else:
+                user.profile_picture = new_cloud_id
 
     try:
         db.session.commit()
@@ -277,6 +313,13 @@ def delete_account():
         user.update_password(uuid.uuid4().hex)
         
         revoke_all_user_tokens(user.user_id)
+
+        if user.profile_picture:
+            try:
+                cloudinary.uploader.destroy(user.profile_picture)
+            except Exception as cloud_err:
+                current_app.logger.error(f"Failed to delete profile picture {user.profile_picture} from Cloudinary: {cloud_err}")
+            user.profile_picture = None
         
         db.session.commit()
         return make_api_response(ResponseTypes.SUCCESS, message="Account successfully deleted")

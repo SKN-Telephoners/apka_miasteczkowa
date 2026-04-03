@@ -100,7 +100,7 @@ class Pictures(db.Model):
     __tablename__ = "Event_Pictures"
 
     event_picture_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
-    event_picture_link = db.Column(db.String(64), nullable=False, unique=True)
+    cloud_id = db.Column(db.String(255), nullable=False, unique=True)
     event_id = db.Column(UUID(as_uuid=True), db.ForeignKey("Event.event_id", ondelete='CASCADE'), nullable=False, index=True)
 
     event = db.relationship("Event", back_populates="pictures")

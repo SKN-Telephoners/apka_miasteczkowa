@@ -10,7 +10,6 @@ import re
 from flask_mail import Message
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
-public_url = "example address"
 
 @auth_bp.route("/register",methods=["POST"])
 @limiter.limit("500 per hour")   # for tests, 500 registers for IP per hour, change before deployment to 5
@@ -151,7 +150,7 @@ def logout():
             
     return make_api_response(ResponseTypes.LOGOUT_SUCCESS)
 
-@auth_bp.route("/revoke_access", methods=["GET", "DELETE"])
+@auth_bp.route("/revoke_access", methods=["DELETE"])
 @jwt_required()
 def revoke_access_token():
     jti = get_jwt()["jti"]
