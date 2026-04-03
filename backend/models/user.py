@@ -21,7 +21,7 @@ class User(db.Model):
     academy = db.Column(db.String(10), nullable=True)
     course = db.Column(db.String(100), nullable=True)
     year = db.Column(db.SmallInteger, nullable=True)
-    academic_circles = db.Column(ARRAY(db.String(100)), nullable=True)
+    academic_clubs = db.Column(ARRAY(db.String(100)), nullable=True)
 
     deleted = db.Column(db.Boolean, default=False)
     pending_email = db.Column(db.String(320), nullable=True)

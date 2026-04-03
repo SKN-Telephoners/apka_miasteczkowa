@@ -42,7 +42,7 @@ def load_static_data(app):
     files = {
         'ACADEMY_DATA': 'academy.json',
         'COURSES_DATA': 'courses.json',
-        'CIRCLES_DATA': 'academic_circle.json'
+        'CLUBS_DATA': 'academic_clubs.json'
     }
 
     for config_key, filename in files.items():

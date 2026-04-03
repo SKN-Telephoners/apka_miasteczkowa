@@ -35,7 +35,7 @@ def get_user_info():
         "academy": user.academy,
         "course": user.course,
         "year": user.year,
-        "academic_circles": user.academic_circles,
+        "academic_clubs": user.academic_clubs,
         "description": user.description,
         "deleted": user.deleted
     }
@@ -80,12 +80,12 @@ def update_profile():
 
     academy_data = current_app.config.get('ACADEMY_DATA', {})
     courses_data = current_app.config.get('COURSES_DATA', [])
-    academic_circle_data = current_app.config.get('CIRCLES_DATA', {})
+    academic_clubs_data = current_app.config.get('CLUBS_DATA', {})
 
     raw_academy = user_data.get("academy")
     raw_course = user_data.get("course")
     raw_year = user_data.get("year")
-    raw_circle = user_data.get("academic_circle")
+    raw_clubs = user_data.get("academic_clubs")
 
     if raw_academy is not None:
         academy = sanitize_input(str(raw_academy)).strip()
@@ -98,7 +98,7 @@ def update_profile():
         if user.academy != Constants.PRIMARY_ACADEMY:
             user.course = None
             user.year = None
-            user.academic_circle = None
+            user.academic_clubs = None
 
     effective_academy = user.academy
 
@@ -121,20 +121,20 @@ def update_profile():
         user.course = course
         user.year = int(year) 
 
-    if raw_circle is not None:
+    if raw_clubs is not None:
         if effective_academy != Constants.PRIMARY_ACADEMY:
-            return make_api_response(ResponseTypes.BAD_REQUEST, message=f"Only {Constants.PRIMARY_ACADEMY} members can set academic circles")
+            return make_api_response(ResponseTypes.BAD_REQUEST, message=f"Only {Constants.PRIMARY_ACADEMY} members can set academic clubs")
 
-        circle_str = sanitize_input(str(raw_circle)).strip()
-        if not circle_str:
-            user.academic_circle = None
+        clubs_str = sanitize_input(str(raw_clubs)).strip()
+        if not clubs_str:
+            user.academic_clubs = None
         else:
-            user_circles = [circle.strip() for circle in circle_str.split(",")]
-            for circle in user_circles:
-                if circle not in academic_circle_data:
-                    return make_api_response(ResponseTypes.BAD_REQUEST, message=f"Circle '{circle}' doesn't exist")
+            user_clubs = [club.strip() for club in clubs_str.split(",")]
+            for club in user_clubs:
+                if club not in academic_clubs_data:
+                    return make_api_response(ResponseTypes.BAD_REQUEST, message=f"Club '{club}' doesn't exist")
             
-            user.academic_circle = user_circles
+            user.academic_clubs = user_clubs
 
     try:
         db.session.commit()
@@ -271,7 +271,7 @@ def delete_account():
         user.academy = None
         user.course = None
         user.year = None
-        user.academic_circle = None
+        user.academic_clubs = None
         
         # scramble the password (the account can never be logged into again)
         user.update_password(uuid.uuid4().hex)

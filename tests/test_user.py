@@ -54,7 +54,7 @@ def mock_app_config(app):
     """Fixture to inject required config data for update_profile."""
     app.config['ACADEMY_DATA'] = {"AGH": {}, "UW": {}}
     app.config['COURSES_DATA'] = ["Computer Science", "Physics"]
-    app.config['CIRCLES_DATA'] = {"Bite": {}, "DataScience": {}}
+    app.config['CLUBS_DATA'] = {"Bite": {}, "DataScience": {}}
     return app
 
 def test_update_profile_success_agh(client, logged_in_user, mock_app_config):
@@ -64,7 +64,7 @@ def test_update_profile_success_agh(client, logged_in_user, mock_app_config):
         "academy": "AGH",
         "course": "Computer Science",
         "year": "3",
-        "academic_circle": "Bite, DataScience"
+        "academic_clubs": "Bite, DataScience"
     }
 
     response = client.put("/api/users/update_profile", json=payload, headers=get_auth_header(token))
@@ -75,7 +75,7 @@ def test_update_profile_success_agh(client, logged_in_user, mock_app_config):
     assert user.academy == "AGH"
     assert user.course == "Computer Science"
     assert user.year == 3
-    assert user.academic_circle == ["Bite", "DataScience"]
+    assert user.academic_clubs == ["Bite", "DataScience"]
 
 def test_update_profile_success_non_agh_strips_data(client, logged_in_user, mock_app_config):
     _, token = logged_in_user
@@ -85,7 +85,7 @@ def test_update_profile_success_non_agh_strips_data(client, logged_in_user, mock
     user.academy = "AGH"
     user.course = "Computer Science"
     user.year = 2
-    user.academic_circle = ["Bite"]
+    user.academic_clubs = ["Bite"]
     db.session.commit()
 
     # Change to non-AGH academy
@@ -96,7 +96,7 @@ def test_update_profile_success_non_agh_strips_data(client, logged_in_user, mock
     assert user.academy == "UW"
     assert user.course is None
     assert user.year is None
-    assert user.academic_circle is None
+    assert user.academic_clubs is None
 
 def test_update_profile_invalid_username(client, logged_in_user, registered_friend, mock_app_config):
     _, token = logged_in_user
