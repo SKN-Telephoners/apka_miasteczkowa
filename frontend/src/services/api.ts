@@ -5,10 +5,7 @@ import { API_BASE_URL, STORAGE_KEYS } from "../utils/constants";
 const MAX_RETRY_ATTEMPTS = 2;
 const INITIAL_RETRY_DELAY = 500; // in milliseconds
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms)); // helper function for delay
-<<<<<<< HEAD
-=======
 let refreshPromise: Promise<string> | null = null;
->>>>>>> 9c42500a4eb4d70dc0669bea7839855b7fa818a3
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -86,28 +83,10 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-<<<<<<< HEAD
-        const refreshToken = await tokenStorage.getRefreshToken();
-
-        if (refreshToken) {
-          console.log("Attempting token refresh");
-          const response = await axios.post(`${API_BASE_URL}/api/refresh`, {}, {
-            headers: { Authorization: `Bearer ${refreshToken}`}
-          });
-
-          const { access_token, refresh_token } = response.data;
-          await tokenStorage.saveTokens(access_token, refresh_token);
-
-          // retry original request with new token
-          originalRequest.headers.Authorization = `Bearer ${access_token}`;
-          return api(originalRequest);
-        } 
-=======
         const newAccessToken = await refreshAccessToken();
 
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return api(originalRequest);
->>>>>>> 9c42500a4eb4d70dc0669bea7839855b7fa818a3
       } catch (refreshError) {
         await handleSessionExpiry();
         return Promise.reject(new Error("Session expired. Please log in again."));
@@ -156,12 +135,12 @@ export const authService = {
 
 export const userService = {
   getProfile: async () => {
-    const response = await api.get("/api/user/profile");
+    const response = await api.get("/api/users/profile");
     return response.data;
   },
 
   updateProfile: async (data: any) => {
-    const response = await api.put("/api/user/profile", data);
+    const response = await api.put("/api/users/update_profile", data);
     return response.data;
   },
 };

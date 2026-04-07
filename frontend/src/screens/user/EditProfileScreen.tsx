@@ -6,6 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { THEME, MOCKS } from '../../utils/constants';
 import Button from '../../components/Button';
+import { userService } from '../../services/api';
 import Avatar from '../../components/Avatar';
 
 const EditProfileScreen = () => {
@@ -16,20 +17,23 @@ const EditProfileScreen = () => {
     const styles = useMemo(() => getStyles(colors), [colors]);
 
     // Lokalne stany dla formularza
-    const [bio, setBio] = useState(user?.bio || "");
-    const [avatar, setAvatar] = useState(user?.avatar || MOCKS.AVATAR);
-    const [email, setEmail] = useState(user?.email || "");
-    const [username, setUsername] = useState(user?.username || "");
+    const [description, setDescription] = useState(user?.description || "");
+    const avatar = user?.profile_picture?.url || MOCKS.AVATAR; // read-only
+    const email = user?.email || ""; // read-only
+    const username = user?.username || ""; // read-only
+    const [isSaving, setIsSaving] = useState(false);
 
-    const handleSave = () => {
-        // Tu wywołanie bazy
-        updateUser({ bio, avatar });
-        console.log("Zapisywanie profilu:", { username, bio, email, avatar });
-        Alert.alert(
-            "Sukces",
-            "Zaktualizowano profil (Mock zapisał do Contextu)",
-            [{ text: "OK", onPress: () => navigation.goBack() }]
-        );
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            await userService.updateProfile({ description });
+            updateUser({ description });
+            Alert.alert("Sukces", "Zaktualizowano profil", [{ text: "OK", onPress: () => navigation.goBack() }]);
+        } catch (error) {
+            Alert.alert("Błąd", "Nie udało się zapisać zmian");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -37,19 +41,8 @@ const EditProfileScreen = () => {
             {/* Sekcja Avatara */}
             <View style={styles.avatarSection}>
                 <Avatar uri={avatar} size={100} style={{ marginBottom: THEME.spacing.s }} />
-                <TouchableOpacity onPress={() => {
-                    // MOCK: W przyszłości tu wejdzie expo-image-picker
-                    const mockAvatars = [
-                        "https://images.unsplash.com/photo-1599566150163-29194dcaad36?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-                        "https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-                        "https://images.unsplash.com/photo-1527980965255-d3b416303d12?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-                        "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-                    ];
-                    const randomAvatar = mockAvatars[Math.floor(Math.random() * mockAvatars.length)];
-                    setAvatar(randomAvatar);
-                    Alert.alert("Mock", "Wylosowano awatar! Docelowo otworzy się galeria urządzenia.");
-                }}>
-                    <Text style={styles.changeAvatarText}>Zmień zdjęcie</Text>
+                <TouchableOpacity onPress={() => Alert.alert("Zablokowane", "Dodawanie zdjęcia będzie dostępne wkrótce.")}>
+                    <Text style={[styles.changeAvatarText, { color: colors.icon }]}>Zmień zdjęcie (Zablokowane)</Text>
                 </TouchableOpacity>
             </View>
 
@@ -70,11 +63,11 @@ const EditProfileScreen = () => {
                     editable={false}
                 />
 
-                <Text style={[styles.label, { marginTop: THEME.spacing.m }]}>Bio / Status</Text>
+                <Text style={[styles.label, { marginTop: THEME.spacing.m }]}>Opis / Bio</Text>
                 <TextInput
                     style={[styles.input, styles.bioInput]}
-                    value={bio}
-                    onChangeText={setBio}
+                    value={description}
+                    onChangeText={setDescription}
                     multiline
                     placeholder="Napisz coś o sobie..."
                     placeholderTextColor={colors.searchWord}
@@ -82,7 +75,7 @@ const EditProfileScreen = () => {
             </View>
 
             {/* Przycisk zapisu */}
-            <Button title="Zapisz zmiany" onPress={handleSave} />
+            <Button title={isSaving ? "Zapisywanie..." : "Zapisz zmiany"} onPress={handleSave} disabled={isSaving} />
         </View>
     );
 };

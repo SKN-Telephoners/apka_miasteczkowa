@@ -11,11 +11,7 @@ import Button from "../../components/Button";
 import CollapsibleSection from "../../components/CollapsibleSection";
 import Avatar from "../../components/Avatar";
 
-// Zapasowe dane, dopóki backend nie ogarnie wydziału i kierunku
-const MOCK_EXTRAS = {
-  faculty: "WIEiT",
-  majorAndYear: "Teleinformatyka 1 rok"
-};
+
 
 const UserScreen = () => {
   const { logout } = useAuth();
@@ -43,7 +39,7 @@ const UserScreen = () => {
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
       {/* 1. Nagłówek: Avatar + Nazwa + Statystyki */}
       <View style={styles.headerRow}>
-        <Avatar uri={user?.avatar || MOCKS.AVATAR} size={80} style={{ marginRight: THEME.spacing.m }} />
+        <Avatar uri={user?.profile_picture?.url || MOCKS.AVATAR} size={80} style={{ marginRight: THEME.spacing.m }} />
 
         <View style={styles.headerInfo}>
           <Text style={styles.userName}>{user?.username || "Użytkownik"}</Text>
@@ -57,11 +53,11 @@ const UserScreen = () => {
       </View>
 
       {/* 2. Wydział i kierunek */}
-      <Text style={styles.facultyText}>{MOCK_EXTRAS.faculty}</Text>
-      <Text style={styles.majorText}>{MOCK_EXTRAS.majorAndYear}</Text>
+      <Text style={styles.facultyText}>{user?.academy || "Brak Uczelni"}</Text>
+      <Text style={styles.majorText}>{user?.course ? `${user.course} ${user.year || ""} rok` : "Brak przypisanego kierunku"}</Text>
 
       {/* 3. Biografia / Opis */}
-      <Text style={styles.userBio}>{user?.bio || "Brak opisu"}</Text>
+      <Text style={styles.userBio}>{user?.description || "Brak opisu"}</Text>
 
       {/* 4. Przycisk Edycji */}
       <Button

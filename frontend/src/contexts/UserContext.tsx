@@ -4,12 +4,19 @@ import { useAuth } from "./AuthContext";
 import { MOCKS } from "../utils/constants";
 
 export interface UserProfile {
-  id: string; // Możemy to zmockować na razie, bo /api/users/me nie zwraca ID w obecnej wersji
+  id: string; // Możemy na razie podmienić pod user_id z serwera
   username: string;
   email: string;
-  bio: string;
-  avatar: string;
-  joinedDate: string;
+  description?: string;
+  profile_picture?: {
+    cloud_id: string;
+    url: string;
+  };
+  academy?: string;
+  course?: string;
+  year?: number;
+  academic_clubs?: string[];
+  joinedDate?: string;
 }
 
 interface UserContextType {
@@ -37,14 +44,18 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // 1. Odbiór ORYGINAŁU z backendu
       const profileData = await getUserProfile();
 
-      // 2. Dołączenie MOCKOWANYCH danych profilowych
+      // 2. Usunięcie MOCKOWANYCH danych i wstawienie danych z zapytania
       setUser({
-        id: "1", // MOCK
-        username: profileData.username, // ORYGINAŁ
-        email: profileData.email, // ORYGINAŁ
-        bio: "Status: Zew Miasteczka za 3,50!", // MOCK
-        avatar: MOCKS.AVATAR, // MOCK
-        joinedDate: "Marzec 2024" // MOCK
+        id: profileData.user_id || "1",
+        username: profileData.username || "Nieznany", // Tymczasowy fallback jeśli czegoś brakuje
+        email: profileData.email || "",
+        description: profileData.description || "",
+        profile_picture: profileData.profile_picture,
+        academy: profileData.academy,
+        course: profileData.course,
+        year: profileData.year,
+        academic_clubs: profileData.academic_clubs,
+        joinedDate: "Marzec 2024" // TODO: Backend musi zwrócić created_at
       });
     } catch (error) {
       console.error("Error fetching user profile:", error);
