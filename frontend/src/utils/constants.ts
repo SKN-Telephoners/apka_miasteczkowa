@@ -212,3 +212,12 @@ export const APP_CONFIG = {
 export const MOCKS = {
   AVATAR: "https://www.hollywoodreporter.com/wp-content/uploads/2011/06/drive_primary.jpg?w=1440&h=810&crop=1",
 } as const;
+
+export const ACADEMIES = [
+  "AGH",
+  "UJ",
+  "UEK",
+  "PK",
+  "UR",
+  "INNA"
+] as const;

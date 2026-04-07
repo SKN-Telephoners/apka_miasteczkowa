@@ -14,6 +14,9 @@ export const ICON_REGISTRY = {
   // Prawa strona środek (kolumna 2, wiersz 1)
   'Profil': { source: require('../../assets/iconset1.jpg'), sheetWidth: 90, sheetHeight: 90, iconWidth: 30, iconHeight: 30, col: 2, row: 1 },
 
+  // ArrowDown w centrum iconset2.jpg (kolumna 1, wiersz 1) zakladając grid 3x3 90x90
+  'ArrowDown': { source: require('../../assets/iconset2.jpg'), sheetWidth: 90, sheetHeight: 90, iconWidth: 30, iconHeight: 30, col: 1, row: 1 },
+
 } as const;
 
 export type IconName = keyof typeof ICON_REGISTRY;

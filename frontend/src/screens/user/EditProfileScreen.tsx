@@ -1,13 +1,14 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TextInput, Alert, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Alert, TouchableOpacity, Image, ScrollView } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUser } from '../../contexts/UserContext';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../contexts/ThemeContext';
-import { THEME, MOCKS } from '../../utils/constants';
+import { THEME, MOCKS, ACADEMIES } from '../../utils/constants';
 import Button from '../../components/Button';
 import { userService } from '../../services/api';
 import Avatar from '../../components/Avatar';
+import AppIcon from '../../components/AppIcon';
 
 const EditProfileScreen = () => {
     const { user, updateUser } = useUser();
@@ -18,6 +19,9 @@ const EditProfileScreen = () => {
 
     // Lokalne stany dla formularza
     const [description, setDescription] = useState(user?.description || "");
+    const [academy, setAcademy] = useState(user?.academy || "");
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
     const avatar = user?.profile_picture?.url || MOCKS.AVATAR; // read-only
     const email = user?.email || ""; // read-only
     const username = user?.username || ""; // read-only
@@ -26,8 +30,11 @@ const EditProfileScreen = () => {
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            await userService.updateProfile({ description });
-            updateUser({ description });
+            await userService.updateProfile({ 
+                description, 
+                academy: academy === "" ? null : academy 
+            });
+            updateUser({ description, academy });
             Alert.alert("Sukces", "Zaktualizowano profil", [{ text: "OK", onPress: () => navigation.goBack() }]);
         } catch (error) {
             Alert.alert("Błąd", "Nie udało się zapisać zmian");
@@ -62,6 +69,38 @@ const EditProfileScreen = () => {
                     value={email}
                     editable={false}
                 />
+
+                <Text style={[styles.label, { marginTop: THEME.spacing.m }]}>Uczelnia</Text>
+                <View style={styles.dropdownContainer}>
+                    <TouchableOpacity
+                        style={styles.dropdownButton}
+                        onPress={() => setIsDropdownOpen(!isDropdownOpen)}
+                    >
+                        <Text style={[styles.input, styles.dropdownInputText]}>
+                            {academy || "Wybierz uczelnię"}
+                        </Text>
+                        <AppIcon name="ArrowDown" size={24} />
+                    </TouchableOpacity>
+
+                    {isDropdownOpen && (
+                        <View style={styles.dropdownList}>
+                            <ScrollView nestedScrollEnabled style={{ maxHeight: 150 }}>
+                                {ACADEMIES.map((acc) => (
+                                    <TouchableOpacity
+                                        key={acc}
+                                        style={styles.dropdownItem}
+                                        onPress={() => {
+                                            setAcademy(acc);
+                                            setIsDropdownOpen(false);
+                                        }}
+                                    >
+                                        <Text style={styles.dropdownItemText}>{acc}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    )}
+                </View>
 
                 <Text style={[styles.label, { marginTop: THEME.spacing.m }]}>Opis / Bio</Text>
                 <TextInput
@@ -125,6 +164,41 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
         color: colors.icon,
         marginBottom: THEME.spacing.s,
         marginTop: THEME.spacing.xs,
+    },
+    dropdownContainer: {
+        position: 'relative',
+        zIndex: 10,
+    },
+    dropdownButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: THEME.borderRadius.m,
+        backgroundColor: colors.background,
+        paddingRight: THEME.spacing.s,
+    },
+    dropdownInputText: {
+        flex: 1,
+        borderWidth: 0,
+        backgroundColor: 'transparent',
+    },
+    dropdownList: {
+        marginTop: THEME.spacing.xs,
+        backgroundColor: colors.background,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: THEME.borderRadius.m,
+        overflow: 'hidden',
+    },
+    dropdownItem: {
+        padding: THEME.spacing.m,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+    },
+    dropdownItemText: {
+        ...THEME.typography.text,
+        color: colors.text,
     }
 });
 
