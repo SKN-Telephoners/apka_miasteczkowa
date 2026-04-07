@@ -1,9 +1,19 @@
 import pytest
 from backend.extensions import db
-from backend.models import Event
-from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
+from datetime import datetime, timezone, timedelta
 import uuid
+import base64
+from backend.models import Event
+from backend.models.event import Event_visibility, Pictures
+from zoneinfo import ZoneInfo
+from unittest.mock import patch
+
+local_tz = ZoneInfo("Europe/Warsaw")
+TINY_JPG = base64.b64decode(
+    "/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBxISEhUTEhIVFRUVFRUVFRUVFRUVFRUWFxUVFRUYHSggGBolHRUVITEhJSkrLi4uFx8zODMtNygtLisBCgoKDg0OFRAQFS0dHR0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLf/AABEIAAEAAQMBIgACEQEDEQH/xAAV"
+    "AAEBAAAAAAAAAAAAAAAAAAAABf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhADEAAAAJ8f/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABBQL/xAAVEQEBAAAAAAAAAAAAAAAAAAABAP/aAAgBAwEBPwF//8QAFBEBAAAAAAAAAAAAAAAAAAAAEP/aAAgBAgEBPwF//8QAFBABAAAAAAAA"
+    "AAAAAAAAAAAAAP/aAAgBAQAGPwJ//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPyF//9k="
+)
 
 local_tz = ZoneInfo("Europe/Warsaw")
 
@@ -213,7 +223,7 @@ def test_edit_event_not_exist(client, logged_in_user, app):
 
         assert response_edit_event.status_code == 404
         assert response_edit_event.get_json() == {
-            "message": "Event doesn't exist"
+            "message": "This event does not exist"
         }
 
 def test_edit_event_not_owner(client, logged_in_user, registered_friend, app):
@@ -241,3 +251,248 @@ def test_edit_event_not_owner(client, logged_in_user, registered_friend, app):
         assert response_delete_event.get_json() == {
             "message": "You can edit your own events only"
         }
+
+def test_feed_pagination(client, logged_in_user, app):
+    with app.app_context():
+        user, token = logged_in_user
+        # Tworzymy 25 eventów
+        for i in range(25):
+            ev = Event(event_name=f"E{i}", location="X", creator_id=user.user_id, is_private=False)
+            db.session.add(ev)
+        db.session.commit()
+
+        # Pierwsza strona, limit 10
+        response = client.get("/api/events/feed?page=1&limit=10", headers={"Authorization": f"Bearer {token}"})
+        data = response.get_json()
+        assert len(data["data"]) == 10
+        assert data["pagination"]["total"] == 25
+        assert data["pagination"]["pages"] == 3
+
+def test_feed_sorting_and_visibility(client, logged_in_user, registered_friend, app):
+    with app.app_context():
+        user, token = logged_in_user
+        friend, _ = registered_friend
+        
+        # 1. Event publiczny - jutro
+        ev1 = Event(event_name="Public Future", location="X", creator_id=friend.user_id, 
+                    is_private=False, date_and_time=datetime.now(timezone.utc) + timedelta(days=1))
+        # 2. Event publiczny - pojutrze
+        ev2 = Event(event_name="Public Later", location="X", creator_id=friend.user_id, 
+                    is_private=False, date_and_time=datetime.now(timezone.utc) + timedelta(days=2))
+        # 3. Event prywatny (nieudostępniony)
+        ev3 = Event(event_name="Private Hidden", location="X", creator_id=friend.user_id, 
+                    is_private=True, date_and_time=datetime.now(timezone.utc) + timedelta(days=1))
+        
+        db.session.add_all([ev1, ev2, ev3])
+        db.session.commit()
+
+        response = client.get("/api/events/feed", headers={"Authorization": f"Bearer {token}"})
+        data = response.get_json()["data"]
+        assert len(data) == 2
+
+        assert data[0]["name"] == "Public Future"
+
+        response_desc = client.get("/api/events/feed?sort=2", headers={"Authorization": f"Bearer {token}"})
+        data_desc = response_desc.get_json()["data"]
+        assert data_desc[0]["name"] == "Public Later"
+
+def test_private_event_visibility_denied(client, logged_in_user, registered_friend, app):
+    with app.app_context():
+        user, token = logged_in_user # Użytkownik A
+        friend, _ = registered_friend # Użytkownik B
+
+        ev = Event(event_name="Secret", location="X", creator_id=friend.user_id, is_private=True)
+        db.session.add(ev)
+        db.session.commit()
+
+        # Użytkownik A nie powinien go widzieć w feedzie
+        response = client.get("/api/events/feed", headers={"Authorization": f"Bearer {token}"})
+        data = response.get_json()["data"]
+        ids = [e["id"] for e in data]
+        assert str(ev.event_id) not in ids
+
+def test_private_event_shared_access(client, logged_in_user, registered_friend, app):
+    with app.app_context():
+        user, token = logged_in_user
+        friend, _ = registered_friend
+        ev = Event(event_name="Shared Secret", location="X", creator_id=friend.user_id, is_private=True)
+        db.session.add(ev)
+        db.session.flush()
+        
+        vis = Event_visibility(event_id=ev.event_id, sharing=friend.user_id, shared_with=user.user_id)
+        db.session.add(vis)
+        db.session.commit()
+
+        # Teraz Użytkownik A powinien go widzieć
+        response = client.get("/api/events/feed", headers={"Authorization": f"Bearer {token}"})
+        names = [e["name"] for e in response.get_json()["data"]]
+        assert "Shared Secret" in names
+
+# =============================================================================
+# Tests for handling events' pictures lifecycle
+# =============================================================================
+def test_create_event_with_pictures(client, logged_in_user, app):
+    _, user_token = logged_in_user
+    future_date = datetime.now() + timedelta(days=30)
+    date_str = future_date.strftime("%d.%m.%Y")
+    time_str = "18:00"
+
+    payload = {
+        "name": "event1",
+        "description": "very cool event",
+        "date": date_str,
+        "time": time_str,
+        "location": "here",
+        "is_private": False, # <--- Add this line!
+        "pictures": [
+            {
+                "cloud_id": "aplikacja_miasteczkowa/fest1"
+            },
+            {
+                "cloud_id": "aplikacja_miasteczkowa/fest2"
+            }
+        ]
+    }
+
+    headers = {
+        "Authorization": f"Bearer {user_token}",
+        "Content-Type": "application/json"
+    }
+    
+    response = client.post("/api/events/create", json=payload, headers=headers)
+
+    assert response.status_code == 201
+    response_data = response.get_json()
+    assert "event_id" in response_data
+
+    event_id = response_data["event_id"]
+
+    with app.app_context():
+        created_event = Event.query.filter_by(event_id=event_id).first()
+        assert created_event is not None
+        assert created_event.event_name == "event1"
+
+        linked_pictures = Pictures.query.filter_by(event_id=event_id).all()
+        assert len(linked_pictures) == 2
+        
+        cloud_ids = [pic.cloud_id for pic in linked_pictures]
+        assert "aplikacja_miasteczkowa/fest1" in cloud_ids
+        assert "aplikacja_miasteczkowa/fest2" in cloud_ids
+
+@patch('cloudinary.uploader.destroy')
+def test_edit_event_pictures(mock_destroy, client, logged_in_user, app):
+    _, user_token = logged_in_user
+    future_date = datetime.now() + timedelta(days=30)
+    
+    create_payload = {
+        "name": "Image Edit Event",
+        "description": "Testing image edits",
+        "date": future_date.strftime("%d.%m.%Y"),
+        "time": "18:00",
+        "location": "here",
+        "is_private": False,
+        "pictures": [
+            {"cloud_id": "pic_A"},
+            {"cloud_id": "pic_B"}
+        ]
+    }
+    headers = {"Authorization": f"Bearer {user_token}", "Content-Type": "application/json"}
+    
+    response = client.post("/api/events/create", json=create_payload, headers=headers)
+    assert response.status_code == 201
+    event_id = response.get_json()["event_id"]
+
+    edit_payload = {
+        "pictures": [
+            {"cloud_id": "pic_B"}, 
+            {"cloud_id": "pic_C"}
+        ]
+    }
+    
+    edit_response = client.put(f"/api/events/edit/{event_id}", json=edit_payload, headers=headers)
+    assert edit_response.status_code == 200
+
+    with app.app_context():
+        linked_pictures = Pictures.query.filter_by(event_id=event_id).all()
+        cloud_ids = [pic.cloud_id for pic in linked_pictures]
+
+        assert len(cloud_ids) == 2
+        assert "pic_B" in cloud_ids
+        assert "pic_C" in cloud_ids
+        assert "pic_A" not in cloud_ids
+        
+        # check if cloudinary was instructed to delete pic_A
+        mock_destroy.assert_called_once_with("pic_A")
+
+
+@patch('cloudinary.uploader.destroy')
+def test_delete_event_with_pictures(mock_destroy, client, logged_in_user, app):
+    _, user_token = logged_in_user
+    future_date = datetime.now() + timedelta(days=30)
+    
+    create_payload = {
+        "name": "Delete Event With Pics",
+        "description": "Will be deleted",
+        "date": future_date.strftime("%d.%m.%Y"),
+        "time": "12:00",
+        "location": "nowhere",
+        "is_private": False,
+        "pictures": [
+            {"cloud_id": "pic_to_delete_1"},
+            {"cloud_id": "pic_to_delete_2"}
+        ]
+    }
+    headers = {"Authorization": f"Bearer {user_token}", "Content-Type": "application/json"}
+    
+    response = client.post("/api/events/create", json=create_payload, headers=headers)
+    assert response.status_code == 201
+    event_id = response.get_json()["event_id"]
+
+    delete_response = client.delete(f"/api/events/delete/{event_id}", headers=headers)
+    assert delete_response.status_code == 200
+
+    assert mock_destroy.call_count == 2
+    
+    mock_destroy.assert_any_call("pic_to_delete_1")
+    mock_destroy.assert_any_call("pic_to_delete_2")
+
+    with app.app_context():
+        event = Event.query.filter_by(event_id=event_id).first()
+        assert event is None
+        
+        pictures = Pictures.query.filter_by(event_id=event_id).all()
+        assert len(pictures) == 0
+
+
+def test_feed_returns_pictures(client, logged_in_user, app):
+    _, user_token = logged_in_user
+    future_date = datetime.now() + timedelta(days=30)
+    
+    create_payload = {
+        "name": "Feed Picture Event",
+        "description": "Testing the feed",
+        "date": future_date.strftime("%d.%m.%Y"),
+        "time": "15:00",
+        "location": "here",
+        "is_private": False,
+        "pictures": [
+            {"cloud_id": "feed_pic_1"}
+        ]
+    }
+    headers = {"Authorization": f"Bearer {user_token}", "Content-Type": "application/json"}
+    
+    response = client.post("/api/events/create", json=create_payload, headers=headers)
+    assert response.status_code == 201
+
+    feed_response = client.get("/api/events/feed", headers=headers)
+    assert feed_response.status_code == 200
+    
+    data = feed_response.get_json()["data"]
+
+    feed_event = next((e for e in data if e["name"] == "Feed Picture Event"), None)
+    assert feed_event is not None
+
+    assert "pictures" in feed_event
+    assert len(feed_event["pictures"]) == 1
+    assert feed_event["pictures"][0]["cloud_id"] == "feed_pic_1"
+    assert "url" in feed_event["pictures"][0]
