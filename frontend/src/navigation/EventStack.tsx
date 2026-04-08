@@ -5,20 +5,10 @@ import EventScreen from "../screens/home/EventScreen";
 import EventCommentsScreen from "../screens/event/EventCommentsScreen";
 import AddEvent from "../screens/event/AddEvent";
 import EditEvent from "../screens/event/EditEvent";
+import EventFilters from "../screens/event/EventFilters";
 import { THEME } from "../utils/constants";
 
 const Stack = createStackNavigator();
-
-const EventFiltersScreen = () => {
-  return (
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Filtrowanie wydarzen</Text>
-        <Text style={styles.subtitle}>Placeholder ekranu filtrow</Text>
-      </View>
-    </SafeAreaView>
-  );
-};
 
 const CommentFiltersScreen = () => {
   return (
@@ -38,7 +28,7 @@ const EventStack = () => {
       <Stack.Screen name="EventComments" component={EventCommentsScreen} options={{ title: "Komentarze" }} />
       <Stack.Screen name="AddEvent" component={AddEvent} options={{ title: "Dodaj wydarzenie" }} />
       <Stack.Screen name="EditEvent" component={EditEvent} options={{title: "Edytuj wydarzenie"}} />
-      <Stack.Screen name="EventFilters" component={EventFiltersScreen} options={{title: "Filtrowanie"}} />
+      <Stack.Screen name="EventFilters" component={EventFilters} options={{title: "Filtrowanie"}} />
       <Stack.Screen name="CommentFilters" component={CommentFiltersScreen} options={{title: "Filtry komentarzy"}} />
     </Stack.Navigator>
   );

@@ -3,6 +3,40 @@ export type EventPicture = {
     url?: string;
 };
 
+export type EventVisibilityFilter = "all" | "public" | "private";
+
+// Prepared for future backend integration. UI can expose this but filtering is not applied yet.
+export type EventCreatorFilter = "all" | "friends" | "others";
+
+export type FutureEventSortMode =
+    | "default"
+    | "members_desc"
+    | "members_asc"
+    | "comments_desc"
+    | "comments_asc";
+
+export type EventCreatedAtFilter =
+    | "all"
+    | "today"
+    | "week"
+    | "month"
+    | "year"
+    | "older";
+
+export type EventFilterState = {
+    visibility: EventVisibilityFilter;
+    creatorSource: EventCreatorFilter;
+    sortMode: FutureEventSortMode;
+    createdAtWindow: EventCreatedAtFilter;
+};
+
+export const DEFAULT_EVENT_FILTERS: EventFilterState = {
+    visibility: "all",
+    creatorSource: "all",
+    sortMode: "default",
+    createdAtWindow: "all",
+};
+
 export type Event = {
     id: string;
     name: string;
