@@ -56,6 +56,15 @@ async function refreshAccessToken(): Promise<string> {
 api.interceptors.request.use(
   async (config) => {
     console.log("Request interceptor for", config.url);
+
+    // Let axios/runtime set multipart boundary for FormData automatically.
+    if (typeof FormData !== "undefined" && config.data instanceof FormData) {
+      if (config.headers) {
+        delete (config.headers as any)["Content-Type"];
+        delete (config.headers as any)["content-type"];
+      }
+    }
+
     const token = await tokenStorage.getAccessToken();
     if (token && !config.headers?.Authorization) {
       console.log("Found token, adding to headers");

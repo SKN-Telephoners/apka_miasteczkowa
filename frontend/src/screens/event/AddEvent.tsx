@@ -1,7 +1,7 @@
 import React from "react";
-import { View, Text, Alert, StyleSheet, SafeAreaView, Image, ScrollView } from "react-native";
+import { View, Text, Alert, StyleSheet, SafeAreaView, Image, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useEffect, useState } from "react";
-import { createEvent } from "../../services/events";
+import { createEvent, uploadEventPicture } from "../../services/events";
 import DatePicker from "../../components/DateTimePicker";
 import Checkbox from 'expo-checkbox';
 import UserCard from "../../components/UserCard";
@@ -12,6 +12,9 @@ import ItemSeparator from "../../components/ItemSeparator";
 import Button from "../../components/Button";
 import CollapsibleSection from "../../components/CollapsibleSection";
 import { useNavigation } from "@react-navigation/native";
+import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system";
+import { EventPicture } from "../../types";
 
 
 const AddEvent = () => {
@@ -25,6 +28,9 @@ const AddEvent = () => {
   const [time, setTime] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [currentUsername, setCurrentUsername] = useState("użytkownik");
+  const [eventPicture, setEventPicture] = useState<EventPicture | null>(null);
+  const [eventPicturePreviewUri, setEventPicturePreviewUri] = useState<string | null>(null);
+  const [isPictureUploading, setIsPictureUploading] = useState(false);
   const DESCRIPTION_LINE_HEIGHT = 20;
   const DESCRIPTION_MIN_HEIGHT = DESCRIPTION_LINE_HEIGHT * 5 + 20;
   const [descriptionInputHeight, setDescriptionInputHeight] = useState(DESCRIPTION_MIN_HEIGHT);
@@ -32,8 +38,8 @@ const AddEvent = () => {
   useEffect(() => {
     const loadCurrentUser = async () => {
       try {
-        const response = await api.get("/api/users/me");
-        const username = response?.data?.user?.username;
+        const response = await api.get("/api/users/profile");
+        const username = response?.data?.username;
         if (typeof username === "string" && username.trim()) {
           setCurrentUsername(username.trim());
         }
@@ -47,6 +53,86 @@ const AddEvent = () => {
 
   const [titleError, setTitleError] = useState("");
   const [locationError, setLocationError] = useState("");
+
+  const uploadSelectedPicture = async (asset: ImagePicker.ImagePickerAsset) => {
+    if (!asset.uri) {
+      Alert.alert("Błąd", "Nie udało się odczytać zdjęcia.");
+      return;
+    }
+
+    const fileInfo = await FileSystem.getInfoAsync(asset.uri);
+    const maxBytes = 15 * 1024 * 1024;
+    if (fileInfo.exists && typeof fileInfo.size === "number" && fileInfo.size > maxBytes) {
+      Alert.alert("Plik za duży", "Wybierz zdjęcie mniejsze niż 15 MB.");
+      return;
+    }
+
+    setEventPicturePreviewUri(asset.uri);
+    setIsPictureUploading(true);
+    try {
+      const uploadedPicture = await uploadEventPicture(asset.uri, asset.fileName ?? "event-picture.jpg");
+      setEventPicture({ ...uploadedPicture, url: uploadedPicture.url ?? asset.uri });
+    } catch (error: any) {
+      setEventPicturePreviewUri(null);
+      Alert.alert("Błąd zdjęcia", error?.message || "Nie udało się przesłać zdjęcia.");
+    } finally {
+      setIsPictureUploading(false);
+    }
+  };
+
+  const takePhoto = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Brak uprawnień", "Aplikacja potrzebuje dostępu do aparatu.");
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images"],
+      quality: 0.6,
+      allowsEditing: true,
+    });
+
+    if (!result.canceled && result.assets?.[0]) {
+      await uploadSelectedPicture(result.assets[0]);
+    }
+  };
+
+  const pickFromDevice = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Brak uprawnień", "Aplikacja potrzebuje dostępu do galerii.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.6,
+      allowsEditing: true,
+    });
+
+    if (!result.canceled && result.assets?.[0]) {
+      await uploadSelectedPicture(result.assets[0]);
+    }
+  };
+
+  const showPictureOptions = () => {
+    Alert.alert("Zdjęcie wydarzenia", "Wybierz źródło zdjęcia", [
+      { text: "Zrób zdjęcie", onPress: takePhoto },
+      { text: "Wybierz z urządzenia", onPress: pickFromDevice },
+      eventPicture
+        ? {
+            text: "Usuń zdjęcie",
+            style: "destructive",
+            onPress: () => {
+              setEventPicture(null);
+              setEventPicturePreviewUri(null);
+            },
+          }
+        : undefined,
+      { text: "Anuluj", style: "cancel" },
+    ].filter(Boolean) as any);
+  };
 
 
   const validateTitle = (text: string): string | null => {
@@ -125,6 +211,16 @@ const AddEvent = () => {
   };
 
   const handleCreateEvent = async () => {
+    if (isPictureUploading) {
+      Alert.alert("Poczekaj", "Trwa przesyłanie zdjęcia. Spróbuj ponownie za chwilę.");
+      return;
+    }
+
+    if (eventPicture && !eventPicture.cloud_id) {
+      Alert.alert("Błąd zdjęcia", "Zdjęcie nie zostało poprawnie przesłane. Wybierz je ponownie.");
+      return;
+    }
+
     if (!validateInputs()) {
       return;
     }
@@ -137,6 +233,7 @@ const AddEvent = () => {
           time: time,
           location: location,
           is_private: isPrivate,
+          picture: eventPicture,
         }
       );
       setTitle("");
@@ -145,6 +242,8 @@ const AddEvent = () => {
       setDate("");
       setTime("");
       setIsPrivate(false);
+      setEventPicture(null);
+      setEventPicturePreviewUri(null);
       setTitleError("");
       setLocationError("");
 
@@ -198,7 +297,29 @@ const AddEvent = () => {
             onChangeText={setTitle}
           ></TextInput>
           {titleError ? <Text style={styles.errorText}>{titleError}</Text> : null}
-          <Image source={require("../../../assets/photo_icon.jpg")} style={styles.photo} />
+          <TouchableOpacity
+            style={styles.photoPlaceholderButton}
+            onPress={showPictureOptions}
+            activeOpacity={0.85}
+            disabled={isPictureUploading}
+          >
+            {isPictureUploading ? (
+              <View style={styles.photoPlaceholderContent}>
+                <ActivityIndicator size="large" color={THEME.colors.transparentOrange} />
+                <Text style={styles.photoPlaceholderTitle}>Przesyłanie zdjęcia...</Text>
+              </View>
+            ) : (eventPicture?.url || eventPicturePreviewUri) ? (
+              <Image source={{ uri: eventPicture?.url ?? eventPicturePreviewUri! }} style={styles.photo} />
+            ) : (
+              <>
+                <Image source={require("../../../assets/photo_icon.jpg")} style={styles.photo} />
+                <View style={styles.photoOverlay}>
+                  <Text style={styles.photoOverlayTitle}>Dodaj zdjęcie</Text>
+                  <Text style={styles.photoOverlaySubtitle}>Zrób zdjęcie lub wybierz z urządzenia</Text>
+                </View>
+              </>
+            )}
+          </TouchableOpacity>
           <TextInput
             placeholder="Dodaj tekst... "
             style={[styles.textInput, styles.descriptionInput, { height: descriptionInputHeight }]}
@@ -249,7 +370,7 @@ const AddEvent = () => {
             <Text style={{ marginLeft: 10 }}>Wydarzenie prywatne</Text>
           </View>
 
-          <Button onPress={handleCreateEvent} title="Opublikuj">
+          <Button onPress={handleCreateEvent} title={isPictureUploading ? "Przesyłanie zdjęcia..." : "Opublikuj"} disabled={isPictureUploading}>
           </Button>
 
         </View>
@@ -325,7 +446,10 @@ const styles = StyleSheet.create({
   },
   photoOverlay: {
     position: "absolute",
-    inset: 0,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.28)",

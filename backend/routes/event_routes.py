@@ -1,5 +1,6 @@
 from flask import jsonify, Blueprint, request, current_app
 from backend.models.event import Event, Event_visibility, Event_participants
+from backend.models.event import Pictures
 from backend.models import User, Comment, Friendship 
 from backend.extensions import db, limiter
 from backend.constants import Constants

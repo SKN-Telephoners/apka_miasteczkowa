@@ -177,6 +177,14 @@ const EventCard = ({ item }: { item: Event }) => {
                     </Text>
                 ) : null}
 
+                {item.pictures?.[0]?.url ? (
+                    <Image
+                        source={{ uri: item.pictures[0].url }}
+                        style={styles.eventImage}
+                        resizeMode="cover"
+                    />
+                ) : null}
+
                 <Text style={[styles.textMuted, isPastEvent && styles.pastMetaText]}>• {item.date}</Text>
                 <View style={{ flexDirection: "row" }}>
                     <Text style={[styles.textMuted, isPastEvent && styles.pastMetaText]}>• {item.location}</Text>
@@ -306,6 +314,14 @@ const styles = StyleSheet.create({
     },
 
     text: THEME.typography.text,
+
+    eventImage: {
+        width: "100%",
+        height: 220,
+        borderRadius: 14,
+        marginTop: 8,
+        marginBottom: 10,
+    },
 
     textMuted: {
         ...THEME.typography.text,

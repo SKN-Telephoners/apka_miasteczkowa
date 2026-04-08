@@ -1,15 +1,29 @@
 import api from "./api";
 import { Event, EventPicture } from "../types";
+import { API_BASE_URL } from "../utils/constants";
+import { tokenStorage } from "../utils/storage";
 
 type ApiMessage = { message?: string }; //type string insure for backend function response
 type CreateEventResponse = { message: string; event_id: string; creator_id: string };
 
 type EventPictureInput = EventPicture | null;
 type UploadPictureResponse = {
+    cloud_id?: string;
+    clout_id?: string;
+    picture_url?: string;
     pictures?: Array<{
         cloud_id: string;
         picture_url?: string;
     }>;
+    data?: {
+        cloud_id?: string;
+        clout_id?: string;
+        picture_url?: string;
+        pictures?: Array<{
+            cloud_id: string;
+            picture_url?: string;
+        }>;
+    };
 };
 
 const normalizePictures = (
@@ -29,20 +43,54 @@ const normalizePictures = (
 
 export const uploadEventPicture = async (uri: string, fileName = "event-picture.jpg") : Promise<EventPicture> => {
     try {
-        const formData = new FormData();
-        formData.append("files", {
-            uri,
-            name: fileName,
-            type: "image/jpeg",
-        } as any);
+        const derivedName = fileName || uri.split("/").pop() || "event-picture.jpg";
+        const ext = derivedName.split(".").pop()?.toLowerCase();
+        const mimeType = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+        const accessToken = await tokenStorage.getAccessToken();
 
-        const response = await api.post<UploadPictureResponse>("api/pictures/upload-batch", formData, {
+        if (!accessToken) {
+            throw new Error("Brak tokenu dostępu. Zaloguj się ponownie.");
+        }
+
+        const formData = new FormData();
+        const filePayload = {
+            uri,
+            name: derivedName,
+            type: mimeType,
+        } as any;
+        formData.append("file", filePayload);
+        formData.append("tags", "event-picture");
+
+        const response = await fetch(`${API_BASE_URL}/api/pictures/upload`, {
+            method: "POST",
             headers: {
-                "Content-Type": "multipart/form-data",
+                Authorization: `Bearer ${accessToken}`,
             },
+            body: formData,
         });
 
-        const uploadedPicture = response.data.pictures?.[0];
+        let responseData: UploadPictureResponse = {};
+        try {
+            responseData = (await response.json()) as UploadPictureResponse;
+        } catch {
+            responseData = {};
+        }
+
+        if (!response.ok) {
+            throw new Error((responseData as any)?.message || `Upload failed (${response.status})`);
+        }
+        const uploadedPicture =
+            responseData.pictures?.[0]
+            ?? responseData.data?.pictures?.[0]
+            ?? (responseData.cloud_id ? { cloud_id: responseData.cloud_id, picture_url: responseData.picture_url } : undefined)
+            ?? (responseData.clout_id ? { cloud_id: responseData.clout_id, picture_url: responseData.picture_url } : undefined)
+            ?? (responseData.data?.cloud_id ? { cloud_id: responseData.data.cloud_id, picture_url: responseData.data.picture_url } : undefined)
+            ?? (responseData.data?.clout_id ? { cloud_id: responseData.data.clout_id, picture_url: responseData.data.picture_url } : undefined);
+
+        if (!uploadedPicture?.cloud_id) {
+            console.log("Upload response (missing cloud_id):", JSON.stringify(responseData));
+        }
+
         if (!uploadedPicture?.cloud_id) {
             throw new Error("Upload picture failed");
         }
