@@ -5,7 +5,7 @@ import { useNavigation } from "@react-navigation/native";
 import { THEME } from '../utils/constants';
 import Button from "./Button";
 import { tokenStorage } from "../utils/storage";
-import { getParticipationStatus, joinEvent, leaveEvent } from "../services/events";
+import { joinEvent, leaveEvent } from "../services/events";
 import UserCard from "./UserCard";
 
 const parseEventDateTime = (event: Event): Date | null => {
@@ -92,7 +92,7 @@ const EventCard = ({ item }: { item: Event }) => {
     const isPastEvent = eventDateTime ? eventDateTime.getTime() < Date.now() : false;
     const [userID, setUserID] = useState('');
     const [isOwner, setIsOwner] = useState(false);
-    const [isParticipating, setIsParticipating] = useState(false);
+    const [isParticipating, setIsParticipating] = useState(Boolean(item?.is_participating));
     const [isParticipationLoading, setIsParticipationLoading] = useState(false);
     const [participantCount, setParticipantCount] = useState<number>(Number(item?.participant_count ?? 0));
 
@@ -116,26 +116,9 @@ const EventCard = ({ item }: { item: Event }) => {
     }, [userID, item.creator_id]);
 
     useEffect(() => {
-        const fetchParticipationStatus = async () => {
-            if (!userID || isOwner || isPrivateEvent) {
-                setIsParticipating(false);
-                return;
-            }
-
-            try {
-                setIsParticipationLoading(true);
-                const status = await getParticipationStatus(item.id);
-                setParticipantCount(status.participant_count);
-                setIsParticipating(status.is_participating);
-            } catch {
-                setIsParticipating(false);
-            } finally {
-                setIsParticipationLoading(false);
-            }
-        };
-
-        fetchParticipationStatus();
-    }, [userID, isOwner, isPrivateEvent, item.id]);
+        setParticipantCount(Number(item?.participant_count ?? 0));
+        setIsParticipating(Boolean(item?.is_participating));
+    }, [item.participant_count, item.is_participating]);
 
     const handleJoinEvent = async () => {
         if (isParticipationLoading) return;

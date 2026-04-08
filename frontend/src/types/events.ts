@@ -12,5 +12,6 @@ export type Event = {
     is_edited?: boolean;
     comment_count: number;
     participant_count?: number;
+    is_participating?: boolean;
     is_private: boolean;
 }

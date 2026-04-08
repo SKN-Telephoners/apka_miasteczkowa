@@ -1,6 +1,6 @@
 import axios from "axios";
 import { tokenStorage } from "../utils/storage";
-import { API_BASE_URL, STORAGE_KEYS } from "../utils/constants";
+import { API_BASE_URL } from "../utils/constants";
 
 const MAX_RETRY_ATTEMPTS = 2;
 const INITIAL_RETRY_DELAY = 500; // in milliseconds
@@ -57,7 +57,7 @@ api.interceptors.request.use(
   async (config) => {
     console.log("Request interceptor for", config.url);
     const token = await tokenStorage.getAccessToken();
-    if (token) {
+    if (token && !config.headers?.Authorization) {
       console.log("Found token, adding to headers");
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -79,13 +79,18 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
     
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    const requestUrl: string = String(originalRequest.url || "");
+    const isAuthEndpoint =
+      requestUrl.includes("/api/auth/login") ||
+      requestUrl.includes("/api/auth/register") ||
+      requestUrl.includes("/api/auth/refresh");
+
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
 
       try {
-        const newAccessToken = await refreshAccessToken();
-
-        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        const accessToken = await refreshAccessToken();
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
         await handleSessionExpiry();
@@ -128,7 +133,15 @@ export const authService = {
     return response.data;
   },
   logout: async () => {
-    const response = await api.post("/api/auth/logout");
+    const refreshToken = await tokenStorage.getRefreshToken();
+    const accessToken = await tokenStorage.getAccessToken();
+
+    const response = await api.delete("/api/auth/logout", {
+      data: { access_token: accessToken },
+      headers: refreshToken
+        ? { Authorization: `Bearer ${refreshToken}` }
+        : undefined,
+    });
     return response.data;
   },
 };

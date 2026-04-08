@@ -67,6 +67,15 @@ const sortEventsByTime = (events: Event[]): Event[] => {
     return [...upcoming, ...past];
 };
 
+const mergeUniqueEventsById = (events: Event[]): Event[] => {
+    const uniqueEvents = new Map<string, Event>();
+    for (const event of events) {
+        if (!event?.id) continue;
+        uniqueEvents.set(event.id, event);
+    }
+    return Array.from(uniqueEvents.values());
+};
+
 const EventScreen = () => {
 
     const [searchQuery, setSearchQuery] = useState("");
@@ -92,9 +101,9 @@ const EventScreen = () => {
             const response = await getEvents(p, 20);
 
             if (isLoadMore) {
-                setData(prevData => sortEventsByTime([...prevData, ...response.data]));
+                setData(prevData => sortEventsByTime(mergeUniqueEventsById([...prevData, ...response.data])));
             } else {
-                setData(sortEventsByTime(response.data));
+                setData(sortEventsByTime(mergeUniqueEventsById(response.data)));
             }
 
             setCurrentPage(response.pagination.page);
