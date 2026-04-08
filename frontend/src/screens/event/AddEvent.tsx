@@ -313,7 +313,49 @@ const styles = StyleSheet.create({
     width: 370,
     padding: 10,
     marginHorizontal: 10,
-    marginVertical: 10
+    marginVertical: 10,
+    borderRadius: 16,
+  },
+  photoPlaceholderButton: {
+    position: "relative",
+    borderRadius: 16,
+    overflow: "hidden",
+    marginHorizontal: 10,
+    marginVertical: 10,
+  },
+  photoOverlay: {
+    position: "absolute",
+    inset: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.28)",
+    paddingHorizontal: 20,
+  },
+  photoOverlayTitle: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  photoOverlaySubtitle: {
+    color: "#fff",
+    marginTop: 6,
+    textAlign: "center",
+  },
+  photoPlaceholderContent: {
+    height: 250,
+    width: 370,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: THEME.colors.lm_ico,
+    borderRadius: 16,
+    marginHorizontal: 10,
+    marginVertical: 10,
+  },
+  photoPlaceholderTitle: {
+    marginTop: 10,
+    fontWeight: "700",
+    color: THEME.colors.lm_txt,
   }
 });
 

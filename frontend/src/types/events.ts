@@ -1,3 +1,8 @@
+export type EventPicture = {
+    cloud_id: string;
+    url?: string;
+};
+
 export type Event = {
     id: string;
     name: string;
@@ -14,4 +19,5 @@ export type Event = {
     participant_count?: number;
     is_participating?: boolean;
     is_private: boolean;
+    pictures?: EventPicture[];
 }

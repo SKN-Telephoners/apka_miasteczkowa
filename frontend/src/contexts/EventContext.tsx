@@ -2,6 +2,21 @@ import React, { createContext, useContext, useState } from "react";
 import { Event } from "../types";
 import { createEvent, CreateEventData, deleteEvent } from "../services/events";
 
+const normalizeEventPictures = (
+  pictures?: CreateEventData["pictures"] | CreateEventData["picture"],
+) => {
+  if (!pictures) {
+    return undefined;
+  }
+
+  const pictureList = Array.isArray(pictures) ? pictures : [pictures];
+  const normalized = pictureList
+    .filter((picture): picture is NonNullable<typeof picture> => Boolean(picture && picture.cloud_id))
+    .map((picture) => ({ cloud_id: picture.cloud_id }));
+
+  return normalized.length > 0 ? normalized : undefined;
+};
+
 interface EventContextType {
   events: Event[];
   isLoading: boolean;
@@ -31,6 +46,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updated_at: new Date().toISOString(),
         comment_count: 0,
         is_private: eventData.is_private,
+        pictures: normalizeEventPictures(eventData.pictures ?? eventData.picture),
       };
       setEvents(prev => [...prev, newEvent]);
     } catch (error) {
