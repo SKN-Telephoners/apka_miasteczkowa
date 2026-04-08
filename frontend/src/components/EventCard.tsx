@@ -146,7 +146,7 @@ const EventCard = ({ item }: { item: Event }) => {
         <View key={item.id} style={[styles.container, isPastEvent && styles.pastContainer]}>
             <View>
                 <View style={styles.eventHeaderRow}>
-                    <Text style={[styles.title, styles.eventTitle, isPastEvent && styles.text]}>{item.name}</Text>
+                    <Text style={[styles.title, styles.eventTitle, isPastEvent && styles.pastTextColor]}>{item.name}</Text>
                     {isOwner && (
                         <TouchableOpacity
                             onPress={() => navigation.navigate("EditEvent", { event: item })}
@@ -172,16 +172,16 @@ const EventCard = ({ item }: { item: Event }) => {
                     )}
                 </View>
                 {item.description?.trim() ? (
-                    <Text style={[styles.text, isPastEvent && styles.text]}>
+                    <Text style={[styles.text, isPastEvent && styles.pastTextColor]}>
                         {item.description}
                     </Text>
                 ) : null}
 
-                <Text style={[styles.textMuted, isPastEvent && styles.text]}>• {item.date}</Text>
+                <Text style={[styles.textMuted, isPastEvent && styles.pastMetaText]}>• {item.date}</Text>
                 <View style={{ flexDirection: "row" }}>
-                    <Text style={[styles.textMuted, isPastEvent && styles.text]}>• {item.location}</Text>
+                    <Text style={[styles.textMuted, isPastEvent && styles.pastMetaText]}>• {item.location}</Text>
                     <View style={styles.mapLabelRow}>
-                        <Text style={[styles.textHighlight, isPastEvent && styles.text]}>• MAPA</Text>
+                        <Text style={[styles.textHighlight, isPastEvent && styles.pastMetaText]}>• MAPA</Text>
                         <View style={styles.mapInlineIconContainer}>
                             <Image
                                 source={require("../../assets/iconset1.jpg")}
@@ -191,7 +191,7 @@ const EventCard = ({ item }: { item: Event }) => {
                         </View>
                     </View>
                 </View>
-                <Text style={[styles.textMuted, isPastEvent && styles.text]}>• placeholder_kierunek </Text>
+                <Text style={[styles.textMuted, isPastEvent && styles.pastMetaText]}>• placeholder_kierunek </Text>
 
                 <View style={{ paddingBottom: 10, paddingTop: 20 }}>
                     <UserCard creatorDisplayName={creatorDisplayName} createdAtDisplay={createdAtDisplay} />
@@ -315,6 +315,14 @@ const styles = StyleSheet.create({
     textHighlight: {
         ...THEME.typography.text,
         color: THEME.colors.lm_highlight
+    },
+
+    pastTextColor: {
+        color: THEME.colors.lm_txt,
+    },
+
+    pastMetaText: {
+        color: THEME.colors.lm_txt,
     },
 
     location: {
