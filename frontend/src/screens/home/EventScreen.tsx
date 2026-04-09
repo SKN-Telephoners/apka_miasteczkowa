@@ -339,6 +339,7 @@ const EventScreen = () => {
                         onChangeText={(query) => handleSearch(query)}
                         value={searchQuery}
                         showSearchSpriteIcon
+                        showFloatingLabel={false}
                         reserveErrorSpace={false}
                     />
                 </View>

@@ -2,6 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
   Image,
+  TextStyle,
+  TextInputProps,
   StyleSheet,
   Text,
   TextInput,
@@ -21,6 +23,12 @@ interface InputFieldProps {
   autoCapitalize?: "none" | "sentences" | "words" | "characters";
   showSearchSpriteIcon?: boolean;
   reserveErrorSpace?: boolean;
+  autoComplete?: TextInputProps["autoComplete"];
+  textContentType?: TextInputProps["textContentType"];
+  importantForAutofill?: TextInputProps["importantForAutofill"];
+  showFloatingLabel?: boolean;
+  floatingLabelColor?: TextStyle["color"];
+  floatingLabelBackgroundColor?: TextStyle["backgroundColor"];
 }
 
 const BASE_TILE_SIZE = 30;
@@ -40,6 +48,12 @@ const InputField: React.FC<InputFieldProps> = ({
   autoCapitalize = "none",
   showSearchSpriteIcon = false,
   reserveErrorSpace = true,
+  autoComplete,
+  textContentType,
+  importantForAutofill,
+  showFloatingLabel = true,
+  floatingLabelColor = THEME.colors.lm_txt,
+  floatingLabelBackgroundColor = THEME.colors.lm_bg,
 }) => {
   const [localErrorMessage, setLocalErrorMessage] = useState<string | null>(
     null
@@ -85,7 +99,16 @@ const InputField: React.FC<InputFieldProps> = ({
           displayErrorMessage ? styles.inputBoxError : null,
         ]}
       >
-        {!isEmpty && <Text style={styles.legend}>{placeholder}</Text>}
+        {!isEmpty && showFloatingLabel && (
+          <Text
+            style={[
+              styles.legend,
+              { color: floatingLabelColor, backgroundColor: floatingLabelBackgroundColor },
+            ]}
+          >
+            {placeholder}
+          </Text>
+        )}
         <TextInput
           style={styles.input}
           placeholder={placeholder}
@@ -97,6 +120,9 @@ const InputField: React.FC<InputFieldProps> = ({
           accessibilityLabel={placeholder}
           accessibilityHint={displayErrorMessage || undefined}
           autoCapitalize={autoCapitalize}
+          autoComplete={autoComplete}
+          textContentType={textContentType}
+          importantForAutofill={importantForAutofill}
         />
         {toggleSecure && (
           <TouchableOpacity onPress={toggleSecure}>
@@ -166,8 +192,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: -10,
     left: 18,
-    backgroundColor: THEME.colors.lm_bg,
-    color: THEME.colors.lm_bg,
     paddingHorizontal: 5,
   },
   errorMessage: {

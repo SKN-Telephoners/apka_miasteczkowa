@@ -310,6 +310,9 @@ const EditEvent = () => {
                         style={styles.titleInput}
                         value={title}
                         onChangeText={setTitle}
+                        autoComplete="off"
+                        importantForAutofill="no"
+                        autoCorrect={false}
                     ></TextInput>
                     {titleError ? <Text style={styles.errorText}>{titleError}</Text> : null}
 
@@ -344,6 +347,9 @@ const EditEvent = () => {
                         multiline
                         value={description}
                         onChangeText={setDescription}
+                        autoComplete="off"
+                        importantForAutofill="no"
+                        autoCorrect={false}
                         onContentSizeChange={(event) => {
                             const contentHeight = event.nativeEvent.contentSize.height;
                             setDescriptionInputHeight(Math.max(DESCRIPTION_MIN_HEIGHT, contentHeight));
@@ -363,6 +369,9 @@ const EditEvent = () => {
                                     style={styles.textInput}
                                     value={location}
                                     onChangeText={setLocation}
+                                    autoComplete="off"
+                                    importantForAutofill="no"
+                                    autoCorrect={false}
                                 />
                                 {locationError ? <Text style={styles.errorText}>{locationError}</Text> : null}
                             </View>
@@ -447,8 +456,8 @@ const styles = StyleSheet.create({
     },
     photo: {
         height: 250,
-        width: 370,
-        marginHorizontal: 0,  
+        width: "100%",
+        borderRadius: 16,
     },
     photoPlaceholderButton: {
         position: "relative",
@@ -481,12 +490,11 @@ const styles = StyleSheet.create({
     },
     photoPlaceholderContent: {
         height: 250,
+        width: "100%",
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: THEME.colors.lm_ico,
         borderRadius: 16,
-        marginHorizontal: 10,
-        marginVertical: 10,
     },
     photoPlaceholderTitle: {
         marginTop: 10,

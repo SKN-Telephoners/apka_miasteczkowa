@@ -13,7 +13,7 @@ import {
 import { useAuth } from "../../contexts/AuthContext";
 import { authService } from "../../services/api";
 import InputField from "../../components/InputField";
-import { MESSAGES } from "../../utils/constants";
+import { MESSAGES, THEME } from "../../utils/constants";
 
 const LoginScreen = ({ navigation }: { navigation: any }) => {
   const [username, setUsername] = useState("");
@@ -83,6 +83,11 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
             value={username}
             onChangeText={setUsername}
             secureTextEntry={false}
+            autoComplete="username"
+            textContentType="username"
+            importantForAutofill="yes"
+            floatingLabelColor={THEME.colors.lm_srch_wrd}
+            floatingLabelBackgroundColor="transparent"
             errorMessage={usernameError}
             validate={validateUsername}
           />
@@ -92,6 +97,11 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
             value={password}
             onChangeText={setPassword}
             secureTextEntry={secureText}
+            autoComplete="current-password"
+            textContentType="password"
+            importantForAutofill="yes"
+            floatingLabelColor={THEME.colors.lm_srch_wrd}
+            floatingLabelBackgroundColor="transparent"
             toggleSecure={() => setSecureText(!secureText)}
             errorMessage={passwordError}
             validate={validatePassword}
