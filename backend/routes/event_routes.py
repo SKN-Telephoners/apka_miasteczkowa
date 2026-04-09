@@ -290,6 +290,7 @@ def feed():
         sort = request.args.get("sort", default=1, type=int)
         q = sanitize_input(str(request.args.get("q", ""))).strip()
         visibility = str(request.args.get("visibility", "all")).strip().lower()
+        participation = str(request.args.get("participation", "all")).strip().lower()
         created_window = str(request.args.get("created_window", "all")).strip().lower()
         sort_mode = str(request.args.get("sort_mode", "")).strip().lower()
 
@@ -312,11 +313,19 @@ def feed():
             )
         )
 
+        participant_exists = exists().where(
+            and_(
+                Event_participants.event_id == Event.event_id,
+                Event_participants.user_id == user_id,
+            )
+        )
+
         events = Event.query.filter(
             or_(
                 Event.is_private.is_(False),
                 Event.creator_id == user_id,
                 visibility_exists,
+                participant_exists,
             )
         )
 
@@ -324,6 +333,21 @@ def feed():
             events = events.filter(Event.is_private.is_(False))
         elif visibility == "private":
             events = events.filter(Event.is_private.is_(True))
+
+        if participation == "joined":
+            events = events.filter(
+                or_(
+                    Event.creator_id == user_id,
+                    participant_exists,
+                )
+            )
+        elif participation == "not_joined":
+            events = events.filter(
+                and_(
+                    Event.creator_id != user_id,
+                    ~participant_exists,
+                )
+            )
 
         now_utc = datetime.now(timezone.utc)
 

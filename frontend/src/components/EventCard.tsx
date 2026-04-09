@@ -123,6 +123,33 @@ const EventCard = ({ item, showActions = true }: { item: Event; showActions?: bo
     const handleJoinEvent = async () => {
         if (isParticipationLoading) return;
 
+        if (isParticipating && isPrivateEvent) {
+            Alert.alert(
+                "Czy na pewno chcesz opuścić wydarzenie prywatne?",
+                "Nie będziesz mógł się na nie zapisać bez zgody autora.",
+                [
+                    { text: "Anuluj", style: "cancel" },
+                    {
+                        text: "Opuść",
+                        style: "destructive",
+                        onPress: async () => {
+                            try {
+                                setIsParticipationLoading(true);
+                                await leaveEvent(item.id);
+                                setIsParticipating(false);
+                                setParticipantCount((prev) => Math.max(prev - 1, 0));
+                            } catch (err: any) {
+                                Alert.alert("Błąd", err?.message || "Nie udało się zaktualizować udziału w wydarzeniu.");
+                            } finally {
+                                setIsParticipationLoading(false);
+                            }
+                        },
+                    },
+                ]
+            );
+            return;
+        }
+
         try {
             setIsParticipationLoading(true);
 
@@ -211,7 +238,7 @@ const EventCard = ({ item, showActions = true }: { item: Event; showActions?: bo
                         metaTextColor={isPastEvent ? THEME.colors.lm_txt : undefined}
                     />
 
-                    {showActions && !isOwner && !isPrivateEvent && !isPastEvent && (
+                    {showActions && !isOwner && !isPastEvent && (!isPrivateEvent || isParticipating) && (
                         <View style={styles.joinButtonContainer}>
                             <Button
                                 title={isParticipating ? "Opuść wydarzenie" : "Dołącz"}

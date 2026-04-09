@@ -5,6 +5,8 @@ export type EventPicture = {
 
 export type EventVisibilityFilter = "all" | "public" | "private";
 
+export type EventParticipationFilter = "all" | "joined" | "not_joined";
+
 // Prepared for future backend integration. UI can expose this but filtering is not applied yet.
 export type EventCreatorFilter = "all" | "friends" | "others";
 
@@ -26,6 +28,7 @@ export type EventCreatedAtFilter =
 export type EventFilterState = {
     visibility: EventVisibilityFilter;
     creatorSource: EventCreatorFilter;
+    participation: EventParticipationFilter;
     sortMode: FutureEventSortMode;
     createdAtWindow: EventCreatedAtFilter;
 };
@@ -33,6 +36,7 @@ export type EventFilterState = {
 export const DEFAULT_EVENT_FILTERS: EventFilterState = {
     visibility: "all",
     creatorSource: "all",
+    participation: "all",
     sortMode: "default",
     createdAtWindow: "all",
 };

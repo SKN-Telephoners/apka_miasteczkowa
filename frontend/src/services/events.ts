@@ -147,6 +147,7 @@ export interface PaginatedEvents {
 export interface FeedQueryParams {
     q?: string;
     visibility?: "all" | "public" | "private";
+    participation?: "all" | "joined" | "not_joined";
     created_window?: "all" | "today" | "week" | "month" | "year" | "older";
     sort_mode?: "default" | "members_desc" | "members_asc" | "comments_desc" | "comments_asc";
 }
@@ -200,6 +201,7 @@ export const getEvents = async (
                 limit,
                 ...(query.q ? { q: query.q } : {}),
                 ...(query.visibility ? { visibility: query.visibility } : {}),
+                ...(query.participation ? { participation: query.participation } : {}),
                 ...(query.created_window ? { created_window: query.created_window } : {}),
                 ...(query.sort_mode ? { sort_mode: query.sort_mode } : {}),
             },

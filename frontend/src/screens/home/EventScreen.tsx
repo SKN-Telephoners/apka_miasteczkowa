@@ -58,10 +58,11 @@ const EventScreen = () => {
         () => ({
             q: debouncedSearchQuery || undefined,
             visibility: filters.visibility,
+            participation: filters.participation,
             created_window: filters.createdAtWindow,
             sort_mode: filters.sortMode,
         }),
-        [debouncedSearchQuery, filters.createdAtWindow, filters.sortMode, filters.visibility],
+        [debouncedSearchQuery, filters.createdAtWindow, filters.participation, filters.sortMode, filters.visibility],
     );
 
     const {

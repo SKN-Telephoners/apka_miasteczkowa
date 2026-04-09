@@ -7,6 +7,7 @@ import {
   EventCreatedAtFilter,
   EventCreatorFilter,
   EventFilterState,
+  EventParticipationFilter,
   EventVisibilityFilter,
   FutureEventSortMode,
 } from "../../types";
@@ -27,6 +28,12 @@ const creatorOptions: FilterOption<EventCreatorFilter>[] = [
   { label: "Wszyscy", value: "all" },
   { label: "Od znajomych", value: "friends", disabled: true },
   { label: "Od innych", value: "others", disabled: true },
+];
+
+const participationOptions: FilterOption<EventParticipationFilter>[] = [
+  { label: "Wszystkie", value: "all" },
+  { label: "Dołączono", value: "joined" },
+  { label: "Nie dołączono", value: "not_joined" },
 ];
 
 const sortOptions: FilterOption<FutureEventSortMode>[] = [
@@ -184,6 +191,13 @@ const EventFilters = () => {
             setFilters((prev) => ({ ...prev, creatorSource: value }));
           })}
           <Text style={styles.hint}>{creatorSectionHint}</Text>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Udział</Text>
+          {renderOptionRow(participationOptions, filters.participation, (value) => {
+            setFilters((prev) => ({ ...prev, participation: value }));
+          })}
         </View>
 
         <View style={styles.actionsRow}>
