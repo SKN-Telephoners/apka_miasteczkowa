@@ -86,7 +86,7 @@ const SHARE_ICON_OFFSET = { x: -BASE_TILE_SIZE * 2, y: -BASE_TILE_SIZE * 2 };
 const EDIT_MENU_ICON_OFFSET = { x: -BASE_TILE_SIZE * 2, y: -BASE_TILE_SIZE };
 
 
-const EventCard = ({ item }: { item: Event }) => {
+const EventCard = ({ item, showActions = true }: { item: Event; showActions?: boolean }) => {
     const navigation = useNavigation<any>();
     const eventDateTime = parseEventDateTime(item);
     const isPastEvent = eventDateTime ? eventDateTime.getTime() < Date.now() : false;
@@ -147,7 +147,7 @@ const EventCard = ({ item }: { item: Event }) => {
             <View>
                 <View style={styles.eventHeaderRow}>
                     <Text style={[styles.title, styles.eventTitle, isPastEvent && styles.pastTextColor]}>{item.name}</Text>
-                    {isOwner && (
+                    {showActions && isOwner && (
                         <TouchableOpacity
                             onPress={() => navigation.navigate("EditEvent", { event: item })}
                             style={styles.eventMenuButton}
@@ -181,9 +181,11 @@ const EventCard = ({ item }: { item: Event }) => {
                 ) : null}
 
                 {item.description?.trim() ? (
+                    <View style = {styles.description}>
                     <Text style={[styles.text, isPastEvent && styles.pastTextColor]}>
                         {item.description}
                     </Text>
+                    </View>
                 ) : null}
 
                 <Text style={[styles.textMuted, isPastEvent && styles.pastMetaText]}>• {item.date} • {item.time} </Text>
@@ -209,7 +211,7 @@ const EventCard = ({ item }: { item: Event }) => {
                         metaTextColor={isPastEvent ? THEME.colors.lm_txt : undefined}
                     />
 
-                    {!isOwner && !isPrivateEvent && !isPastEvent && (
+                    {showActions && !isOwner && !isPrivateEvent && !isPastEvent && (
                         <View style={styles.joinButtonContainer}>
                             <Button
                                 title={isParticipating ? "Opuść wydarzenie" : "Dołącz"}
@@ -219,6 +221,7 @@ const EventCard = ({ item }: { item: Event }) => {
                             />
                         </View>
                     )}
+                    {showActions && (
                     <View style={styles.trailingIconsRow}>
                         <View style={styles.trailingActionItem}>
                             <View style={styles.trailingIconContainer}>
@@ -279,6 +282,7 @@ const EventCard = ({ item }: { item: Event }) => {
                             <Text style={styles.trailingCountText}>0</Text>
                         </View>
                     </View>
+                    )}
                 </View>
             </View >
         </View>
@@ -316,6 +320,11 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         marginLeft: 8,
+    },
+
+    description: {
+        paddingVertical: 10,
+        paddingHorizontal: 5,
     },
 
     text: THEME.typography.text,

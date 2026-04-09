@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, Alert, StyleSheet, SafeAreaView, Image, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { createEvent, uploadEventPicture } from "../../services/events";
 import DatePicker from "../../components/DateTimePicker";
 import Checkbox from 'expo-checkbox';
@@ -15,10 +15,14 @@ import { useNavigation } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
 import { EventPicture } from "../../types";
+import { buildEventPreview } from "../../utils/eventPreview";
 
 
 const AddEvent = () => {
   const navigation = useNavigation<any>();
+  const PREVIEW_ICON_SIZE = 22;
+  const PREVIEW_SPRITE_SCALE = PREVIEW_ICON_SIZE / 30;
+  const PREVIEW_ICON_OFFSET = { x: 0, y: -60 };
 
 
   const [title, setTitle] = useState("");
@@ -34,6 +38,47 @@ const AddEvent = () => {
   const DESCRIPTION_LINE_HEIGHT = 20;
   const DESCRIPTION_MIN_HEIGHT = DESCRIPTION_LINE_HEIGHT * 5 + 20;
   const [descriptionInputHeight, setDescriptionInputHeight] = useState(DESCRIPTION_MIN_HEIGHT);
+
+  const previewEvent = useMemo(() => {
+    return buildEventPreview({
+      title,
+      description,
+      location,
+      date,
+      time,
+      isPrivate,
+      creatorId: "preview-user",
+      creatorUsername: currentUsername,
+      picture: eventPicture,
+      pictureUri: eventPicturePreviewUri,
+    });
+  }, [title, description, location, date, time, isPrivate, currentUsername, eventPicture, eventPicturePreviewUri]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={() => navigation.navigate("EventPreview", { event: previewEvent })}
+            style={{ marginRight: 16, width: PREVIEW_ICON_SIZE, height: PREVIEW_ICON_SIZE, overflow: "hidden" }}
+          activeOpacity={0.8}
+            accessibilityLabel="Podgląd"
+        >
+            <Image
+              source={require("../../../assets/iconset2.jpg")}
+              style={{
+                width: 90 * PREVIEW_SPRITE_SCALE,
+                height: 90 * PREVIEW_SPRITE_SCALE,
+                transform: [
+                  { translateX: PREVIEW_ICON_OFFSET.x * PREVIEW_SPRITE_SCALE },
+                  { translateY: PREVIEW_ICON_OFFSET.y * PREVIEW_SPRITE_SCALE },
+                ],
+              }}
+              resizeMode="cover"
+            />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, previewEvent]);
 
   useEffect(() => {
     const loadCurrentUser = async () => {

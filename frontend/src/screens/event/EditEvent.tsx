@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, Alert, TextInput, SafeAreaView, ScrollView, Image, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { editEvent, uploadEventPicture } from "../../services/events";
 import DatePicker from "../../components/DateTimePicker";
@@ -14,11 +14,15 @@ import { THEME } from "../../utils/constants";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
 import { EventPicture } from "../../types";
+import { buildEventPreview } from "../../utils/eventPreview";
 
 const EditEvent = () => {
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
     const { event } = route.params;
+    const PREVIEW_ICON_SIZE = 22;
+    const PREVIEW_SPRITE_SCALE = PREVIEW_ICON_SIZE / 30;
+    const PREVIEW_ICON_OFFSET = { x: 0, y: -60 };
 
     const parseBoolean = (value: unknown): boolean => {
         if (typeof value === "boolean") return value;
@@ -72,6 +76,48 @@ const EditEvent = () => {
 
     const [titleError, setTitleError] = useState("");
     const [locationError, setLocationError] = useState("");
+
+    const previewEvent = useMemo(() => {
+        return buildEventPreview({
+            title,
+            description,
+            location,
+            date,
+            time,
+            isPrivate,
+            creatorId: String(event?.creator_id ?? "preview-user"),
+            creatorUsername: currentUsername,
+            picture: eventPicture,
+            pictureUri: eventPicturePreviewUri,
+            id: String(event?.id ?? event?.event_id ?? "preview-event"),
+        });
+    }, [title, description, location, date, time, isPrivate, currentUsername, eventPicture, eventPicturePreviewUri, event?.creator_id, event?.id, event?.event_id]);
+
+    useLayoutEffect(() => {
+        navigation.setOptions({
+            headerRight: () => (
+                <TouchableOpacity
+                    onPress={() => navigation.navigate("EventPreview", { event: previewEvent })}
+                    style={{ marginRight: 16, width: PREVIEW_ICON_SIZE, height: PREVIEW_ICON_SIZE, overflow: "hidden" }}
+                    activeOpacity={0.8}
+                    accessibilityLabel="Podgląd"
+                >
+                    <Image
+                        source={require("../../../assets/iconset2.jpg")}
+                        style={{
+                            width: 90 * PREVIEW_SPRITE_SCALE,
+                            height: 90 * PREVIEW_SPRITE_SCALE,
+                            transform: [
+                                { translateX: PREVIEW_ICON_OFFSET.x * PREVIEW_SPRITE_SCALE },
+                                { translateY: PREVIEW_ICON_OFFSET.y * PREVIEW_SPRITE_SCALE },
+                            ],
+                        }}
+                        resizeMode="cover"
+                    />
+                </TouchableOpacity>
+            ),
+        });
+    }, [navigation, previewEvent]);
 
     const uploadSelectedPicture = async (asset: ImagePicker.ImagePickerAsset) => {
         if (!asset.uri) {
