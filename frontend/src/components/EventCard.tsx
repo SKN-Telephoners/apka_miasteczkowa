@@ -171,11 +171,6 @@ const EventCard = ({ item }: { item: Event }) => {
                         </TouchableOpacity>
                     )}
                 </View>
-                {item.description?.trim() ? (
-                    <Text style={[styles.text, isPastEvent && styles.pastTextColor]}>
-                        {item.description}
-                    </Text>
-                ) : null}
 
                 {item.pictures?.[0]?.url ? (
                     <Image
@@ -183,6 +178,12 @@ const EventCard = ({ item }: { item: Event }) => {
                         style={styles.eventImage}
                         resizeMode="cover"
                     />
+                ) : null}
+
+                {item.description?.trim() ? (
+                    <Text style={[styles.text, isPastEvent && styles.pastTextColor]}>
+                        {item.description}
+                    </Text>
                 ) : null}
 
                 <Text style={[styles.textMuted, isPastEvent && styles.pastMetaText]}>• {item.date} • {item.time} </Text>
@@ -202,9 +203,13 @@ const EventCard = ({ item }: { item: Event }) => {
                 <Text style={[styles.textMuted, isPastEvent && styles.pastMetaText]}>• placeholder_kierunek </Text>
 
                 <View style={{ paddingBottom: 10, paddingTop: 20 }}>
-                    <UserCard creatorDisplayName={creatorDisplayName} createdAtDisplay={createdAtDisplay} />
+                    <UserCard
+                        creatorDisplayName={creatorDisplayName}
+                        createdAtDisplay={createdAtDisplay}
+                        metaTextColor={isPastEvent ? THEME.colors.lm_txt : undefined}
+                    />
 
-                    {!isOwner && !isPrivateEvent && (
+                    {!isOwner && !isPrivateEvent && !isPastEvent && (
                         <View style={styles.joinButtonContainer}>
                             <Button
                                 title={isParticipating ? "Opuść wydarzenie" : "Dołącz"}

@@ -144,6 +144,13 @@ export interface PaginatedEvents {
     };
 }
 
+export interface FeedQueryParams {
+    q?: string;
+    visibility?: "all" | "public" | "private";
+    created_window?: "all" | "today" | "week" | "month" | "year" | "older";
+    sort_mode?: "default" | "members_desc" | "members_asc" | "comments_desc" | "comments_asc";
+}
+
 export interface ParticipationStatusResponse {
     is_participating: boolean;
     participant_count: number;
@@ -181,9 +188,22 @@ export const deleteEvent = async (eventId: string): Promise<string> => {
     }
 };
 
-export const getEvents = async (page: number = 1, limit: number = 20): Promise<PaginatedEvents> => {
+export const getEvents = async (
+    page: number = 1,
+    limit: number = 20,
+    query: FeedQueryParams = {},
+): Promise<PaginatedEvents> => {
     try {
-        const response = await api.get<PaginatedEvents>('api/events/feed', { params: { page, limit } });
+        const response = await api.get<PaginatedEvents>('api/events/feed', {
+            params: {
+                page,
+                limit,
+                ...(query.q ? { q: query.q } : {}),
+                ...(query.visibility ? { visibility: query.visibility } : {}),
+                ...(query.created_window ? { created_window: query.created_window } : {}),
+                ...(query.sort_mode ? { sort_mode: query.sort_mode } : {}),
+            },
+        });
         return response.data;
     }
     // error handling 

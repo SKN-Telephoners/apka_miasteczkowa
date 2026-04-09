@@ -8,7 +8,7 @@ from backend.responses import ResponseTypes, make_api_response
 from flask_jwt_extended import jwt_required, get_current_user
 from backend.helpers import validate_uuid, sanitize_input
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from sqlalchemy.exc import SQLAlchemyError
 import cloudinary.uploader
@@ -287,7 +287,14 @@ def feed():
         user = get_current_user()
         page = request.args.get("page", default=1, type=int)
         limit = request.args.get("limit", default=Constants.PAGINATION_DEFAULT_LIMIT, type=int)
-        sort=request.args.get("sort", default=1, type=int)
+        sort = request.args.get("sort", default=1, type=int)
+        q = sanitize_input(str(request.args.get("q", ""))).strip()
+        visibility = str(request.args.get("visibility", "all")).strip().lower()
+        created_window = str(request.args.get("created_window", "all")).strip().lower()
+        sort_mode = str(request.args.get("sort_mode", "")).strip().lower()
+
+        if not sort_mode:
+            sort_mode = "members_desc" if sort == 2 else "default"
 
         user_id = user.user_id
 
@@ -313,15 +320,81 @@ def feed():
             )
         )
 
-        now_utc = datetime.now(timezone.utc)
-        upcoming_first = case((Event.date_and_time >= now_utc, 0), else_=1)
+        if visibility == "public":
+            events = events.filter(Event.is_private.is_(False))
+        elif visibility == "private":
+            events = events.filter(Event.is_private.is_(True))
 
-        if sort == 2:
+        now_utc = datetime.now(timezone.utc)
+
+        if created_window == "today":
+            threshold = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+            events = events.filter(Event.created_at >= threshold)
+        elif created_window == "week":
+            start_today = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+            weekday = start_today.weekday()
+            threshold = start_today - timedelta(days=weekday)
+            events = events.filter(Event.created_at >= threshold)
+        elif created_window == "month":
+            threshold = now_utc.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            events = events.filter(Event.created_at >= threshold)
+        elif created_window == "year":
+            threshold = now_utc.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+            events = events.filter(Event.created_at >= threshold)
+        elif created_window == "older":
+            threshold = now_utc.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+            events = events.filter(or_(Event.created_at.is_(None), Event.created_at < threshold))
+
+        if q:
+            normalized = "%" + "%".join(q.lower().split()) + "%"
+            events = events.join(User, User.user_id == Event.creator_id).filter(
+                or_(
+                    func.lower(Event.event_name).like(normalized),
+                    func.lower(Event.location).like(normalized),
+                    func.lower(Event.description).like(normalized),
+                    func.lower(User.username).like(normalized),
+                )
+            )
+
+        upcoming_first = case((Event.date_and_time >= now_utc, 0), else_=1)
+        comment_count_expr = (
+            db.session.query(func.count(Comment.comment_id))
+            .filter(Comment.event_id == Event.event_id, Comment.deleted.is_(False))
+            .correlate(Event)
+            .scalar_subquery()
+        )
+
+        if sort_mode == "members_desc":
             events = events.order_by(
                 upcoming_first.asc(),
-                case((Event.date_and_time >= now_utc, Event.date_and_time), else_=None).desc(),
+                func.coalesce(Event.participant_count, 0).desc(),
+                case((Event.date_and_time >= now_utc, Event.date_and_time), else_=None).asc(),
                 case((Event.date_and_time < now_utc, Event.date_and_time), else_=None).desc(),
-                Event.event_id.desc(),
+                Event.event_id.asc(),
+            )
+        elif sort_mode == "members_asc":
+            events = events.order_by(
+                upcoming_first.asc(),
+                func.coalesce(Event.participant_count, 0).asc(),
+                case((Event.date_and_time >= now_utc, Event.date_and_time), else_=None).asc(),
+                case((Event.date_and_time < now_utc, Event.date_and_time), else_=None).desc(),
+                Event.event_id.asc(),
+            )
+        elif sort_mode == "comments_desc":
+            events = events.order_by(
+                upcoming_first.asc(),
+                func.coalesce(comment_count_expr, 0).desc(),
+                case((Event.date_and_time >= now_utc, Event.date_and_time), else_=None).asc(),
+                case((Event.date_and_time < now_utc, Event.date_and_time), else_=None).desc(),
+                Event.event_id.asc(),
+            )
+        elif sort_mode == "comments_asc":
+            events = events.order_by(
+                upcoming_first.asc(),
+                func.coalesce(comment_count_expr, 0).asc(),
+                case((Event.date_and_time >= now_utc, Event.date_and_time), else_=None).asc(),
+                case((Event.date_and_time < now_utc, Event.date_and_time), else_=None).desc(),
+                Event.event_id.asc(),
             )
         else:
             events = events.order_by(

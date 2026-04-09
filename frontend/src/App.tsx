@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { StatusBar, ActivityIndicator, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./contexts/AuthContext";
 import { EventProvider } from "./contexts/EventContext";
 import { FriendsProvider } from "./contexts/FriendsContext";
@@ -9,6 +10,19 @@ import { tokenStorage } from "./utils/storage";
 
 const App = () => {
   const [isLoading, setIsLoading] = useState(true);
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 30000,
+            gcTime: 5 * 60 * 1000,
+            retry: 1,
+            refetchOnReconnect: true,
+          },
+        },
+      }),
+  );
 
   useEffect(() => {
     const initApp = async () => {
@@ -34,14 +48,16 @@ const App = () => {
 
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <EventProvider>
-          <FriendsProvider>
-            <StatusBar barStyle="dark-content" />
-            <AppNavigator />
-          </FriendsProvider>
-        </EventProvider>
-      </AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <EventProvider>
+            <FriendsProvider>
+              <StatusBar barStyle="dark-content" />
+              <AppNavigator />
+            </FriendsProvider>
+          </EventProvider>
+        </AuthProvider>
+      </QueryClientProvider>
     </SafeAreaProvider>
   );
 };

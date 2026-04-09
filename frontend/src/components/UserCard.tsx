@@ -14,6 +14,7 @@ type UserCardProps = {
     metaPrefix?: string;
     avatarSize?: number;
     onMetaIconPress?: (event: any) => void;
+    metaTextColor?: string;
 };
 
 const BASE_TILE_SIZE = 30;
@@ -35,6 +36,7 @@ const UserCard = ({
     metaPrefix = "wydział • kierunek",
     avatarSize = 55,
     onMetaIconPress,
+    metaTextColor,
 }: UserCardProps) => {
     const metaText = showCreatedAt && createdAtDisplay
         ? `${metaPrefix} • ${createdAtDisplay}`
@@ -63,7 +65,7 @@ const UserCard = ({
                     </View>
                     {showMetaRow && (
                         <View style={styles.authorMetaRow}>
-                            <Text style={styles.authorMetaText}>{metaText}</Text>
+                            <Text style={[styles.authorMetaText, metaTextColor ? { color: metaTextColor } : null]}>{metaText}</Text>
                             {showMetaIcon && (
                                 <TouchableOpacity
                                     style={styles.metaIconContainer}
