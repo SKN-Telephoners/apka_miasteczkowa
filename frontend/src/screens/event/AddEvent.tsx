@@ -122,13 +122,13 @@ const AddEvent = () => {
       { text: "Wybierz z urządzenia", onPress: pickFromDevice },
       eventPicture
         ? {
-            text: "Usuń zdjęcie",
-            style: "destructive",
-            onPress: () => {
-              setEventPicture(null);
-              setEventPicturePreviewUri(null);
-            },
-          }
+          text: "Usuń zdjęcie",
+          style: "destructive",
+          onPress: () => {
+            setEventPicture(null);
+            setEventPicturePreviewUri(null);
+          },
+        }
         : undefined,
       { text: "Anuluj", style: "cancel" },
     ].filter(Boolean) as any);
@@ -333,31 +333,31 @@ const AddEvent = () => {
             }}
           ></TextInput>
           <ItemSeparator></ItemSeparator>
-          <CollapsibleSection title="Lokalizacja" initialExpanded={true} style={{padding: 10}}>
-            <View style={{flexDirection: "row"}}>
-              <Image source={require("../../../assets/map_selection.jpg")}/>
+          <CollapsibleSection title="Lokalizacja" initialExpanded={true} style={{ padding: 10 }}>
+            <View style={{ flexDirection: "row" }}>
+              <Image source={require("../../../assets/map_selection.jpg")} />
               <View>
-              <Text style={styles.nameInput}>Nazwa</Text>
-              <TextInput
-                placeholder="Wpisz nazwę..."
-                placeholderTextColor={THEME.colors.lm_ico}
-                style={styles.textInput}
-                value={location}
-                onChangeText={setLocation}
-              />
-              {locationError ? <Text style={styles.errorText}>{locationError}</Text> : null}
-            </View>
+                <Text style={styles.nameInput}>Nazwa</Text>
+                <TextInput
+                  placeholder="Wpisz nazwę..."
+                  placeholderTextColor={THEME.colors.lm_ico}
+                  style={styles.textInput}
+                  value={location}
+                  onChangeText={setLocation}
+                />
+                {locationError ? <Text style={styles.errorText}>{locationError}</Text> : null}
+              </View>
             </View>
           </CollapsibleSection>
 
           <ItemSeparator></ItemSeparator>
 
-          <CollapsibleSection title="Data i czas" initialExpanded={true} style={{padding: 10}}>
-          <DatePicker
-            onDateSelected={handleDateTimeSelected}
-            initialDate={new Date()}
-            initialTime={new Date()}
-          />
+          <CollapsibleSection title="Data i czas" initialExpanded={true} style={{ padding: 10 }}>
+            <DatePicker
+              onDateSelected={handleDateTimeSelected}
+              initialDate={new Date()}
+              initialTime={new Date()}
+            />
           </CollapsibleSection>
 
           <ItemSeparator></ItemSeparator>
@@ -432,10 +432,7 @@ const styles = StyleSheet.create({
   photo: {
     height: 250,
     width: 370,
-    padding: 10,
-    marginHorizontal: 10,
-    marginVertical: 10,
-    borderRadius: 16,
+    marginHorizontal: 0,
   },
   photoPlaceholderButton: {
     position: "relative",
@@ -468,7 +465,6 @@ const styles = StyleSheet.create({
   },
   photoPlaceholderContent: {
     height: 250,
-    width: 370,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: THEME.colors.lm_ico,

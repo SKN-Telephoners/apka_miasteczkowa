@@ -9,18 +9,22 @@ type CreateEventResponse = { message: string; event_id: string; creator_id: stri
 type EventPictureInput = EventPicture | null;
 type UploadPictureResponse = {
     cloud_id?: string;
+    public_id?: string;
     clout_id?: string;
     picture_url?: string;
     pictures?: Array<{
         cloud_id: string;
+        public_id?: string;
         picture_url?: string;
     }>;
     data?: {
         cloud_id?: string;
+        public_id?: string;
         clout_id?: string;
         picture_url?: string;
         pictures?: Array<{
             cloud_id: string;
+            public_id?: string;
             picture_url?: string;
         }>;
     };
@@ -83,8 +87,10 @@ export const uploadEventPicture = async (uri: string, fileName = "event-picture.
             responseData.pictures?.[0]
             ?? responseData.data?.pictures?.[0]
             ?? (responseData.cloud_id ? { cloud_id: responseData.cloud_id, picture_url: responseData.picture_url } : undefined)
+            ?? (responseData.public_id ? { cloud_id: responseData.public_id, picture_url: responseData.picture_url } : undefined)
             ?? (responseData.clout_id ? { cloud_id: responseData.clout_id, picture_url: responseData.picture_url } : undefined)
             ?? (responseData.data?.cloud_id ? { cloud_id: responseData.data.cloud_id, picture_url: responseData.data.picture_url } : undefined)
+            ?? (responseData.data?.public_id ? { cloud_id: responseData.data.public_id, picture_url: responseData.data.picture_url } : undefined)
             ?? (responseData.data?.clout_id ? { cloud_id: responseData.data.clout_id, picture_url: responseData.data.picture_url } : undefined);
 
         if (!uploadedPicture?.cloud_id) {

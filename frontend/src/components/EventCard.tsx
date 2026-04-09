@@ -185,7 +185,7 @@ const EventCard = ({ item }: { item: Event }) => {
                     />
                 ) : null}
 
-                <Text style={[styles.textMuted, isPastEvent && styles.pastMetaText]}>• {item.date}</Text>
+                <Text style={[styles.textMuted, isPastEvent && styles.pastMetaText]}>• {item.date} • {item.time} </Text>
                 <View style={{ flexDirection: "row" }}>
                     <Text style={[styles.textMuted, isPastEvent && styles.pastMetaText]}>• {item.location}</Text>
                     <View style={styles.mapLabelRow}>

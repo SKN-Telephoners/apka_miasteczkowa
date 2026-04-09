@@ -12,6 +12,18 @@ def _is_cloudinary_configured() -> bool:
     cfg = cloudinary.config()
     return bool(cfg.cloud_name and cfg.api_key and cfg.api_secret)
 
+
+def _extract_public_id(upload_response: dict) -> str | None:
+    return upload_response.get("public_id") or upload_response.get("cloud_id")
+
+
+def _extract_secure_url(upload_response: dict) -> str | None:
+    eager = upload_response.get("eager") or []
+    if eager and isinstance(eager[0], dict):
+        return eager[0].get("secure_url")
+
+    return upload_response.get("secure_url")
+
 @pictures_bp.route("/upload", methods=["POST"])
 @jwt_required()
 @limiter.limit("600 per minute")
@@ -47,10 +59,14 @@ def upload_file():
             eager=[{"width": 500, "height": 500, "crop": "fill"}]
         )
 
+        public_id = _extract_public_id(response)
+        picture_url = _extract_secure_url(response)
+
         return make_api_response(ResponseTypes.CREATED, data={
-            "picture_url": response.get('eager')[0].get('secure_url'),
-            "cloud_id": response.get('cloud_id'),
-            "clout_id": response.get('cloud_id'),
+            "picture_url": picture_url,
+            "cloud_id": public_id,
+            "public_id": public_id,
+            "clout_id": public_id,
             "tags": response.get('tags', [])
         }, message="Picture uploaded and tagged successfully") # Returns the tags as a Python list
 
@@ -101,10 +117,13 @@ def upload_multiple_files():
                 overwrite=True,
                 eager=[{"width": 500, "height": 500, "crop": "fill"}]
             )
+
+            public_id = _extract_public_id(response)
             
             uploaded_data.append({
-                "picture_url": response.get('eager')[0].get('secure_url'),
-                "cloud_id": response.get('cloud_id')
+                "picture_url": _extract_secure_url(response),
+                "cloud_id": public_id,
+                "public_id": public_id
             })
 
         except Exception as e:

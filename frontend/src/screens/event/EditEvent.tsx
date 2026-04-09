@@ -448,10 +448,7 @@ const styles = StyleSheet.create({
     photo: {
         height: 250,
         width: 370,
-        padding: 10,
-        marginHorizontal: 10,
-        marginVertical: 10,
-        borderRadius: 16,
+        marginHorizontal: 0,  
     },
     photoPlaceholderButton: {
         position: "relative",
@@ -484,7 +481,6 @@ const styles = StyleSheet.create({
     },
     photoPlaceholderContent: {
         height: 250,
-        width: 370,
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: THEME.colors.lm_ico,
