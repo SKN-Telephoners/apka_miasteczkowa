@@ -127,7 +127,7 @@ const EventScreen = () => {
                 justifyContent: 'center',
                 alignItems: 'center'
             }}>
-                <ActivityIndicator size="large" color={THEME.colors.transparentOrange} />
+                <ActivityIndicator size="large" color={THEME.colors.lm_highlight} />
             </View>
         );
     };
@@ -150,7 +150,7 @@ const EventScreen = () => {
                         refetch();
                     }}
                 >
-                    <Text style={{ color: THEME.colors.transparentOrange, fontWeight: 'bold' }}>Spróbuj ponownie</Text>
+                    <Text style={{ color: THEME.colors.lm_highlight, fontWeight: 'bold' }}>Spróbuj ponownie</Text>
                 </TouchableOpacity>
             </View>
         );

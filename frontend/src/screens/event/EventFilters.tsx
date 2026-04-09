@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.colors.lm_bg,
   },
   optionButtonSelected: {
-    borderColor: THEME.colors.transparentOrange,
+    borderColor: THEME.colors.lm_highlight,
     backgroundColor: "rgba(245, 146, 69, 0.16)",
   },
   optionButtonDisabled: {

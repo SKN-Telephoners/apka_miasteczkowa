@@ -370,7 +370,7 @@ const EditEvent = () => {
                     >
                         {isPictureUploading ? (
                             <View style={styles.photoPlaceholderContent}>
-                                <ActivityIndicator size="large" color={THEME.colors.transparentOrange} />
+                                <ActivityIndicator size="large" color={THEME.colors.lm_highlight} />
                                 <Text style={styles.photoPlaceholderTitle}>Przesyłanie zdjęcia...</Text>
                             </View>
                         ) : (eventPicture?.url || eventPicturePreviewUri) ? (

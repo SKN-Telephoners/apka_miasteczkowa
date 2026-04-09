@@ -65,7 +65,7 @@ const MainTabs = () => {
         tabBarStyle: { height: 60 },
         tabBarItemStyle: { margin: 8, borderRadius: 10 },
         tabBarShowLabel: false,
-        tabBarActiveTintColor: THEME.colors.transparentOrange,
+        tabBarActiveTintColor: THEME.colors.lm_highlight,
 
         headerRight: () => {
           if (route.name !== 'Wydarzenia') {
@@ -143,7 +143,7 @@ const AppNavigator = () => {
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color={THEME.colors.transparentOrange} />
+        <ActivityIndicator size="large" color={THEME.colors.lm_highlight} />
       </View>
     );
   }
