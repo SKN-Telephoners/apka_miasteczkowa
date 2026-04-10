@@ -143,6 +143,11 @@ export const userService = {
     const response = await api.put("/api/users/update_profile", data);
     return response.data;
   },
+
+  changeEmail: async (newEmail: string) => {
+    const response = await api.put("/api/users/settings/change_email", { new_email: newEmail });
+    return response.data;
+  },
 };
 
 export default api;

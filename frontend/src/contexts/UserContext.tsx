@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { getUserProfile } from "../services/users";
+import { userService } from "../services/api";
 import { useAuth } from "./AuthContext";
 import { MOCKS } from "../utils/constants";
 
@@ -22,8 +23,8 @@ export interface UserProfile {
 interface UserContextType {
   user: UserProfile | null;
   isLoadingUser: boolean;
-  updateUser: (data: Partial<UserProfile>) => void;
   fetchUser: () => Promise<void>;
+  updateUserProfile: (data: any) => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -68,13 +69,21 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchUser();
   }, [fetchUser]);
 
-  const updateUser = (data: Partial<UserProfile>) => {
-    // MOCK: Aktualizacja kontekstu lokalnie po edycji na ekranie EditProfileScreen
-    setUser(prev => prev ? { ...prev, ...data } : null);
+  const updateUserProfile = async (data: any) => {
+    setIsLoadingUser(true);
+    try {
+      await userService.updateProfile(data);
+      await fetchUser();
+    } catch (error) {
+      console.error("Błąd podczas aktualizacji profilu użytkownika:", error);
+      throw error; // rzucamy błąd dalej, by mógł zostać złapany i wyświetlony przez komponent
+    } finally {
+      setIsLoadingUser(false);
+    }
   };
 
   return (
-    <UserContext.Provider value={{ user, isLoadingUser, updateUser, fetchUser }}>
+    <UserContext.Provider value={{ user, isLoadingUser, fetchUser, updateUserProfile }}>
       {children}
     </UserContext.Provider>
   );

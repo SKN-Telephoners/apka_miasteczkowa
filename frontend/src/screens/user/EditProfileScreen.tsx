@@ -11,30 +11,41 @@ import Avatar from '../../components/Avatar';
 import AppIcon from '../../components/AppIcon';
 
 const EditProfileScreen = () => {
-    const { user, updateUser } = useUser();
+    const { user, updateUserProfile } = useUser();
     const navigation = useNavigation();
     const { colors } = useTheme();
 
     const styles = useMemo(() => getStyles(colors), [colors]);
 
     // Lokalne stany dla formularza
+    const [username, setUsername] = useState(user?.username || "");
+    const [email, setEmail] = useState(user?.email || "");
     const [description, setDescription] = useState(user?.description || "");
     const [academy, setAcademy] = useState(user?.academy || "");
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
     const avatar = user?.profile_picture?.url || MOCKS.AVATAR; // read-only
-    const email = user?.email || ""; // read-only
-    const username = user?.username || ""; // read-only
     const [isSaving, setIsSaving] = useState(false);
+
+    const isEmailChanged = email !== user?.email;
+
+    const handleEmailRequest = async () => {
+        try {
+            await userService.changeEmail(email);
+            Alert.alert("Wysłano", "Weryfikacja została wysłana na podany nowy adres e-mail.");
+        } catch (error) {
+            Alert.alert("Błąd", "Nie udało się zainicjować zmiany adresu e-mail.");
+        }
+    };
 
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            await userService.updateProfile({ 
+            await updateUserProfile({ 
+                username,
                 description, 
                 academy: academy === "" ? null : academy 
             });
-            updateUser({ description, academy });
             Alert.alert("Sukces", "Zaktualizowano profil", [{ text: "OK", onPress: () => navigation.goBack() }]);
         } catch (error) {
             Alert.alert("Błąd", "Nie udało się zapisać zmian");
@@ -57,18 +68,26 @@ const EditProfileScreen = () => {
             <View style={styles.formSection}>
                 <Text style={styles.label}>Nazwa użytkownika</Text>
                 <TextInput
-                    style={[styles.input, styles.disabledInput]}
+                    style={styles.input}
                     value={username}
-                    editable={false}
+                    onChangeText={setUsername}
                 />
-                <Text style={styles.hint}>Tylko do odczytu</Text>
 
-                <Text style={styles.label}>Email</Text>
+                <Text style={[styles.label, { marginTop: THEME.spacing.m }]}>Email</Text>
                 <TextInput
-                    style={[styles.input, styles.disabledInput]}
+                    style={styles.input}
                     value={email}
-                    editable={false}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
                 />
+                {isEmailChanged && (
+                    <TouchableOpacity onPress={handleEmailRequest} style={{ marginTop: THEME.spacing.xs, alignSelf: 'flex-start' }}>
+                        <Text style={{ color: colors.primary, fontWeight: 'bold' }}>
+                            Zatwierdź zmianę e-maila
+                        </Text>
+                    </TouchableOpacity>
+                )}
 
                 <Text style={[styles.label, { marginTop: THEME.spacing.m }]}>Uczelnia</Text>
                 <View style={styles.dropdownContainer}>

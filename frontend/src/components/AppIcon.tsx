@@ -1,32 +1,28 @@
 import React from 'react';
-import { View, Image, ImageSourcePropType, StyleProp, ViewStyle } from 'react-native';
+import { View, StyleProp, ViewStyle } from 'react-native';
+
+import Iconset1 from '../../assets/iconset1.svg';
+import Iconset2 from '../../assets/iconset2.svg';
 
 export const ICON_REGISTRY = {
-  // Prawy górny róg w iconset1.jpg (kolumna 2, wiersz 0)
-  'Home': { source: require('../../assets/iconset1.jpg'), sheetWidth: 90, sheetHeight: 90, iconWidth: 30, iconHeight: 30, col: 2, row: 0 },
-
+  // Prawy górny róg (kolumna 2, wiersz 0)
+  'Home': { Component: Iconset1, cols: 3, rows: 3, col: 2, row: 0 },
   // Lewa strona środek (kolumna 0, wiersz 1)
-  'Mapa': { source: require('../../assets/iconset1.jpg'), sheetWidth: 90, sheetHeight: 90, iconWidth: 30, iconHeight: 30, col: 0, row: 1 },
-
+  'Mapa': { Component: Iconset1, cols: 3, rows: 3, col: 0, row: 1 },
   // Samo centrum (kolumna 1, wiersz 1)
-  'Wydarzenia': { source: require('../../assets/iconset1.jpg'), sheetWidth: 90, sheetHeight: 90, iconWidth: 30, iconHeight: 30, col: 1, row: 1 },
-
+  'Wydarzenia': { Component: Iconset1, cols: 3, rows: 3, col: 1, row: 1 },
   // Prawa strona środek (kolumna 2, wiersz 1)
-  'Profil': { source: require('../../assets/iconset1.jpg'), sheetWidth: 90, sheetHeight: 90, iconWidth: 30, iconHeight: 30, col: 2, row: 1 },
-
-  // ArrowDown w centrum iconset2.jpg (kolumna 1, wiersz 1) zakladając grid 3x3 90x90
-  'ArrowDown': { source: require('../../assets/iconset2.jpg'), sheetWidth: 90, sheetHeight: 90, iconWidth: 30, iconHeight: 30, col: 1, row: 1 },
-
+  'Profil': { Component: Iconset1, cols: 3, rows: 3, col: 2, row: 1 },
+  // ArrowDown w centrum (kolumna 1, wiersz 1) zakladając grid 3x3
+  'ArrowDown': { Component: Iconset2, cols: 3, rows: 3, col: 1, row: 1 },
 } as const;
 
 export type IconName = keyof typeof ICON_REGISTRY;
 
 interface BaseSpriteCropperProps {
-  source: ImageSourcePropType;
-  sheetWidth: number;
-  sheetHeight: number;
-  iconWidth: number;
-  iconHeight: number;
+  Component: React.FC<any>;
+  cols: number;
+  rows: number;
   colIndex: number;
   rowIndex: number;
   size: number;
@@ -35,35 +31,27 @@ interface BaseSpriteCropperProps {
 }
 
 const BaseSpriteCropper: React.FC<BaseSpriteCropperProps> = ({
-  source, sheetWidth, sheetHeight, iconWidth, iconHeight, colIndex, rowIndex, size, focused = true, style
+  Component, cols, rows, colIndex, rowIndex, size, focused = true, style
 }) => {
-  // Obliczamy skalowanie, żeby np. oryginalna 30x30 zmieściła się w rozmiarze size=50 
-  const scale = size / iconWidth;
-  const offsetX = -(colIndex * iconWidth) * scale;
-  const offsetY = -(rowIndex * iconHeight) * scale;
+  // SVG iconsety zawsze mają viewport bazy 788x788, z której liczymy proporcje maskowania.
+  const nativeWidth = 788;
+  const nativeHeight = 788;
+  const colWidth = nativeWidth / cols;
+  const rowHeight = nativeHeight / rows;
 
   return (
     <View style={[
       {
         width: size,
         height: size,
-        overflow: 'hidden',
         opacity: focused ? 1 : 0.4
       },
       style
     ]}>
-      <Image
-        source={source}
-        style={{
-          width: sheetWidth * scale,
-          height: sheetHeight * scale,
-          // Przesunięcie "pod" ramką aby odsłonić tylko żądaną komórkę siatki
-          transform: [
-            { translateX: offsetX },
-            { translateY: offsetY }
-          ]
-        }}
-        resizeMode="cover"
+      <Component 
+        width="100%" 
+        height="100%" 
+        viewBox={`${colIndex * colWidth} ${rowIndex * rowHeight} ${colWidth} ${rowHeight}`} 
       />
     </View>
   );
@@ -77,7 +65,7 @@ interface AppIconProps {
 }
 
 const AppIcon: React.FC<AppIconProps> = ({ name, size = 30, focused = true, style }) => {
-  const config = ICON_REGISTRY[name];
+  const config = ICON_REGISTRY[name as IconName];
 
   if (!config) {
     console.warn(`Ikona o nazwie "${name}" nie została znaleziona w ICON_REGISTRY. Upewnij się, że ją zdefiniowałeś.`);
@@ -86,11 +74,9 @@ const AppIcon: React.FC<AppIconProps> = ({ name, size = 30, focused = true, styl
 
   return (
     <BaseSpriteCropper
-      source={config.source}
-      sheetWidth={config.sheetWidth}
-      sheetHeight={config.sheetHeight}
-      iconWidth={config.iconWidth}
-      iconHeight={config.iconHeight}
+      Component={config.Component}
+      cols={config.cols}
+      rows={config.rows}
       colIndex={config.col}
       rowIndex={config.row}
       size={size}
