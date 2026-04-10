@@ -303,15 +303,18 @@ def feed():
         if limit > Constants.MAX_PAGINATION_LIMIT:
             limit = Constants.MAX_PAGINATION_LIMIT
 
-        query = Event.query.outerjoin(
-            Event_visibility, Event.event_id == Event_visibility.event_id
-        ).filter(
+        visibility_subquery = db.session.query(Event_visibility.event_id).filter(
+            Event_visibility.event_id == Event.event_id,
+            Event_visibility.shared_with == user_id
+        )
+
+        query = Event.query.filter(
             or_(
-                Event.is_private == False,              
-                Event.creator_id == user_id,               
-                Event_visibility.shared_with == user_id
+                Event.is_private == False,
+                Event.creator_id == user_id,
+                visibility_subquery.exists()
             )
-        ).distinct() 
+        )
 
         if q:
             search_filter = f"%{q}%"
@@ -325,14 +328,13 @@ def feed():
         elif visibility == "private":
             query = query.filter(Event.is_private == True)
 
-        participation_subquery = db.session.query(Event_participants.event_id).filter(
-            Event_participants.user_id == user_id
-        ).subquery()
+        if participation != "all":
+            participation_exists = db.session.query(Event_participants.event_id).filter(
+                Event_participants.event_id == Event.event_id,
+                Event_participants.user_id == user_id
+            ).exists()
 
-        if participation == "joined":
-            query = query.filter(Event.event_id.in_(participation_subquery))
-        elif participation == "not_joined":
-            query = query.filter(Event.event_id.in_(participation_subquery))
+            query = query.filter(participation_exists if participation == "joined" else ~participation_exists)
 
         now = datetime.now(timezone.utc)
         if created_window != "all":
@@ -349,31 +351,25 @@ def feed():
             else:
                 query = query.filter(Event.created_at >= start_date)
 
-        if sort_mode == "members_asc":
-            query = query.order_by(asc(Event.participant_count))
-        elif sort_mode == "members_desc":
-            query = query.order_by(desc(Event.participant_count))
-        elif sort_mode == "comments_asc":
-            query = query.order_by(asc(Event.comment_count))
-        elif sort_mode == "comments_desc":
-            query = query.order_by(desc(Event.comment_count))
+        if sort_mode == "members_asc": 
+            query = query.order_by(Event.participant_count.asc())
+        elif sort_mode == "members_desc": 
+            query = query.order_by(Event.participant_count.desc())
+        elif sort_mode == "comments_asc": 
+            query = query.order_by(Event.comment_count.asc())
+        elif sort_mode == "comments_desc": 
+            query = query.order_by(Event.comment_count.desc())
         else:
-            query = query.order_by(
-                desc(Event.date_and_time >= now),
-                asc(Event.date_and_time)
-            )
+            query = query.order_by(Event.date_and_time.asc())
         
         pagination = query.distinct().paginate(page=page, per_page=limit, error_out=False)
 
         creator_ids = {e.creator_id for e in pagination.items if e.creator_id}
-        creator_map = {}
-        if creator_ids:
-            creators = User.query.filter(User.user_id.in_(creator_ids)).all()
-            creator_map = {str(u.user_id): u.display_name for u in creators}
+        creators = {str(u.user_id): u.display_name for u in User.query.filter(User.user_id.in_(creator_ids)).all()}
 
         event_list=[
             {
-                "id": str(event.event_id),
+                "event_id": str(event.event_id),
                 "name": event.event_name,
                 "description": event.description,
                 "date": event.date_and_time.astimezone(local_tz).strftime("%d.%m.%Y"),
@@ -387,7 +383,7 @@ def feed():
                     } 
                     for pic in event.pictures
                 ],
-                "creator_username": creator_map.get(str(event.creator_id), "Unknown"),
+                "creator_username": creators.get(str(event.creator_id), "[deleted]"),
                 "comment_count": str(event.comment_count),
                 "participation_count": event.participant_count,
                 "is_private": event.is_private,
