@@ -25,13 +25,23 @@ export const getFriendsList = async (): Promise<FriendsDataResponse> => {
   }
 }
 
-// Function to search users - move do correct spot 
+// Function to search users
 export const searchUsers = async (query: string): Promise<User[]> => {
   try {
-    const response = await api.get<User[]>('/api/users/search', { params: { q: query } });
-    return response.data;
+    const response = await api.get<{ data: { users: any[] } }>('/api/users/users_list', {
+      data: { search: query, limit: 20 }
+    });
+    
+    return response.data?.data?.users?.map(u => ({
+      id: u.user_id,
+      username: u.username,
+      email: "", // publiczna szukajka raczej tego nie zdradzi
+      academy: u.academy,
+      avatarUrl: u.profile_picture || undefined,
+      is_friend: u.is_friend
+    })) as User[];
   } catch (err) {
-    console.warn("Wyszukiwanie znajomych nie jest jeszcze zaimplementowane w backendzie");
+    console.warn("Wyszukiwanie użytkowników zwróciło wyjątek:", err);
     return [];
   }
 };

@@ -1,25 +1,33 @@
-import React, { useMemo } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView } from "react-native";
+import React, { useMemo, useState } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, TextInput } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 import { useUser } from "../../contexts/UserContext";
 import { useFriends } from "../../contexts/FriendsContext";
 import { useEvents } from "../../contexts/EventContext";
 import { useTheme } from "../../contexts/ThemeContext";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { THEME, MOCKS } from "../../utils/constants";
 import Button from "../../components/Button";
 import CollapsibleSection from "../../components/CollapsibleSection";
 import Avatar from "../../components/Avatar";
-
-
+import { Ionicons } from "@expo/vector-icons";
 
 const UserScreen = () => {
   const { logout } = useAuth();
-  const { user } = useUser();
-  const { friends } = useFriends();
+  const { user: currentUser } = useUser();
+  const { friends, searchUsers } = useFriends();
   const { events } = useEvents();
   const { colors } = useTheme();
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+
+  // Przechwytywanie trybu
+  const visitedUser = route.params?.visitedUser;
+  const isOwner = !visitedUser || visitedUser.id === currentUser?.user_id || visitedUser.user_id === currentUser?.user_id;
+  const profileData = isOwner ? currentUser : visitedUser;
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
 
   const styles = useMemo(() => getStyles(colors), [colors]);
 
@@ -27,91 +35,144 @@ const UserScreen = () => {
     navigation.navigate("EditProfile");
   };
 
+  const gotoSettings = () => {
+    navigation.navigate("SettingsScreen");
+  }
+
   const handleAddPhoto = () => {
     console.log("Dodawanie zdjęcia...");
   };
 
-  const goToFriendProfile = (friendName: string) => {
-    console.log(`Przejście do profilu: ${friendName}`);
+  const goToFriendProfile = (friendData: any) => {
+    navigation.push("UserProfile", { visitedUser: friendData });
   };
+
+  const handleSearch = async (text: string) => {
+    setSearchQuery(text);
+    if (text.trim().length > 0) {
+      const results = await searchUsers(text);
+      setSearchResults(results);
+    } else {
+      setSearchResults([]);
+    }
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
-      {/* 1. Nagłówek: Avatar + Nazwa + Statystyki */}
+      {/* Nagłówek: Avatar + Nazwa + Statystyki / Trybik */}
       <View style={styles.headerRow}>
-        <Avatar uri={user?.profile_picture?.url || MOCKS.AVATAR} size={80} style={{ marginRight: THEME.spacing.m }} />
+        <Avatar uri={profileData?.profile_picture?.url || profileData?.avatarUrl || profileData?.profile_picture || MOCKS.AVATAR} size={80} style={{ marginRight: THEME.spacing.m }} />
 
         <View style={styles.headerInfo}>
-          <Text style={styles.userName}>{user?.username || "Użytkownik"}</Text>
-          <Text style={styles.statsText}>
-            Znajomi: <Text style={styles.statsNumber}>{friends.length}</Text>
-          </Text>
-          <Text style={styles.statsText}>
-            Dołączył: <Text style={styles.statsNumber}>{user?.joinedDate || "Nieznana"}</Text>
-          </Text>
+          <Text style={styles.userName}>{profileData?.username || profileData?.display_name || "Użytkownik"}</Text>
+          {isOwner && (
+            <>
+              <Text style={styles.statsText}>
+                Znajomi: <Text style={styles.statsNumber}>{friends.length}</Text>
+              </Text>
+              <Text style={styles.statsText}>
+                Dołączył: <Text style={styles.statsNumber}>{profileData?.joinedDate || "Nieznana"}</Text>
+              </Text>
+            </>
+          )}
         </View>
+
+        {isOwner && (
+          <TouchableOpacity onPress={gotoSettings} style={styles.settingsIcon}>
+            <Ionicons name="settings-outline" size={28} color={colors.text} />
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* 2. Wydział i kierunek */}
-      <Text style={styles.facultyText}>{user?.academy || "Brak Uczelni"}</Text>
-      <Text style={styles.majorText}>{user?.course ? `${user.course} ${user.year || ""} rok` : "Brak przypisanego kierunku"}</Text>
+      {/* Wydział i kierunek */}
+      <Text style={styles.facultyText}>{profileData?.academy || "Brak Uczelni"}</Text>
+      {isOwner && (
+        <Text style={styles.majorText}>{profileData?.course ? `${profileData.course} ${profileData.year || ""} rok` : "Brak przypisanego kierunku"}</Text>
+      )}
 
-      {/* 3. Biografia / Opis */}
-      <Text style={styles.userBio}>{user?.description || "Brak opisu"}</Text>
+      {/* Biografia / Opis */}
+      <Text style={styles.userBio}>{profileData?.description || (isOwner ? "Brak opisu" : "")}</Text>
 
-      {/* 4. Przycisk Edycji */}
-      <Button
-        title="Edytuj profil"
-        onPress={gotoEditProfile}
-        style={styles.editButton}
-      />
+      {/* Przycisk Edycji */}
+      {isOwner && (
+        <Button
+          title="Edytuj profil"
+          onPress={gotoEditProfile}
+          style={styles.editButton}
+        />
+      )}
 
-      {/* 5. Zwijane Sekcje */}
-      <CollapsibleSection title="Znajomi">
-        {friends.length > 0 ? (
-          friends.map((friend) => (
-            <TouchableOpacity key={friend.id} onPress={() => goToFriendProfile(friend.username)} style={styles.listItem}>
-              <Avatar uri={MOCKS.AVATAR} size={40} />
-              <Text style={styles.listText}>{friend.username}</Text>
-            </TouchableOpacity>
-          ))
-        ) : (
-          <Text style={styles.infoText}>Brak znajomych na liście</Text>
-        )}
-      </CollapsibleSection>
+      {/* Zwijane Sekcje - Widoczne tylko u Właściciela */}
+      {isOwner && (
+        <>
+          <CollapsibleSection title="Znajomi">
+            <TextInput
+              style={[styles.searchInput, { color: colors.text, borderColor: colors.border }]}
+              placeholder="Szukaj użytkowników..."
+              placeholderTextColor={colors.icon}
+              value={searchQuery}
+              onChangeText={handleSearch}
+            />
+            {searchResults.length > 0 ? (
+              searchResults.map((resUser) => (
+                <TouchableOpacity key={resUser.id} onPress={() => goToFriendProfile(resUser)} style={[styles.listItem, { borderColor: colors.border }]}>
+                  <Avatar uri={resUser.avatarUrl || MOCKS.AVATAR} size={40} />
+                  <View style={{ marginLeft: THEME.spacing.m, flex: 1 }}>
+                    <Text style={[styles.listText, { marginLeft: 0 }]}>{resUser.username}</Text>
+                    <Text style={styles.listSubtitle}>{resUser.academy}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <>
+                {friends.length > 0 ? (
+                  friends.map((friend) => (
+                    <TouchableOpacity key={friend.id} onPress={() => goToFriendProfile(friend)} style={[styles.listItem, { borderColor: colors.border }]}>
+                      <Avatar uri={MOCKS.AVATAR} size={40} />
+                      <Text style={styles.listText}>{friend.username}</Text>
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <Text style={styles.infoText}>Brak znajomych na liście</Text>
+                )}
+              </>
+            )}
+          </CollapsibleSection>
 
-      <CollapsibleSection title="Moje wydarzenia">
-        {events.length > 0 ? (
-          events.map((event) => (
-            <View key={event.id} style={styles.listItem}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.listTitle}>{event.name}</Text>
-                <Text style={styles.listSubtitle}>{event.date} o {event.time} • {event.location}</Text>
-              </View>
+          <CollapsibleSection title="Moje wydarzenia">
+            {events.length > 0 ? (
+              events.map((event) => (
+                <View key={event.id} style={[styles.listItem, { borderColor: colors.border }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.listTitle}>{event.name}</Text>
+                    <Text style={styles.listSubtitle}>{event.date} o {event.time} • {event.location}</Text>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.infoText}>Nie utworzyłeś jeszcze żadnych wydarzeń</Text>
+            )}
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Zapisane wydarzenia">
+            <Text style={styles.infoText}>Brak zapisanych wydarzeń (Oczekuje na endpoint w backendzie)</Text>
+          </CollapsibleSection>
+
+          <CollapsibleSection
+            title="Zdjęcia"
+            rightActionIcon="add"
+            onRightActionPress={handleAddPhoto}
+            initialExpanded={true}
+          >
+            <View style={styles.placeholderBox}>
+              <Image
+                source={{ uri: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" }}
+                style={styles.mockPhoto}
+              />
             </View>
-          ))
-        ) : (
-          <Text style={styles.infoText}>Nie utworzyłeś jeszcze żadnych wydarzeń</Text>
-        )}
-      </CollapsibleSection>
-
-      <CollapsibleSection title="Zapisane wydarzenia">
-        <Text style={styles.infoText}>Brak zapisanych wydarzeń (Oczekuje na endpoint w backendzie)</Text>
-      </CollapsibleSection>
-
-      <CollapsibleSection
-        title="Zdjęcia"
-        rightActionIcon="add"
-        onRightActionPress={handleAddPhoto}
-        initialExpanded={true}
-      >
-        <View style={styles.placeholderBox}>
-          <Image
-            source={{ uri: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" }}
-            style={styles.mockPhoto}
-          />
-        </View>
-      </CollapsibleSection>
+          </CollapsibleSection>
+        </>
+      )}
 
     </ScrollView>
   );
@@ -133,7 +194,7 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     justifyContent: "center",
   },
   userName: {
-    fontFamily: "Roboto", //Musimy mieć duże name i małe name
+    fontFamily: "Roboto",
     fontWeight: "700" as const,
     lineHeight: 20,
     fontSize: 20,
@@ -145,6 +206,11 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
   },
   statsNumber: {
     fontWeight: "bold",
+  },
+  settingsIcon: {
+    position: "absolute",
+    right: 0,
+    padding: 8,
   },
   facultyText: {
     ...THEME.typography.faculty,
@@ -183,12 +249,17 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     height: '100%',
     resizeMode: 'cover',
   },
+  searchInput: {
+    borderWidth: 1,
+    borderRadius: THEME.borderRadius.m,
+    padding: 10,
+    marginBottom: THEME.spacing.s,
+  },
   listItem: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: THEME.spacing.s,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   listText: {
     ...THEME.typography.text,
