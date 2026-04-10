@@ -15,7 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 const UserScreen = () => {
   const { logout } = useAuth();
   const { user: currentUser } = useUser();
-  const { friends, searchUsers } = useFriends();
+  const { friends, searchUsers, sendFriendRequest } = useFriends();
   const { events } = useEvents();
   const { colors } = useTheme();
   const navigation = useNavigation<any>();
@@ -49,11 +49,17 @@ const UserScreen = () => {
 
   const handleSearch = async (text: string) => {
     setSearchQuery(text);
-    if (text.trim().length > 0) {
+    if(text.trim().length > 0) {
       const results = await searchUsers(text);
       setSearchResults(results);
     } else {
       setSearchResults([]);
+    }
+  }
+
+  const handleSendRequest = async () => {
+    if (profileData?.id || profileData?.user_id) {
+      await sendFriendRequest(profileData.id || profileData.user_id);
     }
   }
 
@@ -93,14 +99,26 @@ const UserScreen = () => {
       {/* Biografia / Opis */}
       <Text style={styles.userBio}>{profileData?.description || (isOwner ? "Brak opisu" : "")}</Text>
 
-      {/* Przycisk Edycji */}
-      {isOwner && (
+      {/* Przyciski Akcji */}
+      {isOwner ? (
         <Button
           title="Edytuj profil"
           onPress={gotoEditProfile}
           style={styles.editButton}
         />
-      )}
+      ) : profileData?.is_friend ? (
+        <Button
+          title="Jesteście znajomymi"
+          onPress={() => {}}
+          style={[styles.editButton, { backgroundColor: colors.icon }]}
+        />
+      ) : (
+        <Button
+          title="Wyślij zaproszenie"
+          onPress={handleSendRequest}
+          style={styles.editButton}
+        />
+      )}      )}
 
       {/* Zwijane Sekcje - Widoczne tylko u Właściciela */}
       {isOwner && (
