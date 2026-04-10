@@ -10,16 +10,15 @@ export interface FriendsDataResponse {
   outgoingRequests: Request[];
 }
 
-// Function to get the friends list
 export const getFriendsList = async (): Promise<FriendsDataResponse> => {
   try {
-    const response = await api.get<{ message?: string; data: { friends: User[] } }>('/api/friends/list');
+    const response = await api.get<{ message?: string; data: FriendsDataResponse }>('/api/friends/list');
     return {
       friends: response.data?.data?.friends || [],
-      incomingRequests: [], // MOCK: Backend nie ma jeszcze endpointu na prośby
-      outgoingRequests: []  // MOCK: Backend nie ma jeszcze endpointu na prośby
+      incomingRequests: response.data?.data?.incomingRequests || [],
+      outgoingRequests: response.data?.data?.outgoingRequests || []
     };
-  }catch (err: any){
+  } catch (err: any) {
     //error handling for now
     const msg = err?.response?.data?.message || err?.message || "Network error"
     throw new Error(msg)

@@ -9,6 +9,7 @@ import HomeScreen from "../screens/home/HomeScreen";
 import MapScreen from "../screens/home/MapScreen";
 import ProfileStack from "./ProfileStack";
 import EventStack from "./EventStack";
+import NotificationsScreen from "../screens/home/NotificationsScreen";
 import { Ionicons } from "@expo/vector-icons";
 import type { ComponentProps } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -35,7 +36,7 @@ const MainTabs = () => {
   return (
     <Tab.Navigator
       initialRouteName="Mapa"
-      screenOptions={({ route }) => ({
+      screenOptions={({ route, navigation }) => ({
         headerStyle: { height: 70 },
         headerTitleAlign: "left",
         tabBarStyle: { height: 70 },
@@ -46,7 +47,7 @@ const MainTabs = () => {
             <TouchableOpacity style={{ marginHorizontal: 20 }}>
               <Ionicons name={'search'} size={28} />
             </TouchableOpacity>
-            <TouchableOpacity style={{ marginHorizontal: 20 }}>
+            <TouchableOpacity style={{ marginHorizontal: 20 }} onPress={() => navigation.navigate("Notifications")}>
               <Ionicons name={'notifications'} size={28} />
             </TouchableOpacity>
           </View>
@@ -84,7 +85,10 @@ const AppNavigator = () => {
          {!isAuthenticated ? (
           <Stack.Screen name="Auth" component={AuthStack} />
         ) : (
-          <Stack.Screen name="Main" component={MainTabs} />
+          <Stack.Group>
+            <Stack.Screen name="Main" component={MainTabs} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: true, headerTitle: 'Powiadomienia' }} />
+          </Stack.Group>
         )} 
       </Stack.Navigator>
     </NavigationContainer>
