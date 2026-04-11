@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
 
     textHighlight: {
         ...THEME.typography.text,
-        color: THEME.colors.lm_highlight
+        color: THEME.colors.light.transparentHighlight
     },
 
     pastTextColor: {
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
         fontSize: 18,
         bottom: 2,
         fontWeight: "bold",
-        color: THEME.colors.lm_highlight,
+        color: THEME.colors.light.transparentHighlight,
     },
 
     pastLocation: {

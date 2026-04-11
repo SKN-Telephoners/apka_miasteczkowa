@@ -157,12 +157,17 @@ export const authService = {
 
 export const userService = {
   getProfile: async () => {
-    const response = await api.get("/api/user/profile");
+    const response = await api.get("/api/users/profile");
     return response.data;
   },
 
   updateProfile: async (data: any) => {
-    const response = await api.put("/api/user/profile", data);
+    const response = await api.put("/api/users/update_profile", data);
+    return response.data;
+  },
+
+  changeEmail: async (newEmail: string) => {
+    const response = await api.put("/api/users/settings/change_email", { new_email: newEmail });
     return response.data;
   },
 };

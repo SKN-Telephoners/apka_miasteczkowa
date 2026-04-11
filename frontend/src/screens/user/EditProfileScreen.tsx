@@ -1,37 +1,66 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Alert, TouchableOpacity, Image } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, TextInput, Alert, TouchableOpacity, Image, ScrollView } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
+import { useUser } from '../../contexts/UserContext';
 import { useNavigation } from '@react-navigation/native';
-import { THEME, MOCKS } from '../../utils/constants';
+import { useTheme } from '../../contexts/ThemeContext';
+import { THEME, MOCKS, ACADEMIES } from '../../utils/constants';
 import Button from '../../components/Button';
+import { userService } from '../../services/api';
 import Avatar from '../../components/Avatar';
+import AppIcon from '../../components/AppIcon';
 
 const EditProfileScreen = () => {
-    const { user } = useAuth();
+    const { user, updateUserProfile } = useUser();
     const navigation = useNavigation();
+    const { colors } = useTheme();
+
+    const styles = useMemo(() => getStyles(colors), [colors]);
 
     // Lokalne stany dla formularza
-    const [bio, setBio] = useState("Status: Zdałem AUE!?@!");
-    const [email, setEmail] = useState(user?.email || "");
     const [username, setUsername] = useState(user?.username || "");
+    const [email, setEmail] = useState(user?.email || "");
+    const [description, setDescription] = useState(user?.description || "");
+    const [academy, setAcademy] = useState(user?.academy || "");
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-    const handleSave = () => {
-        // Tu wywołanie bazy
-        console.log("Zapisywanie profilu:", { username, bio, email });
-        Alert.alert(
-            "Sukces",
-            "Zaktualizowano profil (Mock)",
-            [{ text: "OK", onPress: () => navigation.goBack() }]
-        );
+    const avatar = user?.profile_picture?.url || MOCKS.AVATAR; // read-only
+    const [isSaving, setIsSaving] = useState(false);
+
+    const isEmailChanged = email !== user?.email;
+
+    const handleEmailRequest = async () => {
+        try {
+            await userService.changeEmail(email);
+            Alert.alert("Wysłano", "Weryfikacja została wysłana na podany nowy adres e-mail.");
+        } catch (error) {
+            Alert.alert("Błąd", "Nie udało się zainicjować zmiany adresu e-mail.");
+        }
+    };
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            await updateUserProfile({ 
+                username,
+                description, 
+                academy: academy === "" ? null : academy 
+            });
+            Alert.alert("Sukces", "Zaktualizowano profil", [{ text: "OK", onPress: () => navigation.goBack() }]);
+        } catch (error) {
+            Alert.alert("Błąd", "Nie udało się zapisać zmian");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
         <View style={styles.container}>
             {/* Sekcja Avatara */}
             <View style={styles.avatarSection}>
-                <Avatar uri={MOCKS.AVATAR} size={100} style={{ marginBottom: THEME.spacing.s }} />
-                <TouchableOpacity onPress={() => Alert.alert("Info", "Zmiana avatara udostępniona po wpięciu do API!")}>
-                    <Text style={styles.changeAvatarText}>Zmień zdjęcie</Text>
+                <Avatar uri={avatar} size={100} style={{ marginBottom: THEME.spacing.s }} />
+                <TouchableOpacity onPress={() => Alert.alert("Zablokowane", "Dodawanie zdjęcia będzie dostępne wkrótce.")}>
+                    <Text style={[styles.changeAvatarText, { color: colors.icon }]}>Zmień zdjęcie (Zablokowane)</Text>
                 </TouchableOpacity>
             </View>
 
@@ -39,40 +68,80 @@ const EditProfileScreen = () => {
             <View style={styles.formSection}>
                 <Text style={styles.label}>Nazwa użytkownika</Text>
                 <TextInput
-                    style={[styles.input, styles.disabledInput]}
+                    style={styles.input}
                     value={username}
-                    editable={false}
+                    onChangeText={setUsername}
                 />
-                <Text style={styles.hint}>Tylko do odczytu</Text>
 
-                <Text style={styles.label}>Email</Text>
+                <Text style={[styles.label, { marginTop: THEME.spacing.m }]}>Email</Text>
                 <TextInput
-                    style={[styles.input, styles.disabledInput]}
+                    style={styles.input}
                     value={email}
-                    editable={false}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
                 />
+                {isEmailChanged && (
+                    <TouchableOpacity onPress={handleEmailRequest} style={{ marginTop: THEME.spacing.xs, alignSelf: 'flex-start' }}>
+                        <Text style={{ color: colors.primary, fontWeight: 'bold' }}>
+                            Zatwierdź zmianę e-maila
+                        </Text>
+                    </TouchableOpacity>
+                )}
 
-                <Text style={[styles.label, { marginTop: THEME.spacing.m }]}>Bio / Status</Text>
+                <Text style={[styles.label, { marginTop: THEME.spacing.m }]}>Uczelnia</Text>
+                <View style={styles.dropdownContainer}>
+                    <TouchableOpacity
+                        style={styles.dropdownButton}
+                        onPress={() => setIsDropdownOpen(!isDropdownOpen)}
+                    >
+                        <Text style={[styles.input, styles.dropdownInputText]}>
+                            {academy || "Wybierz uczelnię"}
+                        </Text>
+                        <AppIcon name="ArrowDown" size={24} />
+                    </TouchableOpacity>
+
+                    {isDropdownOpen && (
+                        <View style={styles.dropdownList}>
+                            <ScrollView nestedScrollEnabled style={{ maxHeight: 150 }}>
+                                {ACADEMIES.map((acc) => (
+                                    <TouchableOpacity
+                                        key={acc}
+                                        style={styles.dropdownItem}
+                                        onPress={() => {
+                                            setAcademy(acc);
+                                            setIsDropdownOpen(false);
+                                        }}
+                                    >
+                                        <Text style={styles.dropdownItemText}>{acc}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    )}
+                </View>
+
+                <Text style={[styles.label, { marginTop: THEME.spacing.m }]}>Opis / Bio</Text>
                 <TextInput
                     style={[styles.input, styles.bioInput]}
-                    value={bio}
-                    onChangeText={setBio}
+                    value={description}
+                    onChangeText={setDescription}
                     multiline
                     placeholder="Napisz coś o sobie..."
-                    placeholderTextColor={THEME.colors.lm_srch_wrd}
+                    placeholderTextColor={colors.searchWord}
                 />
             </View>
 
             {/* Przycisk zapisu */}
-            <Button title="Zapisz zmiany" onPress={handleSave} />
+            <Button title={isSaving ? "Zapisywanie..." : "Zapisz zmiany"} onPress={handleSave} disabled={isSaving} />
         </View>
     );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: THEME.colors.lm_bg,
+        backgroundColor: colors.background,
         padding: THEME.spacing.m,
     },
     avatarSection: {
@@ -81,7 +150,7 @@ const styles = StyleSheet.create({
     },
     changeAvatarText: {
         ...THEME.typography.text,
-        color: THEME.colors.lm_highlight,
+        color: colors.highlight,
         fontWeight: 'bold',
     },
     formSection: {
@@ -89,20 +158,21 @@ const styles = StyleSheet.create({
     },
     label: {
         ...THEME.typography.text,
-        color: THEME.colors.lm_txt,
+        color: colors.text,
         marginBottom: THEME.spacing.xs,
     },
     input: {
         ...THEME.typography.text,
         borderWidth: 1,
-        borderColor: THEME.colors.lm_src_br,
+        borderColor: colors.border,
         borderRadius: THEME.borderRadius.m,
         padding: THEME.spacing.m,
-        backgroundColor: THEME.colors.lm_bg,
+        backgroundColor: colors.background,
+        color: colors.text,
     },
     disabledInput: {
-        backgroundColor: THEME.colors.lm_src_br,
-        color: THEME.colors.lm_ico,
+        backgroundColor: colors.border,
+        color: colors.icon,
     },
     bioInput: {
         height: 100,
@@ -110,9 +180,44 @@ const styles = StyleSheet.create({
     },
     hint: {
         ...THEME.typography.text,
-        color: THEME.colors.lm_ico,
+        color: colors.icon,
         marginBottom: THEME.spacing.s,
         marginTop: THEME.spacing.xs,
+    },
+    dropdownContainer: {
+        position: 'relative',
+        zIndex: 10,
+    },
+    dropdownButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: THEME.borderRadius.m,
+        backgroundColor: colors.background,
+        paddingRight: THEME.spacing.s,
+    },
+    dropdownInputText: {
+        flex: 1,
+        borderWidth: 0,
+        backgroundColor: 'transparent',
+    },
+    dropdownList: {
+        marginTop: THEME.spacing.xs,
+        backgroundColor: colors.background,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: THEME.borderRadius.m,
+        overflow: 'hidden',
+    },
+    dropdownItem: {
+        padding: THEME.spacing.m,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+    },
+    dropdownItemText: {
+        ...THEME.typography.text,
+        color: colors.text,
     }
 });
 

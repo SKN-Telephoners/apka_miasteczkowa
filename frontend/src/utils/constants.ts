@@ -16,6 +16,7 @@ export const STORAGE_KEYS = {
   ACCESS_TOKEN: "access_token",
   REFRESH_TOKEN: "refresh_token",
   USER_DATA: "user_data",
+  THEME: "theme",
 } as const;
 
 export const TIMEOUTS = {
@@ -26,38 +27,44 @@ export const TIMEOUTS = {
 
 export const THEME = {
   colors: {
-    // light mode
-    lm_bg: "#FFFFFF",
-    lm_txt: "#000000",
-    lm_nav_cons: "#202020",
-    lm_highlight: "#CF6F02",
-    lm_ico: "#7F7F7F",
-    lm_src_br: "#F8F8F8",
-    lm_srch_wrd: "#666666",
-    // dark mode
-    dm_bg: "#000000",
-    dm_txt: "#FFFFFF",
-    dm_nav_icons: "#E9E9E9",
-    dm_highlight: "#0300D1",
-    dm_ico: "#7F7F7F",
-    dm_src_br: "#222222",
-    dm_srch_wrd: "#999999",
-    // agh colors
-    agh_red: "#B00E28",
-    agh_green: "#00723F",
-    agh_black: "#221F21",
-    // phone_ui
-    phone_ui_bg: "#000000",
-    phone_ui_icons: "#D9D9D9",
-    // Status Colors (old)
-    success: "#",
-    error: "#",
-    warning: "#",
-    info: "#",
-    // Transparent Colors (old)
-    overlay: "rgba(0, 0, 0, 0.5)",
-    transparentBlue: "rgba(3, 0, 209, 0.8)",
-    transparentOrange: "rgba(207, 111, 2, 0.8)",
+    light: {
+      background: "#FFFFFF",
+      text: "#000000",
+      navIcons: "#202020",
+      highlight: "#CF6F02",
+      icon: "#7F7F7F",
+      border: "#F8F8F8",
+      searchWord: "#666666",
+      // agh colors
+      aghRed: "#B00E28",
+      aghGreen: "#00723F",
+      aghBlack: "#221F21",
+      // global status overlay
+      overlay: "rgba(0, 0, 0, 0.5)",
+      transparentHighlight: "rgba(207, 111, 2, 0.8)",
+      // additional
+      phoneUiBg: "#000000",
+      phoneUiIcons: "#D9D9D9",
+    },
+    dark: {
+      background: "#000000",
+      text: "#FFFFFF",
+      navIcons: "#E9E9E9",
+      highlight: "#0300D1",
+      icon: "#7F7F7F",
+      border: "#222222",
+      searchWord: "#999999",
+      // agh colors
+      aghRed: "#B00E28",
+      aghGreen: "#00723F",
+      aghBlack: "#221F21",
+      // global status overlay
+      overlay: "rgba(0, 0, 0, 0.5)",
+      transparentHighlight: "rgba(3, 0, 209, 0.8)",
+      // additional
+      phoneUiBg: "#000000",
+      phoneUiIcons: "#D9D9D9",
+    }
   },
 
   spacing: {
@@ -212,3 +219,12 @@ export const APP_CONFIG = {
 export const MOCKS = {
   AVATAR: "https://www.hollywoodreporter.com/wp-content/uploads/2011/06/drive_primary.jpg?w=1440&h=810&crop=1",
 } as const;
+
+export const ACADEMIES = [
+  "AGH",
+  "UJ",
+  "UEK",
+  "PK",
+  "UR",
+  "INNA"
+] as const;

@@ -153,7 +153,7 @@ const EventCommentsScreen = () => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              tintColor={THEME.colors.lm_highlight}
+              tintColor={THEME.colors.light.transparentHighlight}
             />
           }
           contentContainerStyle={{ paddingBottom: 90 }}
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     width: 5,
     height: 40,
     borderRadius: 2,
-    backgroundColor: THEME.colors.lm_highlight,
+    backgroundColor: THEME.colors.light.transparentHighlight,
     marginRight: 8,
   },
   replyTextContainer: {

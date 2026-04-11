@@ -370,7 +370,7 @@ const EditEvent = () => {
                     >
                         {isPictureUploading ? (
                             <View style={styles.photoPlaceholderContent}>
-                                <ActivityIndicator size="large" color={THEME.colors.lm_highlight} />
+                                <ActivityIndicator size="large" color={THEME.colors.light.transparentHighlight} />
                                 <Text style={styles.photoPlaceholderTitle}>Przesyłanie zdjęcia...</Text>
                             </View>
                         ) : (eventPicture?.url || eventPicturePreviewUri) ? (
@@ -440,7 +440,7 @@ const EditEvent = () => {
                         <Checkbox
                             value={isPrivate}
                             onValueChange={setIsPrivate}
-                            color={isPrivate ? THEME.colors.lm_highlight : undefined}
+                            color={isPrivate ? THEME.colors.light.transparentHighlight : undefined}
                         />
                         <Text style={{ marginLeft: 10 }}>Wydarzenie prywatne</Text>
                     </View>

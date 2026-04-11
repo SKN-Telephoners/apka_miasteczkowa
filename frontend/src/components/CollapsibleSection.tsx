@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
     View,
     Text,
@@ -10,6 +10,7 @@ import {
     Platform,
     UIManager
 } from 'react-native';
+import { useTheme } from '../contexts/ThemeContext';
 import { THEME } from '../utils/constants';
 import Icon from 'react-native-vector-icons/Ionicons';
 
@@ -37,6 +38,9 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     onRightActionPress,
     style
 }) => {
+    const { colors } = useTheme();
+    const styles = useMemo(() => getStyles(colors), [colors]);
+
     const [expanded, setExpanded] = useState(initialExpanded);
     const animation = useRef(new Animated.Value(initialExpanded ? 1 : 0)).current;
 
@@ -69,7 +73,7 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
                 >
                     <Text style={styles.title}>{title}</Text>
                     <Animated.View style={{ transform: [{ rotate: rotateInterpolation }] }}>
-                        <Icon name="chevron-down" size={20} color={THEME.colors.lm_ico} />
+                        <Icon name="chevron-down" size={20} color={colors.icon} />
                     </Animated.View>
                 </TouchableOpacity>
 
@@ -79,7 +83,7 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
                         onPress={onRightActionPress}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                        <Icon name={rightActionIcon} size={24} color={THEME.colors.lm_highlight} />
+                        <Icon name={rightActionIcon} size={24} color={colors.highlight} />
                     </TouchableOpacity>
                 )}
             </View>
@@ -93,7 +97,7 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     container: {
         marginBottom: THEME.spacing.m,
     },
@@ -102,7 +106,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: THEME.spacing.s,
         borderBottomWidth: 1,
-        borderBottomColor: THEME.colors.lm_src_br,
+        borderBottomColor: colors.border,
     },
     headerTouch: {
         flex: 1,
@@ -113,14 +117,14 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: THEME.colors.lm_txt,
+        color: colors.text,
         marginRight: THEME.spacing.s,
     },
     rightAction: {
         marginLeft: THEME.spacing.m,
         paddingLeft: THEME.spacing.s,
         borderLeftWidth: 1,
-        borderLeftColor: THEME.colors.lm_src_br,
+        borderLeftColor: colors.border,
     },
     content: {
         paddingTop: THEME.spacing.m,

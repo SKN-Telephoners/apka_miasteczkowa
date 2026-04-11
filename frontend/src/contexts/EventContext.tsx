@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState } from "react";
 import { Event } from "../types";
-import { createEvent, CreateEventData, deleteEvent } from "../services/events";
+import { createEvent, CreateEventData, deleteEvent, getEvents } from "../services/events";
 
 const normalizeEventPictures = (
   pictures?: CreateEventData["pictures"] | CreateEventData["picture"],
@@ -22,6 +22,7 @@ interface EventContextType {
   isLoading: boolean;
   addEvent: (eventData: CreateEventData) => Promise<void>;
   removeEvent: (eventId: string) => Promise<void>;
+  fetchEvents: (page?: number) => Promise<void>;
 }
 
 const EventContext = createContext<EventContextType | undefined>(undefined);
@@ -29,6 +30,22 @@ const EventContext = createContext<EventContextType | undefined>(undefined);
 export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  const fetchEvents = async (page: number = 1) => {
+    setIsLoading(true);
+    try {
+      const response = await getEvents(page);
+      setEvents(response.data || []);
+    } catch (error) {
+      console.error("Error fetching events:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchEvents();
+  }, []);
 
   const addEvent = async (eventData: CreateEventData) => {
     setIsLoading(true);
@@ -71,7 +88,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   return (
-    <EventContext.Provider value={{ events, isLoading, addEvent, removeEvent }}>
+    <EventContext.Provider value={{ events, isLoading, addEvent, removeEvent, fetchEvents }}>
       {children}
     </EventContext.Provider>
   );

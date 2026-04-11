@@ -52,8 +52,8 @@ const InputField: React.FC<InputFieldProps> = ({
   textContentType,
   importantForAutofill,
   showFloatingLabel = true,
-  floatingLabelColor = THEME.colors.lm_txt,
-  floatingLabelBackgroundColor = THEME.colors.lm_bg,
+  floatingLabelColor = THEME.colors.light.text,
+  floatingLabelBackgroundColor = THEME.colors.light.background,
 }) => {
   const [localErrorMessage, setLocalErrorMessage] = useState<string | null>(
     null
@@ -129,7 +129,7 @@ const InputField: React.FC<InputFieldProps> = ({
             <Ionicons
               name={secureTextEntry ? "eye-off-outline" : "eye-outline"}
               size={20}
-              color={THEME.colors.transparentOrange}
+              color={THEME.colors.light.transparentHighlight}
             />
           </TouchableOpacity>
         )}
@@ -167,11 +167,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     height: 40,
     borderWidth: 2,
-    borderColor: THEME.colors.lm_src_br,
-    backgroundColor: THEME.colors.lm_src_br
+    borderColor: THEME.colors.light.searchWord,
+    backgroundColor: THEME.colors.light.searchWord
   },
   inputBoxError: {
-    borderColor: THEME.colors.agh_red,
+    borderColor: THEME.colors.light.aghRed,
   },
   input: {
     flex: 1,
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
   },
   errorMessage: {
-    color: THEME.colors.agh_red,
+    color: THEME.colors.light.aghRed,
     fontSize: 12,
     marginTop: 5,
     marginLeft: 10,

@@ -9,11 +9,13 @@ import HomeScreen from "../screens/home/HomeScreen";
 import MapScreen from "../screens/home/MapScreen";
 import ProfileStack from "./ProfileStack";
 import EventStack from "./EventStack";
+import NotificationsScreen from "../screens/home/NotificationsScreen";
 import { Ionicons } from "@expo/vector-icons";
 import type { ComponentProps } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { ActivityIndicator, View, TouchableOpacity, Image } from "react-native";
 import { THEME } from "../utils/constants";
+import AppIcon from "../components/AppIcon";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -65,7 +67,7 @@ const MainTabs = () => {
         tabBarStyle: { height: 60 },
         tabBarItemStyle: { margin: 8, borderRadius: 10 },
         tabBarShowLabel: false,
-        tabBarActiveTintColor: THEME.colors.lm_highlight,
+        tabBarActiveTintColor: THEME.colors.light.highlight,
 
         headerRight: () => {
           if (route.name !== 'Wydarzenia') {
@@ -98,33 +100,18 @@ const MainTabs = () => {
                   />
                 </View>
               </TouchableOpacity>
+              <TouchableOpacity style={{ marginHorizontal: 20 }}>
+              <Ionicons name={'search'} size={28} />
+            </TouchableOpacity>
+            <TouchableOpacity style={{ marginHorizontal: 20 }} onPress={() => navigation.navigate("Notifications")}>
+              <Ionicons name={'notifications'} size={28} />
+            </TouchableOpacity>
             </View>
           );
         },
 
         tabBarIcon: ({ focused }) => {
-          const offset = getIconOffset(route.name);
-          return (
-            <View style={{
-              width: ICON_SIZE,
-              height: ICON_SIZE,
-              overflow: 'hidden',
-              opacity: focused ? 1 : 0.4
-            }}>
-              <Image
-                source={require('../../assets/iconset1.jpg')}
-                style={{
-                  width: IMAGE_WIDTH,
-                  height: IMAGE_HEIGHT,
-                  transform: [
-                    { translateX: offset.x },
-                    { translateY: offset.y }
-                  ]
-                }}
-                resizeMode="cover"
-              />
-            </View>
-          );
+          return <AppIcon name={route.name} focused={focused} />;
         },
       })}
     >
@@ -143,7 +130,7 @@ const AppNavigator = () => {
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color={THEME.colors.lm_highlight} />
+        <ActivityIndicator size="large" color={THEME.colors.light.highlight} />
       </View>
     );
   }
@@ -155,7 +142,10 @@ const AppNavigator = () => {
          {!isAuthenticated ? (
           <Stack.Screen name="Auth" component={AuthStack} />
         ) : (
-          <Stack.Screen name="Main" component={MainTabs} />
+          <Stack.Group>
+            <Stack.Screen name="Main" component={MainTabs} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: true, headerTitle: 'Powiadomienia' }} />
+          </Stack.Group>
         )} 
       </Stack.Navigator>
     </NavigationContainer>

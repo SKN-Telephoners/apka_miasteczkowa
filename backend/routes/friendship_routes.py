@@ -138,33 +138,57 @@ def decline_friend_request(friend_id):
 @friends_bp.route("/list", methods=["GET"])
 @jwt_required()
 def get_friends_list():
-    user= get_current_user()
+    user = get_current_user()
     
     try:
+        # 1. Fetching accepted friendships
         friendships = Friendship.query.filter(
             or_(
                 Friendship.user_id == user.user_id,
                 Friendship.friend_id == user.user_id
             )
         ).all()
-        if not friendships:
-            return make_api_response(ResponseTypes.SUCCESS, message="Empty friends list", data={"friends": []})
 
-        friends_id=[]
+        friends_id = []
         for friendship in friendships:
-            if user.user_id==friendship.user_id:
+            if user.user_id == friendship.user_id:
                 friends_id.append(friendship.friend_id)
             else:
                 friends_id.append(friendship.user_id)
-        friends = User.query.filter(User.user_id.in_(friends_id)).all()
-
+                
         friends_data = []
-        for friend in friends:
-            friends_data.append({
-                "id": str(friend.user_id),
-                "username": friend.display_name
-            })
-        return make_api_response(ResponseTypes.SUCCESS, message="Friends list", data={"friends": friends_data})
+        if friends_id:
+            friends = User.query.filter(User.user_id.in_(friends_id)).all()
+            for friend in friends:
+                friends_data.append({
+                    "id": str(friend.user_id),
+                    "username": friend.display_name,
+                    "email": friend.email
+                })
+
+        # 2. Fetching pending incoming friend requests
+        incoming_reqs = FriendRequest.query.filter_by(receiver_id=user.user_id).all()
+        incoming_data = [{
+            "id": str(r.sender_id),
+            "senderId": str(r.sender_id),
+            "receiverId": str(r.receiver_id),
+            "createdAt": r.requested_at.isoformat(),
+            "user": {
+                "id": str(r.sender.user_id),
+                "username": r.sender.display_name,
+                "email": r.sender.email
+            }
+        } for r in incoming_reqs]
+
+        return make_api_response(
+            ResponseTypes.SUCCESS, 
+            message="Friends list and requests", 
+            data={
+                "friends": friends_data,
+                "incomingRequests": incoming_data,
+                "outgoingRequests": []
+            }
+        )
     except SQLAlchemyError as e:
         current_app.logger.error(f"Database error: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)

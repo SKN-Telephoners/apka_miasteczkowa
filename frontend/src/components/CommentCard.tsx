@@ -470,7 +470,7 @@ const styles = StyleSheet.create({
     },
 
     responsesToggleText: {
-        color: THEME.colors.lm_highlight,
+        color: THEME.colors.light.transparentHighlight,
         fontSize: 14,
     },
     header: {
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
 
     menuEdit: {
         fontSize: 14,
-        color: THEME.colors.lm_highlight,
+        color: THEME.colors.light.transparentHighlight,
     },
 
     menuDelete: {

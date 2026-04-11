@@ -285,6 +285,8 @@ def edit_event(event_id):
 def feed():
     try:
         user = get_current_user()
+        user_id = user.user_id
+
         page = request.args.get("page", default=1, type=int)
         limit = request.args.get("limit", default=Constants.PAGINATION_DEFAULT_LIMIT, type=int)
         q = sanitize_input(str(request.args.get("q", ""))).strip()
@@ -293,7 +295,10 @@ def feed():
         created_window = str(request.args.get("created_window", "all")).strip().lower()
         sort_mode = str(request.args.get("sort_mode", "default")).strip().lower()
 
-        user_id = user.user_id
+        visibility = request.args.get("visibility", default="all", type=str).lower()
+        participation = request.args.get("participation", default="all", type=str).lower()
+        created_window = request.args.get("created_window", default="all", type=str).lower()
+        sort_mode = request.args.get("sort_mode", default="default", type=str).lower()
 
         if page < 1:
             page = 1
@@ -471,6 +476,9 @@ def feed():
                 "participant_count": int(event.participant_count or 0),
                 "is_participating": event.creator_id == user_id or event.event_id in participating_event_ids,
                 "is_private": event.is_private,
+                "is_joined": db.session.query(Event_participants).filter_by(
+                    event_id=event.event_id, user_id=user_id
+                ).first() is not None
             }
             for event in pagination.items
         ]
@@ -481,7 +489,8 @@ def feed():
                 "page": pagination.page,
                 "limit": limit,
                 "total": pagination.total,
-                "pages": pagination.pages
+                "pages": pagination.pages,
+                "has_next": pagination.has_next
             }
         })
     except Exception as e:
