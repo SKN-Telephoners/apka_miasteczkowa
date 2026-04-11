@@ -31,12 +31,12 @@ interface UserContextType {
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, userId } = useAuth();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(false);
 
   const fetchUser = useCallback(async () => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !userId) {
       setUser(null);
       return;
     }
@@ -44,7 +44,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoadingUser(true);
     try {
       // 1. Odbiór ORYGINAŁU z backendu
-      const profileData = await getUserProfile();
+      const profileData = await getUserProfile(userId);
 
       // 2. Usunięcie MOCKOWANYCH danych i wstawienie danych z zapytania
       const nextUser = {
@@ -67,7 +67,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setIsLoadingUser(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, userId]);
 
   useEffect(() => {
     fetchUser();

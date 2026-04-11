@@ -71,10 +71,10 @@ interface GetUserResponse {
   };
 }
 
-export const getUserProfile = async () => {
+export const getUserProfile = async (userId: string) => {
   try {
     const ts = new Date().getTime();
-    const response = await api.get(`/api/users/profile?t=${ts}`);
+    const response = await api.get(`/api/users/profile/${userId}?t=${ts}`);
     return response.data;
   } catch (err: any) {
     const msg = err?.response?.data?.message || err?.message || "Błąd pobierania profilu";
