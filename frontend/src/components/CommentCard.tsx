@@ -1,7 +1,7 @@
 import {
     Text, View, StyleSheet,
     TouchableOpacity, Alert,
-    TextInput, Modal, Pressable, Image,
+    TextInput, Modal, Pressable,
 } from "react-native";
 import { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
@@ -10,17 +10,16 @@ import { Comment } from "../types/comment";
 import { editComment, deleteComment, replyToComment } from "../services/comments";
 import UserCard from "./UserCard";
 import { THEME } from "../utils/constants";
+import SvgSpriteIcon from "./SvgSpriteIcon";
+import { useTheme } from "../contexts/ThemeContext";
+import { useMemo } from "react";
 
 const BASE_TILE_SIZE = 30;
 const ACTION_ICON_SIZE = 16;
-const ACTION_SPRITE_WIDTH = 90;
-const ACTION_SPRITE_HEIGHT = 90;
-const ACTION_SPRITE_SCALE = ACTION_ICON_SIZE / BASE_TILE_SIZE;
 const HEART_ICON_OFFSET = { x: 0, y: -BASE_TILE_SIZE * 2 };
 const COMMENT_ICON_OFFSET = { x: -BASE_TILE_SIZE, y: -BASE_TILE_SIZE * 2 };
 const REPLY_INDENT = 12;
 const MENU_ICON_SIZE = 14;
-const MENU_ICON_SCALE = MENU_ICON_SIZE / BASE_TILE_SIZE;
 const MENU_EDIT_ICON_OFFSET = { x: -BASE_TILE_SIZE * 2, y: -BASE_TILE_SIZE };
 const MENU_DELETE_ICON_OFFSET = { x: -BASE_TILE_SIZE, y: 0 };
 
@@ -87,6 +86,8 @@ const CommentCard = ({
     onDeleted: () => void;
     onReply: (comment: Comment) => void;
 }) => {
+    const { colors } = useTheme();
+    const styles = useMemo(() => getStyles(colors), [colors]);
 
 
     const [showReplies, setShowReplies] = useState(false);
@@ -192,7 +193,7 @@ const CommentCard = ({
                                 marginTop: 10,
                                 borderBottomWidth: 1,
                                 padding: 10,
-                                borderColor: '#59595aff',
+                                borderColor: colors.icon,
                                 marginBottom: 5
                             }}
                             value={commentValue}
@@ -209,13 +210,13 @@ const CommentCard = ({
                             }}
                             style={{ flexDirection: "row", alignItems: "center", alignSelf: "flex-end" }}
                         >
-                            <Text style={{ color: "#045ddaff", fontSize: 14 }}>
+                            <Text style={{ color: colors.transparentHighlight, fontSize: 14 }}>
                                 {isEditing ? "Zapisz" : "Edytuj"}
                             </Text>
                             <Ionicons
                                 name={"pencil"}
                                 size={12}
-                                color="#045ddaff"
+                                color={colors.transparentHighlight}
                                 style={{ marginLeft: 2 }}
                             />
                         </TouchableOpacity>
@@ -229,19 +230,7 @@ const CommentCard = ({
                 <View style={styles.actionsRow}>
                     <View style={styles.actionItem}>
                         <View style={styles.actionIconContainer}>
-                            <Image
-                                source={require("../../assets/iconset1.jpg")}
-                                style={[
-                                    styles.actionIconImage,
-                                    {
-                                        transform: [
-                                            { translateX: HEART_ICON_OFFSET.x * ACTION_SPRITE_SCALE },
-                                            { translateY: HEART_ICON_OFFSET.y * ACTION_SPRITE_SCALE },
-                                        ],
-                                    },
-                                ]}
-                                resizeMode="cover"
-                            />
+                            <SvgSpriteIcon set={1} size={ACTION_ICON_SIZE} offsetX={HEART_ICON_OFFSET.x} offsetY={HEART_ICON_OFFSET.y} />
                         </View>
                         <Text style={styles.actionCount}>0</Text>
                     </View>
@@ -254,19 +243,7 @@ const CommentCard = ({
                         }}
                     >
                         <View style={styles.actionIconContainer}>
-                            <Image
-                                source={require("../../assets/iconset1.jpg")}
-                                style={[
-                                    styles.actionIconImage,
-                                    {
-                                        transform: [
-                                            { translateX: COMMENT_ICON_OFFSET.x * ACTION_SPRITE_SCALE },
-                                            { translateY: COMMENT_ICON_OFFSET.y * ACTION_SPRITE_SCALE },
-                                        ],
-                                    },
-                                ]}
-                                resizeMode="cover"
-                            />
+                            <SvgSpriteIcon set={1} size={ACTION_ICON_SIZE} offsetX={COMMENT_ICON_OFFSET.x} offsetY={COMMENT_ICON_OFFSET.y} />
                         </View>
                         <Text style={styles.actionCount}>{item.replies?.length ?? 0}</Text>
                     </TouchableOpacity>
@@ -320,19 +297,7 @@ const CommentCard = ({
                                 }}
                             >
                                 <View style={styles.menuIconContainer}>
-                                    <Image
-                                        source={require("../../assets/iconset2.jpg")}
-                                        style={[
-                                            styles.menuIconImage,
-                                            {
-                                                transform: [
-                                                    { translateX: MENU_EDIT_ICON_OFFSET.x * MENU_ICON_SCALE },
-                                                    { translateY: MENU_EDIT_ICON_OFFSET.y * MENU_ICON_SCALE },
-                                                ],
-                                            },
-                                        ]}
-                                        resizeMode="cover"
-                                    />
+                                    <SvgSpriteIcon set={2} size={MENU_ICON_SIZE} offsetX={MENU_EDIT_ICON_OFFSET.x} offsetY={MENU_EDIT_ICON_OFFSET.y} />
                                 </View>
                                 <Text style={styles.menuEdit}>Edytuj</Text>
                             </TouchableOpacity>
@@ -345,19 +310,7 @@ const CommentCard = ({
                                 }}
                             >
                                 <View style={styles.menuIconContainer}>
-                                    <Image
-                                        source={require("../../assets/iconset2.jpg")}
-                                        style={[
-                                            styles.menuIconImage,
-                                            {
-                                                transform: [
-                                                    { translateX: MENU_DELETE_ICON_OFFSET.x * MENU_ICON_SCALE },
-                                                    { translateY: MENU_DELETE_ICON_OFFSET.y * MENU_ICON_SCALE },
-                                                ],
-                                            },
-                                        ]}
-                                        resizeMode="cover"
-                                    />
+                                    <SvgSpriteIcon set={2} size={MENU_ICON_SIZE} offsetX={MENU_DELETE_ICON_OFFSET.x} offsetY={MENU_DELETE_ICON_OFFSET.y} />
                                 </View>
                                 <Text style={styles.menuDelete}>Usuń</Text>
                             </TouchableOpacity>
@@ -373,10 +326,10 @@ const CommentCard = ({
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
 
     container: {
-        backgroundColor: THEME.colors.lm_bg,
+        backgroundColor: colors.background,
         paddingVertical: 15,
         marginVertical: 5,
         borderRadius: 0,
@@ -396,7 +349,7 @@ const styles = StyleSheet.create({
         position: "absolute",
         left: 0,
         width: 1,
-        backgroundColor: THEME.colors.lm_ico,
+        backgroundColor: colors.icon,
     },
 
     threadLineContinue: {
@@ -417,14 +370,14 @@ const styles = StyleSheet.create({
     edited: {
         fontSize: 12,
         fontStyle: "italic",
-        color: THEME.colors.lm_ico,
+        color: colors.icon,
         marginHorizontal: 10,
         marginVertical: 5,
     },
 
     commentContent: {
         ...THEME.typography.text,
-        color: THEME.colors.lm_txt,
+        color: colors.text,
         marginHorizontal: 10,
         marginTop: 10,
     },
@@ -444,7 +397,7 @@ const styles = StyleSheet.create({
 
     actionCount: {
         ...THEME.typography.text,
-        color: THEME.colors.lm_ico,
+        color: colors.icon,
         marginLeft: 4,
     },
 
@@ -452,11 +405,6 @@ const styles = StyleSheet.create({
         width: ACTION_ICON_SIZE,
         height: ACTION_ICON_SIZE,
         overflow: "hidden",
-    },
-
-    actionIconImage: {
-        width: ACTION_SPRITE_WIDTH * ACTION_SPRITE_SCALE,
-        height: ACTION_SPRITE_HEIGHT * ACTION_SPRITE_SCALE,
     },
 
     replies: {
@@ -470,7 +418,7 @@ const styles = StyleSheet.create({
     },
 
     responsesToggleText: {
-        color: THEME.colors.light.transparentHighlight,
+        color: colors.transparentHighlight,
         fontSize: 14,
     },
     header: {
@@ -486,7 +434,7 @@ const styles = StyleSheet.create({
     menu: {
         position: "absolute",
         width: 130,
-        backgroundColor: THEME.colors.lm_bg,
+        backgroundColor: colors.background,
         borderRadius: 12,
         paddingVertical: 6,
         paddingHorizontal: 10,
@@ -508,20 +456,15 @@ const styles = StyleSheet.create({
         overflow: "hidden",
     },
 
-    menuIconImage: {
-        width: ACTION_SPRITE_WIDTH * MENU_ICON_SCALE,
-        height: ACTION_SPRITE_HEIGHT * MENU_ICON_SCALE,
-    },
-
 
     menuEdit: {
         fontSize: 14,
-        color: THEME.colors.light.transparentHighlight,
+        color: colors.transparentHighlight,
     },
 
     menuDelete: {
         fontSize: 14,
-        color: THEME.colors.agh_red,
+        color: colors.aghRed,
     },
 
 

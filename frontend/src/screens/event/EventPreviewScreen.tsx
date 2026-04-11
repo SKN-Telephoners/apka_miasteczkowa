@@ -4,15 +4,23 @@ import { useRoute, useNavigation } from "@react-navigation/native";
 import EventCard from "../../components/EventCard";
 import { THEME } from "../../utils/constants";
 import { Event } from "../../types";
+import { useTheme } from "../../contexts/ThemeContext";
 
 const EventPreviewScreen = () => {
+    const { colors } = useTheme();
+    const styles = createStyles(colors);
     const route = useRoute<any>();
     const navigation = useNavigation<any>();
     const event = route?.params?.event as Event | undefined;
 
     React.useLayoutEffect(() => {
-        navigation.setOptions?.({ title: "Podgląd wydarzenia" });
-    }, [navigation]);
+        navigation.setOptions?.({
+            title: "Podgląd wydarzenia",
+            headerStyle: { backgroundColor: colors.background },
+            headerTintColor: colors.text,
+            headerTitleStyle: { color: colors.text },
+        });
+    }, [navigation, colors.background, colors.text]);
 
     if (!event) {
         return (
@@ -34,10 +42,10 @@ const EventPreviewScreen = () => {
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     screen: {
         flex: 1,
-        backgroundColor: THEME.colors.lm_bg,
+        backgroundColor: colors.background,
     },
     content: {
         padding: 12,
@@ -55,7 +63,7 @@ const styles = StyleSheet.create({
     },
     emptySubtitle: {
         ...THEME.typography.text,
-        color: THEME.colors.lm_ico,
+        color: colors.icon,
         textAlign: "center",
     },
 });

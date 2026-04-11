@@ -1,8 +1,10 @@
 
-import React from "react";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useMemo } from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useTheme } from "../contexts/ThemeContext";
 import Avatar from "./Avatar";
 import { THEME } from "../utils/constants";
+import SvgSpriteIcon from "./SvgSpriteIcon";
 
 type UserCardProps = {
     creatorDisplayName: string;
@@ -19,11 +21,7 @@ type UserCardProps = {
 
 const BASE_TILE_SIZE = 30;
 const META_ICON_SIZE = 18;
-const META_SPRITE_WIDTH = 90;
-const META_SPRITE_HEIGHT = 90;
-const META_SPRITE_SCALE = META_ICON_SIZE / BASE_TILE_SIZE;
 const USERNAME_ICON_SIZE = 22;
-const USERNAME_SPRITE_SCALE = USERNAME_ICON_SIZE / BASE_TILE_SIZE;
 const USERNAME_ICON_OFFSET = { x: -BASE_TILE_SIZE * 2, y: -BASE_TILE_SIZE };
 
 const UserCard = ({
@@ -38,6 +36,8 @@ const UserCard = ({
     onMetaIconPress,
     metaTextColor,
 }: UserCardProps) => {
+    const { colors } = useTheme();
+    const styles = useMemo(() => getStyles(colors), [colors]);
     const metaText = showCreatedAt && createdAtDisplay
         ? `${metaPrefix} • ${createdAtDisplay}`
         : metaPrefix;
@@ -54,13 +54,9 @@ const UserCard = ({
             <View style={styles.authorInfoContainer}>
                 <View>
                     <View style={styles.usernameRow}>
-                        <Text style={THEME.typography.eventTitle}>{creatorDisplayName}</Text>
+                        <Text style={[THEME.typography.eventTitle, { color: colors.text }]}>{creatorDisplayName}</Text>
                         <View style={styles.usernameIconContainer}>
-                            <Image
-                                source={require("../../assets/iconset1.jpg")}
-                                style={styles.usernameIconImage}
-                                resizeMode="cover"
-                            />
+                            <SvgSpriteIcon set={1} size={USERNAME_ICON_SIZE} offsetX={USERNAME_ICON_OFFSET.x} offsetY={USERNAME_ICON_OFFSET.y} />
                         </View>
                     </View>
                     {showMetaRow && (
@@ -73,11 +69,7 @@ const UserCard = ({
                                     disabled={!onMetaIconPress}
                                     activeOpacity={0.8}
                                 >
-                                    <Image
-                                        source={require("../../assets/iconset2.jpg")}
-                                        style={styles.metaIconImage}
-                                        resizeMode="cover"
-                                    />
+                                    <SvgSpriteIcon set={2} size={META_ICON_SIZE} />
                                 </TouchableOpacity>
                             )}
                         </View>
@@ -88,7 +80,7 @@ const UserCard = ({
     );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     container: {
         flexDirection: "row",
     },
@@ -107,18 +99,8 @@ const styles = StyleSheet.create({
     usernameIconContainer: {
         width: USERNAME_ICON_SIZE,
         height: USERNAME_ICON_SIZE,
-        overflow: "hidden",
         marginLeft: 6,
         marginTop: -2,
-    },
-
-    usernameIconImage: {
-        width: META_SPRITE_WIDTH * USERNAME_SPRITE_SCALE,
-        height: META_SPRITE_HEIGHT * USERNAME_SPRITE_SCALE,
-        transform: [
-            { translateX: USERNAME_ICON_OFFSET.x * USERNAME_SPRITE_SCALE },
-            { translateY: USERNAME_ICON_OFFSET.y * USERNAME_SPRITE_SCALE },
-        ],
     },
 
     authorMetaRow: {
@@ -130,7 +112,7 @@ const styles = StyleSheet.create({
 
     authorMetaText: {
         ...THEME.typography.text,
-        color: THEME.colors.lm_ico,
+        color: colors.icon,
         flex: 1,
         minWidth: 0,
     },
@@ -138,14 +120,7 @@ const styles = StyleSheet.create({
     metaIconContainer: {
         width: META_ICON_SIZE,
         height: META_ICON_SIZE,
-        overflow: "hidden",
         marginLeft: 8,
-    },
-
-    metaIconImage: {
-        width: META_SPRITE_WIDTH * META_SPRITE_SCALE,
-        height: META_SPRITE_HEIGHT * META_SPRITE_SCALE,
-        transform: [{ translateX: 0 }, { translateY: 0 }],
     },
 });
 

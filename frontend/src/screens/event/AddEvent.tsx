@@ -16,12 +16,14 @@ import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
 import { EventPicture } from "../../types";
 import { buildEventPreview } from "../../utils/eventPreview";
+import SvgSpriteIcon from "../../components/SvgSpriteIcon";
+import { useTheme } from "../../contexts/ThemeContext";
 
 
 const AddEvent = () => {
   const navigation = useNavigation<any>();
+  const { colors } = useTheme();
   const PREVIEW_ICON_SIZE = 22;
-  const PREVIEW_SPRITE_SCALE = PREVIEW_ICON_SIZE / 30;
   const PREVIEW_ICON_OFFSET = { x: 0, y: -60 };
 
 
@@ -63,18 +65,7 @@ const AddEvent = () => {
           activeOpacity={0.8}
             accessibilityLabel="Podgląd"
         >
-            <Image
-              source={require("../../../assets/iconset2.jpg")}
-              style={{
-                width: 90 * PREVIEW_SPRITE_SCALE,
-                height: 90 * PREVIEW_SPRITE_SCALE,
-                transform: [
-                  { translateX: PREVIEW_ICON_OFFSET.x * PREVIEW_SPRITE_SCALE },
-                  { translateY: PREVIEW_ICON_OFFSET.y * PREVIEW_SPRITE_SCALE },
-                ],
-              }}
-              resizeMode="cover"
-            />
+            <SvgSpriteIcon set={2} size={PREVIEW_ICON_SIZE} offsetX={PREVIEW_ICON_OFFSET.x} offsetY={PREVIEW_ICON_OFFSET.y} />
         </TouchableOpacity>
       ),
     });
@@ -98,6 +89,7 @@ const AddEvent = () => {
 
   const [titleError, setTitleError] = useState("");
   const [locationError, setLocationError] = useState("");
+  const styles = useMemo(() => getStyles(colors), [colors]);
 
   const uploadSelectedPicture = async (asset: ImagePicker.ImagePickerAsset) => {
     if (!asset.uri) {
@@ -336,7 +328,7 @@ const AddEvent = () => {
           />
           <TextInput
             placeholder="Dodaj tytuł... "
-            placeholderTextColor={THEME.colors.lm_ico}
+            placeholderTextColor={colors.searchWord}
             style={styles.titleInput}
             value={title}
             onChangeText={setTitle}
@@ -353,7 +345,7 @@ const AddEvent = () => {
           >
             {isPictureUploading ? (
               <View style={styles.photoPlaceholderContent}>
-                <ActivityIndicator size="large" color={THEME.colors.light.transparentHighlight} />
+                <ActivityIndicator size="large" color={colors.transparentHighlight} />
                 <Text style={styles.photoPlaceholderTitle}>Przesyłanie zdjęcia...</Text>
               </View>
             ) : (eventPicture?.url || eventPicturePreviewUri) ? (
@@ -391,7 +383,7 @@ const AddEvent = () => {
                 <Text style={styles.nameInput}>Nazwa</Text>
                 <TextInput
                   placeholder="Wpisz nazwę..."
-                  placeholderTextColor={THEME.colors.lm_ico}
+                  placeholderTextColor={colors.searchWord}
                   style={styles.textInput}
                   value={location}
                   onChangeText={setLocation}
@@ -419,9 +411,9 @@ const AddEvent = () => {
             <Checkbox
               value={isPrivate}
               onValueChange={setIsPrivate}
-              color={isPrivate ? THEME.colors.light.transparentHighlight : undefined}
+              color={isPrivate ? colors.transparentHighlight : undefined}
             />
-            <Text style={{ marginLeft: 10 }}>Wydarzenie prywatne</Text>
+            <Text style={{ marginLeft: 10, color: colors.text }}>Wydarzenie prywatne</Text>
           </View>
 
           <Button onPress={handleCreateEvent} title={isPictureUploading ? "Przesyłanie zdjęcia..." : "Opublikuj"} disabled={isPictureUploading}>
@@ -433,25 +425,25 @@ const AddEvent = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: THEME.colors.lm_bg,
+    backgroundColor: colors.background,
   },
   scrollView: {
     flex: 1,
-    backgroundColor: THEME.colors.lm_bg,
+    backgroundColor: colors.background,
   },
   scrollContent: {
     paddingBottom: 24,
-    backgroundColor: THEME.colors.lm_bg,
+    backgroundColor: colors.background,
   },
   container: {
     paddingLeft: 10,
     paddingRight: 10,
     paddingTop: 10,
     paddingBottom: 10,
-    backgroundColor: THEME.colors.lm_bg,
+    backgroundColor: colors.background,
   },
   titleInput: {
     paddingBottom: 10,
@@ -459,7 +451,7 @@ const styles = StyleSheet.create({
     padding: 10,
     ...THEME.typography.title,
     fontWeight: "700",
-    color: THEME.colors.lm_ico,
+    color: colors.text,
   },
 
   nameInput: {
@@ -468,17 +460,18 @@ const styles = StyleSheet.create({
     padding: 10,
     ...THEME.typography.title,
     fontWeight: "700",
-    color: THEME.colors.lm_txt,
+    color: colors.text,
   },
 
   textInput: {
     padding: 10,
+    color: colors.text,
   },
   descriptionInput: {
     textAlignVertical: "top",
   },
   errorText: {
-    color: THEME.colors.agh_red,
+    color: colors.aghRed,
     fontSize: 12,
     marginTop: 4,
     marginLeft: 10,
@@ -507,12 +500,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   photoOverlayTitle: {
+    ...THEME.typography.eventTitle,
     color: "#fff",
-    fontSize: 18,
-    fontWeight: "700",
     textAlign: "center",
   },
   photoOverlaySubtitle: {
+    ...THEME.typography.text,
     color: "#fff",
     marginTop: 6,
     textAlign: "center",
@@ -522,13 +515,14 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: THEME.colors.lm_ico,
+    backgroundColor: colors.border,
     borderRadius: 16,
   },
   photoPlaceholderTitle: {
+    ...THEME.typography.text,
     marginTop: 10,
     fontWeight: "700",
-    color: THEME.colors.lm_txt,
+    color: colors.text,
   }
 });
 

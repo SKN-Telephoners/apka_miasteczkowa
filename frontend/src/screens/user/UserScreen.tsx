@@ -65,7 +65,6 @@ const UserScreen = () => {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
-      {/* Nagłówek: Avatar + Nazwa + Statystyki / Trybik */}
       <View style={styles.headerRow}>
         <Avatar uri={profileData?.profile_picture?.url || profileData?.avatarUrl || profileData?.profile_picture || MOCKS.AVATAR} size={80} style={{ marginRight: THEME.spacing.m }} />
 
@@ -90,16 +89,13 @@ const UserScreen = () => {
         )}
       </View>
 
-      {/* Wydział i kierunek */}
       <Text style={styles.facultyText}>{profileData?.academy || "Brak Uczelni"}</Text>
       {isOwner && (
         <Text style={styles.majorText}>{profileData?.course ? `${profileData.course} ${profileData.year || ""} rok` : "Brak przypisanego kierunku"}</Text>
       )}
 
-      {/* Biografia / Opis */}
       <Text style={styles.userBio}>{profileData?.description || (isOwner ? "Brak opisu" : "")}</Text>
 
-      {/* Przyciski Akcji */}
       {isOwner ? (
         <Button
           title="Edytuj profil"
@@ -118,9 +114,8 @@ const UserScreen = () => {
           onPress={handleSendRequest}
           style={styles.editButton}
         />
-      )}      )}
+      )}
 
-      {/* Zwijane Sekcje - Widoczne tylko u Właściciela */}
       {isOwner && (
         <>
           <CollapsibleSection title="Znajomi">

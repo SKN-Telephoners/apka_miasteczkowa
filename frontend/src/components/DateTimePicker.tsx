@@ -2,6 +2,8 @@ import { Text, View } from "react-native";
 import React, { useState, useEffect } from "react";
 import DateTimePickerNative, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import Button from "./Button";
+import { THEME } from "../utils/constants";
+import { useTheme } from "../contexts/ThemeContext";
 
 interface DatePickerProps {
     onDateSelected: (date: string, time: string) => void;
@@ -14,6 +16,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
     initialDate,
     initialTime
 }) => {
+    const { colors } = useTheme();
 
     const [eventDate, setEventDate] = useState(initialDate);
     const [eventTime, setEventTime] = useState(initialTime);
@@ -60,9 +63,9 @@ const DatePicker: React.FC<DatePickerProps> = ({
                     title="Wybierz datę"
                     onPress={() => setShowDatePicker(true)}
                     style={{ width: "auto", marginVertical: 0, paddingHorizontal: 25 }}
-                    textStyle={{ color: "#ffffff" }}
+                    textStyle={{ color: colors.background }}
                 />
-                <Text style={{ color: '#000000', paddingVertical: 10, alignSelf: "center", fontWeight: "bold"}}>
+                <Text style={[THEME.typography.text, { color: colors.text, paddingVertical: 10, alignSelf: "center" }] }>
                         {eventDate.toLocaleDateString('pl-PL')}
                 </Text>
                 {showDatePicker && (
@@ -80,10 +83,10 @@ const DatePicker: React.FC<DatePickerProps> = ({
                     title="Wybierz godzinę"
                     onPress={() => setShowTimePicker(true)}
                     style={{ width: "auto", marginVertical: 0, paddingHorizontal: 20 }}
-                    textStyle={{ color: "#ffffff" }}
+                    textStyle={{ color: colors.background }}
                 />
                 
-                    <Text style={{ color: '#000000', paddingVertical: 10, alignSelf: "center", fontWeight: "bold"}}>
+                    <Text style={[THEME.typography.text, { color: colors.text, paddingVertical: 10, alignSelf: "center" }] }>
                         {eventTime.toLocaleTimeString('pl-PL', {
                             hour: '2-digit',
                             minute: '2-digit',

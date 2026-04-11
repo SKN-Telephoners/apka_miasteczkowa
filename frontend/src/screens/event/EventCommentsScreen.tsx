@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,6 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   TouchableOpacity,
-  Image,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { tokenStorage } from "../../utils/storage";
@@ -18,23 +17,21 @@ import { Comment } from "../../types/comment";
 import CommentCard from "../../components/CommentCard";
 import { TextInput } from "react-native-gesture-handler";
 import { THEME } from "../../utils/constants";
+import SvgSpriteIcon from "../../components/SvgSpriteIcon";
+import { useTheme } from "../../contexts/ThemeContext";
 
 const BASE_TILE_SIZE = 30;
 const FILTER_ICON_SIZE = 30;
-const FILTER_SPRITE_WIDTH = 90;
-const FILTER_SPRITE_HEIGHT = 90;
-const FILTER_SPRITE_SCALE = FILTER_ICON_SIZE / BASE_TILE_SIZE;
 const FILTER_ICON_OFFSET = { x: -BASE_TILE_SIZE, y: 0 };
 const SEND_ICON_SIZE = 28;
-const SEND_SPRITE_WIDTH = 90;
-const SEND_SPRITE_HEIGHT = 90;
-const SEND_SPRITE_SCALE = SEND_ICON_SIZE / BASE_TILE_SIZE;
 const SEND_ICON_OFFSET = { x: -BASE_TILE_SIZE * 2, y: 0 };
 
 const EventCommentsScreen = () => {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
   const { event } = route.params;
+  const { colors } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
 
   const [userID, setUserID] = useState("");
   const [commentCount, setCommentCount] = useState<number>(Number(event?.comment_count ?? 0));
@@ -63,11 +60,7 @@ const EventCommentsScreen = () => {
           activeOpacity={0.8}
         >
           <View style={styles.headerFilterIconContainer}>
-            <Image
-              source={require("../../../assets/iconset1.jpg")}
-              style={styles.headerFilterIconImage}
-              resizeMode="cover"
-            />
+            <SvgSpriteIcon set={1} size={FILTER_ICON_SIZE} offsetX={FILTER_ICON_OFFSET.x} offsetY={FILTER_ICON_OFFSET.y} />
           </View>
         </TouchableOpacity>
       ),
@@ -153,7 +146,7 @@ const EventCommentsScreen = () => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              tintColor={THEME.colors.light.transparentHighlight}
+              tintColor={colors.transparentHighlight}
             />
           }
           contentContainerStyle={{ paddingBottom: 90 }}
@@ -202,11 +195,7 @@ const EventCommentsScreen = () => {
 
         <TouchableOpacity onPress={handleAddComment} style={styles.sendButton}>
           <View style={styles.sendIconContainer}>
-            <Image
-              source={require("../../../assets/iconset2.jpg")}
-              style={styles.sendIconImage}
-              resizeMode="cover"
-            />
+            <SvgSpriteIcon set={2} size={SEND_ICON_SIZE} offsetX={SEND_ICON_OFFSET.x} offsetY={SEND_ICON_OFFSET.y} />
           </View>
         </TouchableOpacity>
       </View>
@@ -214,10 +203,10 @@ const EventCommentsScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: THEME.colors.lm_bg,
+    backgroundColor: colors.background,
   },
   headerContainer: {
     alignItems: "center",
@@ -228,11 +217,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginVertical: 10,
     fontWeight: "bold",
-    color: THEME.colors.lm_txt,
+    color: colors.text,
   },
   emptyState: {
     fontSize: 14,
-    color: THEME.colors.lm_ico,
+    color: colors.icon,
     textAlign: "center",
     marginBottom: 20,
   },
@@ -245,18 +234,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: THEME.colors.lm_bg,
+    backgroundColor: colors.background,
     borderTopWidth: 1,
-    borderColor: THEME.colors.lm_src_br,
+    borderColor: colors.border,
   },
   commentInput: {
     flex: 1,
-    backgroundColor: THEME.colors.lm_src_br,
+    backgroundColor: colors.background,
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 8,
     fontSize: 14,
     maxHeight: 100,
+    color: colors.text,
   },
   sendButton: {
     marginLeft: 10,
@@ -268,29 +258,20 @@ const styles = StyleSheet.create({
   sendIconContainer: {
     width: SEND_ICON_SIZE,
     height: SEND_ICON_SIZE,
-    overflow: "hidden",
-  },
-  sendIconImage: {
-    width: SEND_SPRITE_WIDTH * SEND_SPRITE_SCALE,
-    height: SEND_SPRITE_HEIGHT * SEND_SPRITE_SCALE,
-    transform: [
-      { translateX: SEND_ICON_OFFSET.x * SEND_SPRITE_SCALE },
-      { translateY: SEND_ICON_OFFSET.y * SEND_SPRITE_SCALE },
-    ],
   },
   replyBanner: {
     position: "absolute",
     bottom: 60,
     left: 0,
     right: 0,
-    backgroundColor: THEME.colors.lm_src_br,
+    backgroundColor: colors.background,
     paddingHorizontal: 12,
     paddingVertical: 8,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     borderTopWidth: 1,
-    borderColor: THEME.colors.lm_src_br,
+    borderColor: colors.border,
   },
   replyIndicatorContent: {
     flexDirection: "row",
@@ -302,7 +283,7 @@ const styles = StyleSheet.create({
     width: 5,
     height: 40,
     borderRadius: 2,
-    backgroundColor: THEME.colors.light.transparentHighlight,
+    backgroundColor: colors.transparentHighlight,
     marginRight: 8,
   },
   replyTextContainer: {
@@ -310,16 +291,16 @@ const styles = StyleSheet.create({
   },
   replyText: {
     fontSize: 12,
-    color: THEME.colors.lm_ico,
+    color: colors.icon,
   },
   cancelReplyText: {
     fontSize: 13,
     fontWeight: "600",
-    color: THEME.colors.agh_red,
+    color: colors.aghRed,
   },
   replyPreviewText: {
     ...THEME.typography.text,
-    color: THEME.colors.lm_txt,
+    color: colors.text,
     fontSize: 13,
   },
   headerFilterButton: {
@@ -328,15 +309,6 @@ const styles = StyleSheet.create({
   headerFilterIconContainer: {
     width: FILTER_ICON_SIZE,
     height: FILTER_ICON_SIZE,
-    overflow: "hidden",
-  },
-  headerFilterIconImage: {
-    width: FILTER_SPRITE_WIDTH * FILTER_SPRITE_SCALE,
-    height: FILTER_SPRITE_HEIGHT * FILTER_SPRITE_SCALE,
-    transform: [
-      { translateX: FILTER_ICON_OFFSET.x * FILTER_SPRITE_SCALE },
-      { translateY: FILTER_ICON_OFFSET.y * FILTER_SPRITE_SCALE },
-    ],
   },
 });
 

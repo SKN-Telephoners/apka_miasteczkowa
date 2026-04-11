@@ -7,7 +7,6 @@ import {
     FlatList,
     RefreshControl,
     TouchableOpacity,
-    Image,
     StyleSheet,
 } from "react-native";
 import EventCard from "../../components/EventCard"
@@ -18,12 +17,11 @@ import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/nativ
 import { THEME } from "../../utils/constants";
 import ItemSeparator from "../../components/ItemSeparator"
 import { useInfiniteQuery } from "@tanstack/react-query"
+import SvgSpriteIcon from "../../components/SvgSpriteIcon";
+import { useTheme } from "../../contexts/ThemeContext";
 
 const BASE_TILE_SIZE = 30;
 const FILTER_ICON_SIZE = 30;
-const FILTER_SPRITE_WIDTH = 90;
-const FILTER_SPRITE_HEIGHT = 90;
-const FILTER_SPRITE_SCALE = FILTER_ICON_SIZE / BASE_TILE_SIZE;
 const FILTER_ICON_OFFSET = { x: -BASE_TILE_SIZE, y: 0 };
 const PAGE_SIZE = 20;
 
@@ -42,6 +40,7 @@ const EventScreen = () => {
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
     const [canLoadMore, setCanLoadMore] = useState(false);
     const [filters, setFilters] = useState<EventFilterState>(DEFAULT_EVENT_FILTERS);
+    const { colors } = useTheme();
 
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
@@ -127,7 +126,7 @@ const EventScreen = () => {
                 justifyContent: 'center',
                 alignItems: 'center'
             }}>
-                <ActivityIndicator size="large" color={THEME.colors.light.transparentHighlight} />
+                <ActivityIndicator size="large" color={colors.transparentHighlight} />
             </View>
         );
     };
@@ -135,7 +134,7 @@ const EventScreen = () => {
 
     if (isPending && !isRefetching) {
         return (
-            <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: THEME.colors.lm_bg }}>
+            <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.background }}>
                 <ActivityIndicator size="large" />
             </View>
         );
@@ -143,21 +142,21 @@ const EventScreen = () => {
 
     if (error) {
         return (
-            <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: THEME.colors.lm_bg }}>
-                <Text>Wystąpił błąd podczas pobierania wydarzeń</Text>
+            <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.background}}>
+                <Text style={{ color: colors.text }}>Wystąpił błąd podczas pobierania wydarzeń</Text>
                 <TouchableOpacity
                     onPress={() => {
                         refetch();
                     }}
                 >
-                    <Text style={{ color: THEME.colors.light.transparentHighlight, fontWeight: 'bold' }}>Spróbuj ponownie</Text>
+                    <Text style={{ color: colors.transparentHighlight, fontWeight: 'bold' }}>Spróbuj ponownie</Text>
                 </TouchableOpacity>
             </View>
         );
     }
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: THEME.colors.lm_bg }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
             <View style={styles.searchRowContainer}>
                 <View style={styles.searchInputContainer}>
                     <InputField
@@ -175,11 +174,7 @@ const EventScreen = () => {
                     activeOpacity={0.8}
                 >
                     <View style={styles.filterIconContainer}>
-                        <Image
-                            source={require("../../../assets/iconset1.jpg")}
-                            style={styles.filterIconImage}
-                            resizeMode="cover"
-                        />
+                        <SvgSpriteIcon set={1} size={FILTER_ICON_SIZE} offsetX={FILTER_ICON_OFFSET.x} offsetY={FILTER_ICON_OFFSET.y} />
                     </View>
                 </TouchableOpacity>
             </View>
@@ -229,15 +224,6 @@ const styles = StyleSheet.create({
     filterIconContainer: {
         width: FILTER_ICON_SIZE,
         height: FILTER_ICON_SIZE,
-        overflow: "hidden",
-    },
-    filterIconImage: {
-        width: FILTER_SPRITE_WIDTH * FILTER_SPRITE_SCALE,
-        height: FILTER_SPRITE_HEIGHT * FILTER_SPRITE_SCALE,
-        transform: [
-            { translateX: FILTER_ICON_OFFSET.x * FILTER_SPRITE_SCALE },
-            { translateY: FILTER_ICON_OFFSET.y * FILTER_SPRITE_SCALE },
-        ],
     },
 });
 

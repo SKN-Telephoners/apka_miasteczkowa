@@ -8,10 +8,14 @@ import EditEvent from "../screens/event/EditEvent";
 import EventPreviewScreen from "../screens/event/EventPreviewScreen";
 import EventFilters from "../screens/event/EventFilters";
 import { THEME } from "../utils/constants";
+import { useTheme } from "../contexts/ThemeContext";
 
 const Stack = createStackNavigator();
 
 const CommentFiltersScreen = () => {
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
+
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.container}>
@@ -23,8 +27,17 @@ const CommentFiltersScreen = () => {
 };
 
 const EventStack = () => {
+  const { colors } = useTheme();
+
   return (
-    <Stack.Navigator>
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.background },
+        headerTintColor: colors.text,
+        headerTitleStyle: { color: colors.text },
+        headerShadowVisible: false,
+      }}
+    >
       <Stack.Screen name="EventScreen" component={EventScreen} options={{ headerShown: false }} />
       <Stack.Screen name="EventComments" component={EventCommentsScreen} options={{ title: "Komentarze" }} />
       <Stack.Screen name="AddEvent" component={AddEvent} options={{ title: "Dodaj wydarzenie" }} />
@@ -36,10 +49,10 @@ const EventStack = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: THEME.colors.lm_bg,
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
@@ -54,7 +67,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     ...THEME.typography.text,
-    color: THEME.colors.lm_ico,
+    color: colors.icon,
     textAlign: "center",
   },
 });

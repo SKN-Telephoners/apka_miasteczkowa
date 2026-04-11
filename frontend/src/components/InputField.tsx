@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
-  Image,
   TextStyle,
   TextInputProps,
   StyleSheet,
@@ -10,7 +9,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useMemo } from "react";
+import { useTheme } from "../contexts/ThemeContext";
 import { THEME } from '../utils/constants';
+import SvgSpriteIcon from "./SvgSpriteIcon";
 
 interface InputFieldProps {
   placeholder: string;
@@ -33,9 +35,6 @@ interface InputFieldProps {
 
 const BASE_TILE_SIZE = 30;
 const ICON_SIZE = 18;
-const IMAGE_WIDTH = 90;
-const IMAGE_HEIGHT = 90;
-const SPRITE_SCALE = ICON_SIZE / BASE_TILE_SIZE;
 
 const InputField: React.FC<InputFieldProps> = ({
   placeholder,
@@ -55,6 +54,8 @@ const InputField: React.FC<InputFieldProps> = ({
   floatingLabelColor = THEME.colors.light.text,
   floatingLabelBackgroundColor = THEME.colors.light.background,
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
   const [localErrorMessage, setLocalErrorMessage] = useState<string | null>(
     null
   );
@@ -91,6 +92,9 @@ const InputField: React.FC<InputFieldProps> = ({
     ? localErrorMessage ?? errorMessage
     : null;
 
+  const resolvedFloatingLabelColor = floatingLabelColor ?? colors.text;
+  const resolvedFloatingLabelBackgroundColor = floatingLabelBackgroundColor ?? colors.background;
+
   return (
     <View style={styles.container}>
       <View
@@ -103,7 +107,7 @@ const InputField: React.FC<InputFieldProps> = ({
           <Text
             style={[
               styles.legend,
-              { color: floatingLabelColor, backgroundColor: floatingLabelBackgroundColor },
+              { color: resolvedFloatingLabelColor, backgroundColor: resolvedFloatingLabelBackgroundColor },
             ]}
           >
             {placeholder}
@@ -129,17 +133,13 @@ const InputField: React.FC<InputFieldProps> = ({
             <Ionicons
               name={secureTextEntry ? "eye-off-outline" : "eye-outline"}
               size={20}
-              color={THEME.colors.light.transparentHighlight}
+              color={colors.transparentHighlight}
             />
           </TouchableOpacity>
         )}
         {!toggleSecure && showSearchSpriteIcon && (
           <View style={styles.searchIconContainer}>
-            <Image
-              source={require("../../assets/iconset1.jpg")}
-              style={styles.searchIconImage}
-              resizeMode="cover"
-            />
+            <SvgSpriteIcon set={1} size={ICON_SIZE} />
           </View>
         )}
       </View>
@@ -156,7 +156,7 @@ const InputField: React.FC<InputFieldProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
   container: {
     marginBottom: 1,
   },
@@ -167,26 +167,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     height: 40,
     borderWidth: 2,
-    borderColor: THEME.colors.light.searchWord,
-    backgroundColor: THEME.colors.light.searchWord
+    borderColor: colors.searchWord,
+    backgroundColor: colors.border,
   },
   inputBoxError: {
-    borderColor: THEME.colors.light.aghRed,
+    borderColor: colors.aghRed,
   },
   input: {
     flex: 1,
     marginLeft: 10,
+    color: colors.text,
   },
   searchIconContainer: {
     width: ICON_SIZE,
     height: ICON_SIZE,
-    overflow: "hidden",
     marginLeft: 8,
-  },
-  searchIconImage: {
-    width: IMAGE_WIDTH * SPRITE_SCALE,
-    height: IMAGE_HEIGHT * SPRITE_SCALE,
-    transform: [{ translateX: 0 }, { translateY: 0 }],
   },
   legend: {
     position: "absolute",
@@ -195,7 +190,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
   },
   errorMessage: {
-    color: THEME.colors.light.aghRed,
+    color: colors.aghRed,
     fontSize: 12,
     marginTop: 5,
     marginLeft: 10,

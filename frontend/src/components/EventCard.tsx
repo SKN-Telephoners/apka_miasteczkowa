@@ -1,5 +1,5 @@
 import { TouchableOpacity, Text, View, StyleSheet, Alert, Image } from "react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Event } from "../types";
 import { useNavigation } from "@react-navigation/native";
 import { THEME } from '../utils/constants';
@@ -7,6 +7,8 @@ import Button from "./Button";
 import { tokenStorage } from "../utils/storage";
 import { joinEvent, leaveEvent } from "../services/events";
 import UserCard from "./UserCard";
+import SvgSpriteIcon from "./SvgSpriteIcon";
+import { useTheme } from "../contexts/ThemeContext";
 
 const parseEventDateTime = (event: Event): Date | null => {
     if (!event?.date || !event?.time) return null;
@@ -69,17 +71,11 @@ const formatCreatedAt = (createdAt?: string): string => {
 
 const BASE_TILE_SIZE = 30;
 const META_ICON_SIZE = 18;
-const META_SPRITE_WIDTH = 90;
-const META_SPRITE_HEIGHT = 90;
-const META_SPRITE_SCALE = META_ICON_SIZE / BASE_TILE_SIZE;
 const USERNAME_ICON_SIZE = 22;
-const USERNAME_SPRITE_SCALE = USERNAME_ICON_SIZE / BASE_TILE_SIZE;
 const USERNAME_ICON_OFFSET = { x: -BASE_TILE_SIZE * 2, y: -BASE_TILE_SIZE };
 const MAP_INLINE_ICON_SIZE = 14;
-const MAP_INLINE_SPRITE_SCALE = MAP_INLINE_ICON_SIZE / BASE_TILE_SIZE;
 const MAP_INLINE_ICON_OFFSET = { x: 0, y: -BASE_TILE_SIZE };
 const TRAILING_ICON_SIZE = 24;
-const TRAILING_SPRITE_SCALE = TRAILING_ICON_SIZE / BASE_TILE_SIZE;
 const HEART_ICON_OFFSET = { x: 0, y: -BASE_TILE_SIZE * 2 };
 const COMMENT_ICON_OFFSET = { x: -BASE_TILE_SIZE, y: -BASE_TILE_SIZE * 2 };
 const SHARE_ICON_OFFSET = { x: -BASE_TILE_SIZE * 2, y: -BASE_TILE_SIZE * 2 };
@@ -88,6 +84,8 @@ const EDIT_MENU_ICON_OFFSET = { x: -BASE_TILE_SIZE * 2, y: -BASE_TILE_SIZE };
 
 const EventCard = ({ item, showActions = true }: { item: Event; showActions?: boolean }) => {
     const navigation = useNavigation<any>();
+    const { colors } = useTheme();
+    const styles = useMemo(() => getStyles(colors), [colors]);
     const eventDateTime = parseEventDateTime(item);
     const isPastEvent = eventDateTime ? eventDateTime.getTime() < Date.now() : false;
     const [userID, setUserID] = useState('');
@@ -181,19 +179,7 @@ const EventCard = ({ item, showActions = true }: { item: Event; showActions?: bo
                             activeOpacity={0.8}
                         >
                             <View style={styles.metaIconContainer}>
-                                <Image
-                                    source={require("../../assets/iconset2.jpg")}
-                                    style={[
-                                        styles.metaIconImage,
-                                        {
-                                            transform: [
-                                                { translateX: EDIT_MENU_ICON_OFFSET.x * META_SPRITE_SCALE },
-                                                { translateY: EDIT_MENU_ICON_OFFSET.y * META_SPRITE_SCALE },
-                                            ],
-                                        },
-                                    ]}
-                                    resizeMode="cover"
-                                />
+                                <SvgSpriteIcon set={2} size={META_ICON_SIZE} offsetX={EDIT_MENU_ICON_OFFSET.x} offsetY={EDIT_MENU_ICON_OFFSET.y} />
                             </View>
                         </TouchableOpacity>
                     )}
@@ -221,11 +207,7 @@ const EventCard = ({ item, showActions = true }: { item: Event; showActions?: bo
                     <View style={styles.mapLabelRow}>
                         <Text style={[styles.textHighlight, isPastEvent && styles.pastMetaText]}>• MAPA</Text>
                         <View style={styles.mapInlineIconContainer}>
-                            <Image
-                                source={require("../../assets/iconset1.jpg")}
-                                style={styles.mapInlineIconImage}
-                                resizeMode="cover"
-                            />
+                            <SvgSpriteIcon set={1} size={MAP_INLINE_ICON_SIZE} offsetX={MAP_INLINE_ICON_OFFSET.x} offsetY={MAP_INLINE_ICON_OFFSET.y} />
                         </View>
                     </View>
                 </View>
@@ -235,7 +217,7 @@ const EventCard = ({ item, showActions = true }: { item: Event; showActions?: bo
                     <UserCard
                         creatorDisplayName={creatorDisplayName}
                         createdAtDisplay={createdAtDisplay}
-                        metaTextColor={isPastEvent ? THEME.colors.lm_txt : undefined}
+                        metaTextColor={isPastEvent ? colors.text : undefined}
                     />
 
                     {showActions && !isOwner && !isPastEvent && (!isPrivateEvent || isParticipating) && (
@@ -252,19 +234,7 @@ const EventCard = ({ item, showActions = true }: { item: Event; showActions?: bo
                     <View style={styles.trailingIconsRow}>
                         <View style={styles.trailingActionItem}>
                             <View style={styles.trailingIconContainer}>
-                                <Image
-                                    source={require("../../assets/iconset1.jpg")}
-                                    style={[
-                                        styles.trailingIconImage,
-                                        {
-                                            transform: [
-                                                { translateX: HEART_ICON_OFFSET.x * TRAILING_SPRITE_SCALE },
-                                                { translateY: HEART_ICON_OFFSET.y * TRAILING_SPRITE_SCALE },
-                                            ],
-                                        },
-                                    ]}
-                                    resizeMode="cover"
-                                />
+                                <SvgSpriteIcon set={1} size={TRAILING_ICON_SIZE} offsetX={HEART_ICON_OFFSET.x} offsetY={HEART_ICON_OFFSET.y} />
                             </View>
                             <Text style={styles.trailingCountText}>{participantCount}</Text>
                         </View>
@@ -274,37 +244,13 @@ const EventCard = ({ item, showActions = true }: { item: Event; showActions?: bo
                             activeOpacity={0.8}
                         >
                             <View style={styles.trailingIconContainer}>
-                                <Image
-                                    source={require("../../assets/iconset1.jpg")}
-                                    style={[
-                                        styles.trailingIconImage,
-                                        {
-                                            transform: [
-                                                { translateX: COMMENT_ICON_OFFSET.x * TRAILING_SPRITE_SCALE },
-                                                { translateY: COMMENT_ICON_OFFSET.y * TRAILING_SPRITE_SCALE },
-                                            ],
-                                        },
-                                    ]}
-                                    resizeMode="cover"
-                                />
+                                <SvgSpriteIcon set={1} size={TRAILING_ICON_SIZE} offsetX={COMMENT_ICON_OFFSET.x} offsetY={COMMENT_ICON_OFFSET.y} />
                             </View>
                             <Text style={styles.trailingCountText}>{Number(item.comment_count ?? 0)}</Text>
                         </TouchableOpacity>
                         <View style={styles.trailingActionItem}>
                             <View style={styles.trailingIconContainer}>
-                                <Image
-                                    source={require("../../assets/iconset1.jpg")}
-                                    style={[
-                                        styles.trailingIconImage,
-                                        {
-                                            transform: [
-                                                { translateX: SHARE_ICON_OFFSET.x * TRAILING_SPRITE_SCALE },
-                                                { translateY: SHARE_ICON_OFFSET.y * TRAILING_SPRITE_SCALE - 2 },
-                                            ],
-                                        },
-                                    ]}
-                                    resizeMode="cover"
-                                />
+                                <SvgSpriteIcon set={1} size={TRAILING_ICON_SIZE} offsetX={SHARE_ICON_OFFSET.x} offsetY={SHARE_ICON_OFFSET.y} />
                             </View>
                             <Text style={styles.trailingCountText}>0</Text>
                         </View>
@@ -316,19 +262,22 @@ const EventCard = ({ item, showActions = true }: { item: Event; showActions?: bo
     )
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
 
     container: {
-        backgroundColor: THEME.colors.lm_bg,
+        backgroundColor: colors.background,
         padding: 20,
 
     },
 
     pastContainer: {
-        backgroundColor: THEME.colors.lm_ico,
+        backgroundColor: colors.border,
     },
 
-    title: THEME.typography.eventTitle,
+    title: {
+        ...THEME.typography.eventTitle,
+        color: colors.text,
+    },
 
     eventHeaderRow: {
         paddingBottom: 10,
@@ -354,7 +303,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: 5,
     },
 
-    text: THEME.typography.text,
+    text: {
+        ...THEME.typography.text,
+        color: colors.text,
+    },
 
     eventImage: {
         width: "100%",
@@ -366,31 +318,31 @@ const styles = StyleSheet.create({
 
     textMuted: {
         ...THEME.typography.text,
-        color: THEME.colors.lm_ico
+        color: colors.icon
     },
 
     textHighlight: {
         ...THEME.typography.text,
-        color: THEME.colors.light.transparentHighlight
+        color: colors.transparentHighlight
     },
 
     pastTextColor: {
-        color: THEME.colors.lm_txt,
+        color: colors.text,
     },
 
     pastMetaText: {
-        color: THEME.colors.lm_txt,
+        color: colors.icon,
     },
 
     location: {
         fontSize: 18,
         bottom: 2,
         fontWeight: "bold",
-        color: THEME.colors.light.transparentHighlight,
+        color: colors.transparentHighlight,
     },
 
     pastLocation: {
-        color: THEME.colors.lm_txt,
+        color: colors.text,
     },
 
     joinButtonContainer: {
@@ -424,15 +376,6 @@ const styles = StyleSheet.create({
         marginTop: -2,
     },
 
-    usernameIconImage: {
-        width: META_SPRITE_WIDTH * USERNAME_SPRITE_SCALE,
-        height: META_SPRITE_HEIGHT * USERNAME_SPRITE_SCALE,
-        transform: [
-            { translateX: USERNAME_ICON_OFFSET.x * USERNAME_SPRITE_SCALE },
-            { translateY: USERNAME_ICON_OFFSET.y * USERNAME_SPRITE_SCALE },
-        ],
-    },
-
     authorMetaText: {
         flex: 1,
         minWidth: 0,
@@ -445,12 +388,6 @@ const styles = StyleSheet.create({
         marginLeft: 8,
     },
 
-    metaIconImage: {
-        width: META_SPRITE_WIDTH * META_SPRITE_SCALE,
-        height: META_SPRITE_HEIGHT * META_SPRITE_SCALE,
-        transform: [{ translateX: 0 }, { translateY: 0 }],
-    },
-
     mapLabelRow: {
         flexDirection: "row",
         alignItems: "center",
@@ -461,15 +398,6 @@ const styles = StyleSheet.create({
         height: MAP_INLINE_ICON_SIZE,
         overflow: "hidden",
         marginLeft: 4,
-    },
-
-    mapInlineIconImage: {
-        width: META_SPRITE_WIDTH * MAP_INLINE_SPRITE_SCALE,
-        height: META_SPRITE_HEIGHT * MAP_INLINE_SPRITE_SCALE,
-        transform: [
-            { translateX: MAP_INLINE_ICON_OFFSET.x * MAP_INLINE_SPRITE_SCALE },
-            { translateY: MAP_INLINE_ICON_OFFSET.y * MAP_INLINE_SPRITE_SCALE },
-        ],
     },
 
     trailingIconsRow: {
@@ -491,14 +419,9 @@ const styles = StyleSheet.create({
         overflow: "hidden",
     },
 
-    trailingIconImage: {
-        width: META_SPRITE_WIDTH * TRAILING_SPRITE_SCALE,
-        height: META_SPRITE_HEIGHT * TRAILING_SPRITE_SCALE,
-    },
-
     trailingCountText: {
         ...THEME.typography.text,
-        color: THEME.colors.lm_ico,
+        color: colors.icon,
         marginLeft: 6,
     },
 

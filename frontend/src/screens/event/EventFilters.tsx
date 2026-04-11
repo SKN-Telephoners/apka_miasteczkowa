@@ -2,6 +2,8 @@ import React, { useMemo, useState } from "react";
 import { SafeAreaView, StyleSheet, Text, View, TouchableOpacity, ScrollView } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { THEME } from "../../utils/constants";
+import Button from "../../components/Button";
+import { useTheme } from "../../contexts/ThemeContext";
 import {
   DEFAULT_EVENT_FILTERS,
   EventCreatedAtFilter,
@@ -59,6 +61,8 @@ const EventFilters = () => {
   const initialFilters = route?.params?.initialFilters as EventFilterState | undefined;
   const [filters, setFilters] = useState<EventFilterState>(initialFilters ?? DEFAULT_EVENT_FILTERS);
   const [openDropdown, setOpenDropdown] = useState<"sort" | "added" | null>(null);
+  const { colors } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
 
   const creatorSectionHint = useMemo(
     () => "Opcje znajomi/inni są przygotowane i jeszcze nieaktywne.",
@@ -204,19 +208,17 @@ const EventFilters = () => {
           <TouchableOpacity style={styles.secondaryButton} onPress={resetFilters} activeOpacity={0.85}>
             <Text style={styles.secondaryButtonText}>Wyczyść</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.primaryButton} onPress={applyFilters} activeOpacity={0.85}>
-            <Text style={styles.primaryButtonText}>Zastosuj</Text>
-          </TouchableOpacity>
+          <Button title="Zastosuj" onPress={applyFilters} style={styles.primaryButton} />
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: THEME.colors.lm_bg,
+    backgroundColor: colors.background,
   },
   container: {
     paddingTop: 20,
@@ -236,31 +238,31 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...THEME.typography.title,
     marginBottom: 10,
-    color: THEME.colors.lm_txt,
+    color: colors.text,
   },
   dropdownButton: {
     borderWidth: 1,
-    borderColor: THEME.colors.lm_ico,
+    borderColor: colors.icon,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: THEME.colors.lm_bg,
+    backgroundColor: colors.background,
   },
   dropdownButtonText: {
     ...THEME.typography.text,
-    color: THEME.colors.lm_txt,
+    color: colors.text,
   },
   dropdownChevron: {
     ...THEME.typography.text,
-    color: THEME.colors.lm_ico,
+    color: colors.icon,
     marginLeft: 12,
   },
   dropdownMenu: {
     borderWidth: 1,
-    borderColor: THEME.colors.lm_ico,
+    borderColor: colors.icon,
     borderRadius: 12,
     marginTop: 8,
     overflow: "hidden",
@@ -268,14 +270,14 @@ const styles = StyleSheet.create({
   dropdownItem: {
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: THEME.colors.lm_bg,
+    backgroundColor: colors.background,
   },
   dropdownItemSelected: {
-    backgroundColor: "rgba(245, 146, 69, 0.16)",
+    backgroundColor: colors.transparentHighlight,
   },
   dropdownItemText: {
     ...THEME.typography.text,
-    color: THEME.colors.lm_txt,
+    color: colors.text,
   },
   dropdownItemTextSelected: {
     fontWeight: "700",
@@ -287,33 +289,33 @@ const styles = StyleSheet.create({
   },
   optionButton: {
     borderWidth: 1,
-    borderColor: THEME.colors.lm_ico,
+    borderColor: colors.icon,
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: THEME.colors.lm_bg,
+    backgroundColor: colors.background,
   },
   optionButtonSelected: {
-    borderColor: THEME.colors.light.transparentHighlight,
-    backgroundColor: "rgba(245, 146, 69, 0.16)",
+    borderColor: colors.transparentHighlight,
+    backgroundColor: colors.transparentHighlight,
   },
   optionButtonDisabled: {
     opacity: 0.5,
   },
   optionText: {
     ...THEME.typography.text,
-    color: THEME.colors.lm_ico,
+    color: colors.icon,
   },
   optionTextSelected: {
-    color: THEME.colors.lm_txt,
+    color: colors.background,
     fontWeight: "700",
   },
   optionTextDisabled: {
-    color: THEME.colors.lm_ico,
+    color: colors.icon,
   },
   hint: {
     ...THEME.typography.text,
-    color: THEME.colors.lm_ico,
+    color: colors.icon,
     marginTop: 8,
   },
   actionsRow: {
@@ -325,28 +327,19 @@ const styles = StyleSheet.create({
   secondaryButton: {
     flex: 1,
     borderWidth: 1,
-    borderColor: THEME.colors.lm_ico,
+    borderColor: colors.icon,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: "center",
   },
   primaryButton: {
     flex: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: "center",
-    backgroundColor: THEME.colors.transparentOrange,
+    marginVertical: 0,
   },
   secondaryButtonText: {
     ...THEME.typography.text,
-    color: THEME.colors.lm_txt,
+    color: colors.text,
     fontWeight: "700",
-  },
-  primaryButtonText: {
-    ...THEME.typography.text,
-    color: "#fff",
-    fontWeight: "700",
-    textAlign: "center",
   },
 });
 

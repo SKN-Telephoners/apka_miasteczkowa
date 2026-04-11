@@ -11,11 +11,11 @@ import ProfileStack from "./ProfileStack";
 import EventStack from "./EventStack";
 import NotificationsScreen from "../screens/home/NotificationsScreen";
 import { Ionicons } from "@expo/vector-icons";
-import type { ComponentProps } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { ActivityIndicator, View, TouchableOpacity, Image } from "react-native";
-import { THEME } from "../utils/constants";
+import { ActivityIndicator, View, TouchableOpacity } from "react-native";
 import AppIcon from "../components/AppIcon";
+import SvgSpriteIcon from "../components/SvgSpriteIcon";
+import { useTheme } from "../contexts/ThemeContext";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -32,42 +32,37 @@ const AuthStack = () => {
   );
 };
 
-// Konfiguracja "sprite'a" dla iconset1.jpg
 const ICON_SIZE = 30;
-// Skoro ikony są rozłożone w wierszach (górny, na środku) i kolumnach (lewa, środek, prawa),
-// założyłem że obrazek to siatka 3x3. Gdyby rozmiary się nie zgadzały, dopasuj IMAGE_WIDTH i IMAGE_HEIGHT.
-const IMAGE_WIDTH = 90;
-const IMAGE_HEIGHT = 90;
 const SEARCH_ICON_OFFSET = { x: -ICON_SIZE * 2, y: 0 };
-
-const getIconOffset = (routeName: string) => {
-  const offsets: Record<string, { x: number, y: number }> = {
-    // "prawy górny róg" (X: po prawej, Y: u góry)
-    'Home': { x: -ICON_SIZE * 2, y: 0 },
-    // "na środku po lewej" (X: po lewej, Y: na środku)
-    'Mapa': { x: 0, y: -ICON_SIZE },
-    // "na samym środku" (X: na środku, Y: na środku)
-    'Wydarzenia': { x: -ICON_SIZE, y: -ICON_SIZE },
-    // "po prawej na środku" (X: po prawej, Y: na środku)
-    'Profil': { x: -ICON_SIZE * 2, y: -ICON_SIZE }
-  };
-
-  return offsets[routeName] ?? { x: 0, y: 0 };
-};
 
 // for authenticated users
 const MainTabs = () => {
+  const { colors } = useTheme();
+
   return (
     <Tab.Navigator
       initialRouteName="Mapa"
       screenOptions={({ route, navigation }) => ({
-        headerStyle: { height: 50, elevation: 0, shadowOpacity: 0, borderBottomWidth: 0 },
+        headerStyle: {
+          height: 50,
+          elevation: 0,
+          shadowOpacity: 0,
+          borderBottomWidth: 0,
+          backgroundColor: colors.background,
+        },
+        headerTintColor: colors.text,
+        headerTitleStyle: { color: colors.text },
         headerShadowVisible: false,
         headerTitleAlign: "left",
-        tabBarStyle: { height: 60 },
+        tabBarStyle: {
+          height: 60,
+          backgroundColor: colors.background,
+          borderTopColor: colors.border,
+        },
         tabBarItemStyle: { margin: 8, borderRadius: 10 },
         tabBarShowLabel: false,
-        tabBarActiveTintColor: THEME.colors.light.highlight,
+        tabBarActiveTintColor: colors.highlight,
+        tabBarInactiveTintColor: colors.icon,
 
         headerRight: () => {
           if (route.name !== 'Wydarzenia') {
@@ -85,26 +80,13 @@ const MainTabs = () => {
                 style={{ marginHorizontal: 20 }}
                 onPress={() => navigation.navigate('Wydarzenia', { screen: 'AddEvent' })}
               >
-                <View style={{ width: ICON_SIZE, height: ICON_SIZE, overflow: 'hidden' }}>
-                  <Image
-                    source={require('../../assets/iconset2.jpg')}
-                    style={{
-                      width: IMAGE_WIDTH,
-                      height: IMAGE_HEIGHT,
-                      transform: [
-                        { translateX: SEARCH_ICON_OFFSET.x },
-                        { translateY: SEARCH_ICON_OFFSET.y }
-                      ]
-                    }}
-                    resizeMode="cover"
-                  />
-                </View>
+                <SvgSpriteIcon set={2} size={ICON_SIZE} offsetX={SEARCH_ICON_OFFSET.x} offsetY={SEARCH_ICON_OFFSET.y} />
               </TouchableOpacity>
               <TouchableOpacity style={{ marginHorizontal: 20 }}>
-              <Ionicons name={'search'} size={28} />
+                <Ionicons name={'search'} size={28} color={colors.text} />
             </TouchableOpacity>
             <TouchableOpacity style={{ marginHorizontal: 20 }} onPress={() => navigation.navigate("Notifications")}>
-              <Ionicons name={'notifications'} size={28} />
+                <Ionicons name={'notifications'} size={28} color={colors.text} />
             </TouchableOpacity>
             </View>
           );
@@ -126,17 +108,36 @@ const MainTabs = () => {
 // root navigator
 const AppNavigator = () => {
   const { isAuthenticated, isLoading } = useAuth();
+  const { colors, isDark } = useTheme();
+
+  const navigationTheme = {
+    dark: isDark,
+    colors: {
+      primary: colors.highlight,
+      background: colors.background,
+      card: colors.background,
+      text: colors.text,
+      border: colors.border,
+      notification: colors.highlight,
+    },
+    fonts: {
+      regular: { fontFamily: "System", fontWeight: "400" as const },
+      medium: { fontFamily: "System", fontWeight: "500" as const },
+      bold: { fontFamily: "System", fontWeight: "700" as const },
+      heavy: { fontFamily: "System", fontWeight: "800" as const },
+    },
+  };
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color={THEME.colors.light.highlight} />
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.highlight} />
       </View>
     );
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={navigationTheme}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
 
          {!isAuthenticated ? (
@@ -144,7 +145,17 @@ const AppNavigator = () => {
         ) : (
           <Stack.Group>
             <Stack.Screen name="Main" component={MainTabs} />
-            <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: true, headerTitle: 'Powiadomienia' }} />
+            <Stack.Screen
+              name="Notifications"
+              component={NotificationsScreen}
+              options={{
+                headerShown: true,
+                headerTitle: 'Powiadomienia',
+                headerStyle: { backgroundColor: colors.background },
+                headerTintColor: colors.text,
+                headerTitleStyle: { color: colors.text },
+              }}
+            />
           </Stack.Group>
         )} 
       </Stack.Navigator>

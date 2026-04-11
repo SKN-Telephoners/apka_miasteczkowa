@@ -6,7 +6,8 @@ import {
     TouchableOpacityProps,
     ActivityIndicator,
     ViewStyle,
-    TextStyle
+    TextStyle,
+    StyleProp
 } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import { THEME } from '../utils/constants';
@@ -15,8 +16,8 @@ interface ButtonProps extends TouchableOpacityProps {
     title: string;
     loading?: boolean;
     type?: 'primary' | 'secondary' | 'outline';
-    style?: ViewStyle;
-    textStyle?: TextStyle;
+    style?: StyleProp<ViewStyle>;
+    textStyle?: StyleProp<TextStyle>;
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -70,7 +71,7 @@ const Button: React.FC<ButtonProps> = ({
             {...rest}
         >
             {loading ? (
-                <ActivityIndicator color={type === 'outline' ? colors.highlight : '#FFF'} />
+                <ActivityIndicator color={type === 'outline' ? THEME.colors.light.transparentHighlight : '#FFF'} />
             ) : (
                 <Text style={[styles.text, getTextStyle(), textStyle]}>
                     {title}
@@ -91,7 +92,7 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
         marginVertical: THEME.spacing.s,
     },
     primaryButton: {
-        backgroundColor: colors.highlight,
+        backgroundColor: colors.transparentHighlight,
     },
     secondaryButton: {
         backgroundColor: colors.border,
@@ -99,13 +100,14 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     outlineButton: {
         backgroundColor: 'transparent',
         borderWidth: 1,
-        borderColor: colors.highlight,
+        borderColor: colors.transparentHighlight,
     },
     disabledButton: {
         opacity: 0.5,
     },
     text: {
-        ...THEME.typography.title,
+        ...THEME.typography.text,
+        fontWeight: "700",
     },
     primaryText: {
         color: '#FFFFFF',
@@ -114,7 +116,7 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
         color: colors.text,
     },
     outlineText: {
-        color: colors.highlight,
+        color: colors.transparentHighlight,
     }
 });
 
