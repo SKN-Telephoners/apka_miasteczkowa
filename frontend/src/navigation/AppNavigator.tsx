@@ -169,21 +169,13 @@ const AppNavigator = () => {
             <Stack.Screen
               name="Notifications"
               component={NotificationsScreen}
-              options={({ navigation }) => ({
+              options={{
                 headerShown: true,
                 headerTitle: 'Powiadomienia',
                 headerStyle: { backgroundColor: colors.background },
                 headerTintColor: colors.text,
                 headerTitleStyle: { color: colors.text },
-                headerRight: () => (
-                  <TouchableOpacity
-                    style={{ marginHorizontal: 20 }}
-                    onPress={() => navigation.navigate('Search')}
-                  >
-                    <Ionicons name={'search'} size={28} color={colors.icon} />
-                  </TouchableOpacity>
-                ),
-              })}
+              }}
             />
             <Stack.Screen
               name="Search"

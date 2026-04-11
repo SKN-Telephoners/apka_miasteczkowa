@@ -12,6 +12,7 @@ import CollapsibleSection from "../../components/CollapsibleSection";
 import Avatar from "../../components/Avatar";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useCallback } from "react";
+import { getPublicUserProfile } from "../../services/users";
 
 const UserScreen = () => {
   const { logout } = useAuth();
@@ -25,7 +26,8 @@ const UserScreen = () => {
   // Przechwytywanie trybu
   const visitedUser = route.params?.visitedUser;
   const isOwner = !visitedUser || visitedUser.id === currentUser?.user_id || visitedUser.user_id === currentUser?.user_id;
-  const profileData = isOwner ? currentUser : visitedUser;
+  const [visitedProfileData, setVisitedProfileData] = useState<any | null>(null);
+  const profileData = isOwner ? currentUser : (visitedProfileData || visitedUser);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -41,6 +43,30 @@ const UserScreen = () => {
       }
     }, [isOwner, fetchFriends])
   );
+
+  useEffect(() => {
+    const loadVisitedUser = async () => {
+      if (isOwner || !visitedUser) {
+        setVisitedProfileData(null);
+        return;
+      }
+
+      const targetId = visitedUser.user_id || visitedUser.id;
+      if (!targetId) {
+        setVisitedProfileData(visitedUser);
+        return;
+      }
+
+      try {
+        const fullData = await getPublicUserProfile(targetId);
+        setVisitedProfileData(fullData);
+      } catch {
+        setVisitedProfileData(visitedUser);
+      }
+    };
+
+    loadVisitedUser();
+  }, [isOwner, visitedUser?.id, visitedUser?.user_id]);
 
   // Check if visitedUser is already a friend (runs whenever friends list updates)
   useEffect(() => {

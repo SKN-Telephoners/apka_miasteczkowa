@@ -81,3 +81,13 @@ export const getUserProfile = async () => {
     throw new Error(msg);
   }
 };
+
+export const getPublicUserProfile = async (userId: string) => {
+  try {
+    const response = await api.get(`/api/users/profile/${userId}`);
+    return response.data;
+  } catch (err: any) {
+    const msg = err?.response?.data?.message || err?.message || "Błąd pobierania profilu użytkownika";
+    throw new Error(msg);
+  }
+};

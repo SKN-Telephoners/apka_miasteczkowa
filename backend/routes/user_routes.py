@@ -54,6 +54,39 @@ def get_user_info():
     return make_api_response(ResponseTypes.SUCCESS, data=user_data)
 
 
+@users_bp.route("/profile/<user_id>", methods=["GET"])
+@jwt_required()
+def get_public_user_info(user_id):
+    target_user_id = validate_uuid(user_id)
+    if not target_user_id:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid user ID")
+
+    user = User.query.filter_by(user_id=target_user_id).first()
+    if not user or user.deleted is True:
+        return make_api_response(ResponseTypes.NOT_FOUND, message="User not found")
+
+    profile_pic_data = None
+    if user.profile_picture:
+        url, _ = cloudinary_url(user.profile_picture, secure=True)
+        profile_pic_data = {
+            "cloud_id": user.profile_picture,
+            "url": url,
+        }
+
+    user_data = {
+        "user_id": str(user.user_id),
+        "id": str(user.user_id),
+        "username": user.display_name,
+        "academy": user.academy,
+        "course": user.course,
+        "year": user.year,
+        "description": user.description,
+        "profile_picture": profile_pic_data,
+    }
+
+    return make_api_response(ResponseTypes.SUCCESS, data=user_data)
+
+
 @users_bp.route("/update_profile", methods=["PUT"])
 @limiter.limit("300 per minute")
 @jwt_required()
