@@ -12,11 +12,11 @@ export interface FriendsDataResponse {
 
 export const getFriendsList = async (): Promise<FriendsDataResponse> => {
   try {
-    const response = await api.get<{ message?: string; data: FriendsDataResponse }>('/api/friends/list');
+    const response = await api.get<{ message?: string; friends: User[]; incomingRequests: Request[]; outgoingRequests: Request[] }>('/api/friends/list');
     return {
-      friends: response.data?.data?.friends || [],
-      incomingRequests: response.data?.data?.incomingRequests || [],
-      outgoingRequests: response.data?.data?.outgoingRequests || []
+      friends: response.data?.friends || [],
+      incomingRequests: response.data?.incomingRequests || [],
+      outgoingRequests: response.data?.outgoingRequests || []
     };
   } catch (err: any) {
     //error handling for now
@@ -28,11 +28,11 @@ export const getFriendsList = async (): Promise<FriendsDataResponse> => {
 // Function to search users
 export const searchUsers = async (query: string): Promise<User[]> => {
   try {
-    const response = await api.get<{ data: { users: any[] } }>('/api/users/users_list', {
-      data: { search: query, limit: 20 }
+    const response = await api.get<{ users: any[] }>('/api/users/users_list', {
+      params: { search: query, limit: 20 }
     });
     
-    return response.data?.data?.users?.map(u => ({
+    return response.data?.users?.map(u => ({
       id: u.user_id,
       username: u.username,
       email: "", // publiczna szukajka raczej tego nie zdradzi
