@@ -287,15 +287,11 @@ def feed():
         user = get_current_user()
         page = request.args.get("page", default=1, type=int)
         limit = request.args.get("limit", default=Constants.PAGINATION_DEFAULT_LIMIT, type=int)
-        sort = request.args.get("sort", default=1, type=int)
         q = sanitize_input(str(request.args.get("q", ""))).strip()
         visibility = str(request.args.get("visibility", "all")).strip().lower()
         participation = str(request.args.get("participation", "all")).strip().lower()
         created_window = str(request.args.get("created_window", "all")).strip().lower()
-        sort_mode = str(request.args.get("sort_mode", "")).strip().lower()
-
-        if not sort_mode:
-            sort_mode = "members_desc" if sort == 2 else "default"
+        sort_mode = str(request.args.get("sort_mode", "default")).strip().lower()
 
         user_id = user.user_id
 
