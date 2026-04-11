@@ -609,3 +609,23 @@ def change_invite_status(invite_id):
         return make_api_response(ResponseTypes.SERVER_ERROR)
     
     return make_api_response(ResponseTypes.SUCCESS, message="Invite status changed successfully")
+
+
+@events_bp.route("/<user_id>/info", methods=["GET"])
+@jwt_required()
+def get_my_events(user_id):
+    user = User.query.filter_by(user_id=user_id).first()
+    
+    created_events = Event.query.filter_by(creator_id=user.user_id).all()
+    
+    participating_events = db.session.query(Event).join(
+        Event_participants, Event.event_id == Event_participants.event_id
+    ).filter(Event_participants.user_id == user.user_id).all()
+    
+    created_data = [{"event_id": str(e.event_id), "name": e.event_name} for e in created_events]
+    participating_data = [{"event_id": str(e.event_id), "name": e.event_name} for e in participating_events]
+    
+    return make_api_response(
+        ResponseTypes.SUCCESS, 
+        data={"created": created_data, "participating": participating_data}
+    )

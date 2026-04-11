@@ -1,7 +1,8 @@
 from flask import Blueprint, request, current_app, url_for
 from flask_jwt_extended import jwt_required, get_current_user, create_access_token
 from backend.extensions import db, limiter
-from backend.models import User
+from backend.models import User, Friendship
+from sqlalchemy import or_
 from backend.responses import ResponseTypes, make_api_response
 from backend.tasks import send_email_async
 from backend.helpers import (
@@ -19,10 +20,10 @@ from cloudinary.utils import cloudinary_url
 
 users_bp = Blueprint("users", __name__, url_prefix="/api/users")
 
-@users_bp.route("/profile", methods=["GET"])
+@users_bp.route("/profile/<user_id>", methods=["GET"])
 @jwt_required()
-def get_user_info():
-    user = get_current_user()
+def get_user_info(user_id):
+    user = User.query.filter_by(user_id=user_id).first()
 
     if not user:
         return make_api_response(ResponseTypes.NOT_FOUND, message="User not found")
@@ -35,6 +36,13 @@ def get_user_info():
             "url": url
         }
 
+    friend_count = Friendship.query.filter(
+        or_(
+            Friendship.user_id == user.user_id,
+            Friendship.friend_id == user.user_id
+        )
+    ).count()
+
     user_data = {
         "user_id": str(user.user_id),
         "username": user.display_name,
@@ -46,6 +54,7 @@ def get_user_info():
         "academic_clubs": user.academic_clubs,
         "description": user.description,
         "profile_picture": profile_pic_data,
+        "friend_count": friend_count,
         "deleted": user.deleted
     }
 
@@ -88,13 +97,8 @@ def update_profile():
         user.description = description
 
     academy_data = current_app.config.get('ACADEMY_DATA', {})
-    courses_data = current_app.config.get('COURSES_DATA', [])
-    academic_clubs_data = current_app.config.get('CLUBS_DATA', {})
 
     raw_academy = user_data.get("academy")
-    raw_course = user_data.get("course")
-    raw_year = user_data.get("year")
-    raw_clubs = user_data.get("academic_clubs")
 
     if raw_academy is not None:
         academy = sanitize_input(str(raw_academy)).strip()
@@ -108,42 +112,6 @@ def update_profile():
             user.course = None
             user.year = None
             user.academic_clubs = None
-
-    effective_academy = user.academy
-
-    if raw_course is not None or raw_year is not None:
-        if effective_academy != Constants.PRIMARY_ACADEMY:
-            return make_api_response(ResponseTypes.BAD_REQUEST, message=f"Only {Constants.PRIMARY_ACADEMY} members can set course and year")
-
-        if not raw_course or not raw_year:
-            return make_api_response(ResponseTypes.BAD_REQUEST, message="Both course and year must be provided together")
-
-        course = sanitize_input(str(raw_course)).strip()
-        year = sanitize_input(str(raw_year)).strip()
-
-        if course not in courses_data:
-            return make_api_response(ResponseTypes.BAD_REQUEST, message="Such course doesn't exist")
-            
-        if str(year) not in ["1", "2", "3", "4", "5", "6"]:
-            return make_api_response(ResponseTypes.BAD_REQUEST, message="Year must be between 1 and 6")
-
-        user.course = course
-        user.year = int(year) 
-
-    if raw_clubs is not None:
-        if effective_academy != Constants.PRIMARY_ACADEMY:
-            return make_api_response(ResponseTypes.BAD_REQUEST, message=f"Only {Constants.PRIMARY_ACADEMY} members can set academic clubs")
-
-        clubs_str = sanitize_input(str(raw_clubs)).strip()
-        if not clubs_str:
-            user.academic_clubs = None
-        else:
-            user_clubs = [club.strip() for club in clubs_str.split(",")]
-            for club in user_clubs:
-                if club not in academic_clubs_data:
-                    return make_api_response(ResponseTypes.BAD_REQUEST, message=f"Club '{club}' doesn't exist")
-            
-            user.academic_clubs = user_clubs
 
     if "profile_picture" in user_data:
         pic_data = user_data["profile_picture"]
@@ -180,6 +148,71 @@ def update_profile():
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
     return make_api_response(ResponseTypes.SUCCESS, message="Profile updated successfully")
+
+
+@users_bp.route("/update_academic_details", methods=["PUT"])
+@limiter.limit("100 per minute")
+@jwt_required()
+def update_academic_details():
+    user = get_current_user()
+    
+    if not user:
+        return make_api_response(ResponseTypes.NOT_FOUND, message="User not found")
+
+    if user.deleted:
+        return make_api_response(ResponseTypes.FORBIDDEN, message="Account is deleted")
+    
+    if user.academy != Constants.PRIMARY_ACADEMY:
+        return make_api_response(ResponseTypes.BAD_REQUEST, message=f"Only {Constants.PRIMARY_ACADEMY} students can add academic details")
+
+
+    data = request.get_json(silent=True)
+    if not data:
+        return make_api_response(ResponseTypes.BAD_REQUEST, message="Invalid JSON")
+
+    raw_course = data.get("course")
+    raw_year = data.get("year")
+    raw_clubs = data.get("academic_clubs")
+
+    courses_data = current_app.config.get('COURSES_DATA', [])
+    academic_clubs_data = current_app.config.get('CLUBS_DATA', {})
+
+
+    if raw_course is not None or raw_year is not None:
+        if not raw_course or not raw_year:
+            return make_api_response(ResponseTypes.BAD_REQUEST, message="Both course and year must be provided together")
+
+        course = sanitize_input(str(raw_course)).strip()
+        year = sanitize_input(str(raw_year)).strip()
+
+        if course not in courses_data:
+            return make_api_response(ResponseTypes.BAD_REQUEST, message="Such course doesn't exist")
+            
+        if str(year) not in ["1", "2", "3", "4", "5", "6"]:
+            return make_api_response(ResponseTypes.BAD_REQUEST, message="Year must be between 1 and 6")
+
+        user.course = course
+        user.year = int(year) 
+
+    if raw_clubs is not None:
+        clubs_str = sanitize_input(str(raw_clubs)).strip()
+        if not clubs_str:
+            user.academic_clubs = None
+        else:
+            user_clubs = [club.strip() for club in clubs_str.split(",")]
+            for club in user_clubs:
+                if club not in academic_clubs_data:
+                    return make_api_response(ResponseTypes.BAD_REQUEST, message=f"Club '{club}' doesn't exist")
+            
+            user.academic_clubs = user_clubs
+
+    try:
+        db.session.commit()
+        return make_api_response(ResponseTypes.SUCCESS, message="Academic details updated successfully")
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating academic details: {e}")
+        return make_api_response(ResponseTypes.SERVER_ERROR)
 
 
 @users_bp.route("/settings/password", methods=["PUT"])

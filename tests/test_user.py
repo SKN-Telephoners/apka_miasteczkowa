@@ -25,7 +25,7 @@ def test_get_user_info_success(client, logged_in_user):
     user.year = 2
     db.session.commit()
 
-    response = client.get("/api/users/profile", headers=get_auth_header(token))
+    response = client.get(f"/api/users/profile/{user.user_id}", headers=get_auth_header(token))
     
     assert response.status_code == 200
     data = response.get_json()
@@ -40,7 +40,7 @@ def test_get_user_info_deleted_account(client, logged_in_user):
     user.deleted = True
     db.session.commit()
 
-    response = client.get("/api/users/profile", headers=get_auth_header(token))
+    response = client.get(f"/api/users/profile/{user.user_id}", headers=get_auth_header(token))
     
     assert response.status_code == 200
     data = response.get_json()
@@ -58,46 +58,58 @@ def mock_app_config(app):
     app.config['CLUBS_DATA'] = {"Bite": {}, "DataScience": {}}
     return app
 
-def test_update_profile_success_agh(client, logged_in_user, mock_app_config):
-    _, token = logged_in_user
+def test_update_profile_success(client, logged_in_user, app):
+    user, token = logged_in_user
+    
     payload = {
-        "description": "New bio",
-        "academy": "AGH",
-        "course": "Computer Science",
-        "year": "3",
-        "academic_clubs": "Bite, DataScience"
+        "username": "new_valid_name",
+        "description": "This is my new bio.",
+        "academy": "AGH"
     }
-
+    
     response = client.put("/api/users/update_profile", json=payload, headers=get_auth_header(token))
+    
     assert response.status_code == 200
+    assert response.get_json()["message"] == "Profile updated successfully"
+    
+    with app.app_context():
+        u = db.session.get(User, user.user_id)
+        assert u.username == "new_valid_name"
+        assert u.description == "This is my new bio."
+        assert u.academy == "AGH"
 
-    user = logged_in_user[0]
-    assert user.description == "New bio"
-    assert user.academy == "AGH"
-    assert user.course == "Computer Science"
-    assert user.year == 3
-    assert user.academic_clubs == ["Bite", "DataScience"]
+def test_update_profile_username_taken(client, logged_in_user, registered_friend, app):
+    user, token = logged_in_user
+    friend = registered_friend[0] 
 
-def test_update_profile_success_non_agh_strips_data(client, logged_in_user, mock_app_config):
+    payload = {
+        "username": friend.username 
+    }
+    
+    response = client.put("/api/users/update_profile", json=payload, headers=get_auth_header(token))
+    
+    assert response.status_code == 400
+    assert "Username already taken" in response.get_json()["message"]
+
+def test_update_profile_invalid_academy(client, logged_in_user, app):
+    user, token = logged_in_user
+    
+    payload = {
+        "academy": "Hogwarts"
+    }
+    
+    response = client.put("/api/users/update_profile", json=payload, headers=get_auth_header(token))
+    
+    assert response.status_code == 400
+    assert "Such academy doesn't exist" in response.get_json()["message"]
+
+def test_update_profile_missing_data(client, logged_in_user):
     _, token = logged_in_user
     
-    # Set up user as AGH initially
-    user = logged_in_user[0]
-    user.academy = "AGH"
-    user.course = "Computer Science"
-    user.year = 2
-    user.academic_clubs = ["Bite"]
-    db.session.commit()
-
-    # Change to non-AGH academy
-    payload = {"academy": "UW"}
-    response = client.put("/api/users/update_profile", json=payload, headers=get_auth_header(token))
+    response = client.put("/api/users/update_profile", json={}, headers=get_auth_header(token))
     
-    assert response.status_code == 200
-    assert user.academy == "UW"
-    assert user.course is None
-    assert user.year is None
-    assert user.academic_clubs is None
+    assert response.status_code == 400
+    assert "Invalid JSON or missing data" in response.get_json()["message"]
 
 def test_update_profile_invalid_username(client, logged_in_user, registered_friend, mock_app_config):
     _, token = logged_in_user
@@ -109,23 +121,85 @@ def test_update_profile_invalid_username(client, logged_in_user, registered_frie
     assert response.status_code == 400
     assert response.get_json()["message"] == "Username already taken"
 
-def test_update_profile_non_agh_cannot_set_course(client, logged_in_user, mock_app_config):
-    _, token = logged_in_user
+def test_update_academic_details_success(client, logged_in_user, mock_app_config, app):
+    user, token = logged_in_user
+    
+    with app.app_context():
+        user.academy = "AGH"
+        db.session.commit()
+        
+    u = User.query.filter_by(user_id=user.user_id).first()
+    assert u.academy == "AGH"
+        
     payload = {
-        "academy": "UW",
         "course": "Computer Science",
-        "year": "1"
+        "year": "3",
+        "academic_clubs": "Bite, DataScience"
     }
-    response = client.put("/api/users/update_profile", json=payload, headers=get_auth_header(token))
-    assert response.status_code == 400
-    assert response.get_json()["message"] == "Only AGH members can set course and year"
+    
+    response = client.put("/api/users/update_academic_details", json=payload, headers=get_auth_header(token))
+    assert response.status_code == 200
+    
+    with app.app_context():
+        u = User.query.filter_by(user_id=user.user_id).first()
+        assert u.course == "Computer Science"
+        assert u.year == 3
+        assert "Bite" in u.academic_clubs
+        assert "DataScience" in u.academic_clubs
 
-def test_update_profile_missing_course_or_year(client, logged_in_user, mock_app_config):
-    _, token = logged_in_user
-    payload = {"academy": "AGH", "course": "Computer Science"} # Missing year
-    response = client.put("/api/users/update_profile", json=payload, headers=get_auth_header(token))
+
+def test_update_academic_details_fails_for_non_primary(client, logged_in_user, app):
+    user, token = logged_in_user
+    
+    with app.app_context():
+        user = User.query.filter_by(user_id=user.user_id).first()
+        user.academy = "UW" 
+        db.session.commit()
+        
+    payload = {"course": "Computer Science", "year": "2"}
+    response = client.put("/api/users/update_academic_details", json=payload, headers=get_auth_header(token))
+    
+    assert response.status_code == 400
+
+    assert "Only AGH students can add academic details" in response.get_json()["message"]
+
+
+def test_update_academic_details_fails_missing_pair(client, logged_in_user, app):
+    user, token = logged_in_user
+    
+    with app.app_context():
+        user.academy = "AGH"
+        db.session.commit()
+        
+    u = User.query.filter_by(user_id=user.user_id).first()
+    assert u.academy == "AGH"
+
+    payload = {"course": "Computer Science"}
+    response = client.put("/api/users/update_academic_details", json=payload, headers=get_auth_header(token))
+    
     assert response.status_code == 400
     assert response.get_json()["message"] == "Both course and year must be provided together"
+
+
+def test_update_academic_details_invalid_year(client, logged_in_user, app):
+    user, token = logged_in_user
+    
+    with app.app_context():
+        user.academy = "AGH"
+        db.session.commit()
+        
+    u = User.query.filter_by(user_id=user.user_id).first()
+    assert u.academy == "AGH"
+
+    payload = {
+        "course": "Computer Science",
+        "year": "7" 
+    }
+    
+    response = client.put("/api/users/update_academic_details", json=payload, headers=get_auth_header(token))
+    
+    assert response.status_code == 400
+    assert response.get_json()["message"] == "Year must be between 1 and 6"
 
 # =============================================================================
 # Tests for PUT /api/users/settings/password
@@ -336,7 +410,7 @@ def test_profile_displays_deleted_username(client, logged_in_user):
     user.username = "del_a1b2c3d4e5"
     db.session.commit()
 
-    response = client.get("/api/users/profile", headers=get_auth_header(token))
+    response = client.get(f"/api/users/profile/{user.user_id}", headers=get_auth_header(token))
     
     assert response.status_code == 200
     data = response.get_json()
@@ -404,7 +478,9 @@ def test_feed_shows_deleted_creator(client, app, logged_in_user):
     response = client.get("/api/events/feed", headers=get_auth_header(token))
     
     assert response.status_code == 200
-    events = response.get_json()["data"]
+
+    response_json = response.get_json()
+    events = response_json.get("data", [])
     
     assert len(events) >= 1
     
@@ -457,14 +533,14 @@ def test_comments_show_deleted_author(client, app, logged_in_user):
     assert comments[0]["username"] == "[deleted]"
 
 # =============================================================================
-# Tests for profile pictures Lifecycle
+# Tests for profile pictures lifecycle
 # =============================================================================
 
 def test_get_profile_no_picture(client, logged_in_user, app):
-    _, token = logged_in_user
+    user, token = logged_in_user
     headers = {"Authorization": f"Bearer {token}"}
     
-    response = client.get("/api/users/profile", headers=headers)
+    response = client.get(f"/api/users/profile/{user.user_id}", headers=headers)
     
     assert response.status_code == 200
     data = response.get_json()
@@ -472,7 +548,7 @@ def test_get_profile_no_picture(client, logged_in_user, app):
 
 
 def test_update_profile_add_picture(client, logged_in_user, app):
-    _, token = logged_in_user
+    user, token = logged_in_user
     headers = {"Authorization": f"Bearer {token}"}
     
     payload = {
@@ -482,7 +558,7 @@ def test_update_profile_add_picture(client, logged_in_user, app):
     response = client.put("/api/users/update_profile", json=payload, headers=headers)
     assert response.status_code == 200
     
-    profile_res = client.get("/api/users/profile", headers=headers)
+    profile_res = client.get(f"/api/users/profile/{user.user_id}", headers=headers)
     pic_data = profile_res.get_json()["profile_picture"]
     
     assert pic_data is not None
@@ -547,3 +623,24 @@ def test_delete_account_removes_picture(mock_destroy, client, logged_in_user, ap
     with app.app_context():
         user = User.query.filter_by(user_id=user.user_id).first()
         assert user.profile_picture == None
+
+
+def test_get_user_info_friend_count(client, logged_in_user, registered_friend, app):
+    with app.app_context():
+        user, token = logged_in_user
+        friend = registered_friend[0]
+
+        if user.user_id < friend.user_id:
+            friendship = Friendship(user_id=user.user_id, friend_id=friend.user_id)
+        else:
+            friendship = Friendship(user_id=friend.user_id, friend_id=user.user_id)
+            
+        db.session.add(friendship)
+        db.session.commit()
+        
+        response = client.get(f"/api/users/profile/{user.user_id}", headers=get_auth_header(token))
+        assert response.status_code == 200
+        
+        data = response.get_json()
+        assert "friend_count" in data
+        assert data["friend_count"] == 1
