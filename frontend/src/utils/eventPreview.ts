@@ -9,6 +9,7 @@ type BuildEventPreviewParams = {
     isPrivate: boolean;
     creatorId: string;
     creatorUsername: string;
+    creatorProfilePictureUrl?: string | null;
     picture?: EventPicture | null;
     pictureUri?: string | null;
     id?: string;
@@ -23,6 +24,7 @@ export const buildEventPreview = ({
     isPrivate,
     creatorId,
     creatorUsername,
+    creatorProfilePictureUrl,
     picture,
     pictureUri,
     id = "preview-event",
@@ -38,6 +40,7 @@ export const buildEventPreview = ({
         location: location.trim() || "Brak lokalizacji",
         creator_id: creatorId,
         creator_username: creatorUsername,
+        creator_profile_picture_url: creatorProfilePictureUrl,
         created_at: new Date().toISOString(),
         updated_at: undefined,
         is_edited: false,

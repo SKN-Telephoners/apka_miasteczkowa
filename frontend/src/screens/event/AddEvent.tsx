@@ -34,6 +34,7 @@ const AddEvent = () => {
   const [time, setTime] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [currentUsername, setCurrentUsername] = useState("użytkownik");
+  const [currentUserAvatarUri, setCurrentUserAvatarUri] = useState<string | null>(null);
   const [eventPicture, setEventPicture] = useState<EventPicture | null>(null);
   const [eventPicturePreviewUri, setEventPicturePreviewUri] = useState<string | null>(null);
   const [isPictureUploading, setIsPictureUploading] = useState(false);
@@ -51,10 +52,11 @@ const AddEvent = () => {
       isPrivate,
       creatorId: "preview-user",
       creatorUsername: currentUsername,
+      creatorProfilePictureUrl: currentUserAvatarUri,
       picture: eventPicture,
       pictureUri: eventPicturePreviewUri,
     });
-  }, [title, description, location, date, time, isPrivate, currentUsername, eventPicture, eventPicturePreviewUri]);
+  }, [title, description, location, date, time, isPrivate, currentUsername, currentUserAvatarUri, eventPicture, eventPicturePreviewUri]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -76,11 +78,17 @@ const AddEvent = () => {
       try {
         const response = await api.get("/api/users/profile");
         const username = response?.data?.username;
+        const avatarUrl =
+          response?.data?.profile_picture?.url ||
+          response?.data?.profile_picture_url ||
+          (typeof response?.data?.profile_picture === "string" ? response.data.profile_picture : null);
         if (typeof username === "string" && username.trim()) {
           setCurrentUsername(username.trim());
         }
+        setCurrentUserAvatarUri(typeof avatarUrl === "string" && avatarUrl.trim() ? avatarUrl : null);
       } catch {
         setCurrentUsername("użytkownik");
+        setCurrentUserAvatarUri(null);
       }
     };
 
@@ -323,6 +331,7 @@ const AddEvent = () => {
         <View style={styles.container}>
           <UserCard
             creatorDisplayName={currentUsername}
+            avatarUri={currentUserAvatarUri ?? undefined}
             showCreatedAt={false}
             showMetaIcon={false}
             showUsernameIcon={false}

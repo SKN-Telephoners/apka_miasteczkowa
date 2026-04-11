@@ -171,7 +171,6 @@ const EventFilters = () => {
   return (
     <SafeAreaView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Filtrowanie wydarzen</Text>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Typ wydarzenia</Text>

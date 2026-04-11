@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, TextInput, Alert } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 import { useUser } from "../../contexts/UserContext";
 import { useFriends } from "../../contexts/FriendsContext";
@@ -13,11 +13,13 @@ import Avatar from "../../components/Avatar";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useCallback } from "react";
 import { getPublicUserProfile } from "../../services/users";
+import InputField from "../../components/InputField";
+import UserCard from "../../components/UserCard";
 
 const UserScreen = () => {
   const { logout } = useAuth();
   const { user: currentUser } = useUser();
-  const { friends, searchUsers, sendFriendRequest, removeFriend, fetchFriends } = useFriends();
+  const { friends, sendFriendRequest, removeFriend, fetchFriends } = useFriends();
   const { events } = useEvents();
   const { colors } = useTheme();
   const navigation = useNavigation<any>();
@@ -30,7 +32,6 @@ const UserScreen = () => {
   const profileData = isOwner ? currentUser : (visitedProfileData || visitedUser);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isFriend, setIsFriend] = useState(false);
 
   const styles = useMemo(() => getStyles(colors), [colors]);
@@ -98,15 +99,20 @@ const UserScreen = () => {
     navigation.push("UserProfile", { visitedUser: friendData });
   };
 
-  const handleSearch = async (text: string) => {
+  const handleSearch = (text: string) => {
     setSearchQuery(text);
-    if(text.trim().length > 0) {
-      const results = await searchUsers(text);
-      setSearchResults(results);
-    } else {
-      setSearchResults([]);
+  };
+
+  const filteredFriends = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return friends;
     }
-  }
+
+    return friends.filter((friend) =>
+      (friend.username || "").toLowerCase().includes(normalizedQuery)
+    );
+  }, [friends, searchQuery]);
 
   const handleSendRequest = async () => {
     try {
@@ -201,48 +207,50 @@ const UserScreen = () => {
       {isOwner && (
         <>
           <CollapsibleSection title="Znajomi">
-            <TextInput
-              style={[styles.searchInput, { color: colors.text, borderColor: colors.border }]}
-              placeholder="Szukaj użytkowników..."
-              placeholderTextColor={colors.icon}
+            <InputField
+              placeholder="Szukaj znajomych..."
               value={searchQuery}
               onChangeText={handleSearch}
+              showSearchSpriteIcon
+              showFloatingLabel={false}
+              reserveErrorSpace={false}
             />
-            {searchResults.length > 0 ? (
-              searchResults.map((resUser) => (
-                <TouchableOpacity key={resUser.id} onPress={() => goToFriendProfile(resUser)} style={[styles.listItem, { borderColor: colors.border }]}>
-                  <Avatar uri={resUser?.profile_picture?.url || resUser?.avatarUrl || (typeof resUser?.profile_picture === "string" ? resUser?.profile_picture : undefined)} size={40} />
-                  <View style={{ marginLeft: THEME.spacing.m, flex: 1 }}>
-                    <Text style={[styles.listText, { marginLeft: 0 }]}>{resUser.username}</Text>
-                    <Text style={styles.listSubtitle}>{resUser.academy}</Text>
-                  </View>
+            {filteredFriends.length > 0 ? (
+              filteredFriends.map((friend) => (
+                <TouchableOpacity key={friend.id} onPress={() => goToFriendProfile(friend)} style={[styles.listItem, { borderColor: colors.border }]}> 
+                  <UserCard
+                    creatorDisplayName={friend.username}
+                    avatarUri={friend?.profile_picture?.url || friend?.avatarUrl || (typeof friend?.profile_picture === "string" ? friend?.profile_picture : undefined)}
+                    createdAtDisplay=""
+                    showCreatedAt={false}
+                    showMetaIcon={false}
+                    showUsernameIcon={false}
+                    metaPrefix={`${friend?.academy || "wydział"} • ${friend?.course || "kierunek"}`}
+                    avatarSize={40}
+                  />
                 </TouchableOpacity>
               ))
+            ) : searchQuery.trim().length > 0 ? (
+              <Text style={styles.infoText}>Brak znajomych pasujących do wyszukiwania</Text>
             ) : (
-              <>
-                {friends.length > 0 ? (
-                  friends.map((friend) => (
-                    <TouchableOpacity key={friend.id} onPress={() => goToFriendProfile(friend)} style={[styles.listItem, { borderColor: colors.border }]}>
-                      <Avatar uri={friend?.profile_picture?.url || friend?.avatarUrl || (typeof friend?.profile_picture === "string" ? friend?.profile_picture : undefined)} size={40} />
-                      <Text style={styles.listText}>{friend.username}</Text>
-                    </TouchableOpacity>
-                  ))
-                ) : (
-                  <Text style={styles.infoText}>Brak znajomych na liście</Text>
-                )}
-              </>
+              <Text style={styles.infoText}>Brak znajomych na liście</Text>
             )}
           </CollapsibleSection>
 
           <CollapsibleSection title="Moje wydarzenia">
             {events.length > 0 ? (
               events.map((event) => (
-                <View key={event.id} style={[styles.listItem, { borderColor: colors.border }]}>
+                <TouchableOpacity
+                  key={event.id}
+                  style={[styles.listItem, { borderColor: colors.border }]}
+                  activeOpacity={0.8}
+                  onPress={() => navigation.navigate("MyEventPreview", { event, screenTitle: "Moje wydarzenie", allowEdit: true })}
+                >
                   <View style={{ flex: 1 }}>
                     <Text style={styles.listTitle}>{event.name}</Text>
                     <Text style={styles.listSubtitle}>{event.date} o {event.time} • {event.location}</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               ))
             ) : (
               <Text style={styles.infoText}>Nie utworzyłeś jeszcze żadnych wydarzeń</Text>
@@ -344,24 +352,10 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     height: '100%',
     resizeMode: 'cover',
   },
-  searchInput: {
-    borderWidth: 1,
-    borderRadius: THEME.borderRadius.m,
-    padding: 10,
-    marginBottom: THEME.spacing.s,
-  },
   listItem: {
-    flexDirection: "row",
-    alignItems: "center",
+    width: "100%",
     paddingVertical: THEME.spacing.s,
     borderBottomWidth: 1,
-  },
-  listText: {
-    ...THEME.typography.text,
-    marginLeft: THEME.spacing.m,
-    fontSize: 16,
-    fontWeight: "500",
-    color: colors.text,
   },
   listTitle: {
     ...THEME.typography.text,

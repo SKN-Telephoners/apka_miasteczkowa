@@ -66,6 +66,7 @@ const EditEvent = () => {
     const [time, setTime] = useState(event.time || "");
     const [isPrivate, setIsPrivate] = useState<boolean>(initialIsPrivate);
     const [currentUsername, setCurrentUsername] = useState("użytkownik");
+    const [currentUserAvatarUri, setCurrentUserAvatarUri] = useState<string | null>(null);
     const [eventPicture, setEventPicture] = useState<EventPicture | null>(event?.pictures?.[0] ?? null);
     const [eventPicturePreviewUri, setEventPicturePreviewUri] = useState<string | null>(event?.pictures?.[0]?.url ?? null);
     const [isPictureUploading, setIsPictureUploading] = useState(false);
@@ -90,11 +91,12 @@ const EditEvent = () => {
             isPrivate,
             creatorId: String(event?.creator_id ?? "preview-user"),
             creatorUsername: currentUsername,
+            creatorProfilePictureUrl: currentUserAvatarUri,
             picture: eventPicture,
             pictureUri: eventPicturePreviewUri,
             id: String(event?.id ?? event?.event_id ?? "preview-event"),
         });
-    }, [title, description, location, date, time, isPrivate, currentUsername, eventPicture, eventPicturePreviewUri, event?.creator_id, event?.id, event?.event_id]);
+    }, [title, description, location, date, time, isPrivate, currentUsername, currentUserAvatarUri, eventPicture, eventPicturePreviewUri, event?.creator_id, event?.id, event?.event_id]);
 
     useLayoutEffect(() => {
         navigation.setOptions({
@@ -196,11 +198,17 @@ const EditEvent = () => {
             try {
                 const response = await api.get("/api/users/profile");
                 const username = response?.data?.username;
+                const avatarUrl =
+                    response?.data?.profile_picture?.url ||
+                    response?.data?.profile_picture_url ||
+                    (typeof response?.data?.profile_picture === "string" ? response.data.profile_picture : null);
                 if (typeof username === "string" && username.trim()) {
                     setCurrentUsername(username.trim());
                 }
+                setCurrentUserAvatarUri(typeof avatarUrl === "string" && avatarUrl.trim() ? avatarUrl : null);
             } catch {
                 setCurrentUsername("użytkownik");
+                setCurrentUserAvatarUri(null);
             }
         };
 
@@ -339,6 +347,7 @@ const EditEvent = () => {
                 <View style={styles.container}>
                     <UserCard
                         creatorDisplayName={currentUsername}
+                        avatarUri={currentUserAvatarUri ?? undefined}
                         showCreatedAt={false}
                         showMetaIcon={false}
                         showUsernameIcon={false}

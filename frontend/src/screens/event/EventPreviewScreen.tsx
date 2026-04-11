@@ -1,10 +1,15 @@
 import React from "react";
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import EventCard from "../../components/EventCard";
 import { THEME } from "../../utils/constants";
 import { Event } from "../../types";
 import { useTheme } from "../../contexts/ThemeContext";
+import SvgSpriteIcon from "../../components/SvgSpriteIcon";
+
+const BASE_TILE_SIZE = 30;
+const META_ICON_SIZE = 18;
+const EDIT_MENU_ICON_OFFSET = { x: -BASE_TILE_SIZE * 2, y: -BASE_TILE_SIZE };
 
 const EventPreviewScreen = () => {
     const { colors } = useTheme();
@@ -12,15 +17,30 @@ const EventPreviewScreen = () => {
     const route = useRoute<any>();
     const navigation = useNavigation<any>();
     const event = route?.params?.event as Event | undefined;
+    const screenTitle = route?.params?.screenTitle || "Podgląd wydarzenia";
+    const allowEdit = Boolean(route?.params?.allowEdit);
 
     React.useLayoutEffect(() => {
         navigation.setOptions?.({
-            title: "Podgląd wydarzenia",
+            title: screenTitle,
             headerStyle: { backgroundColor: colors.background },
             headerTintColor: colors.text,
             headerTitleStyle: { color: colors.text },
+            headerRight:
+                allowEdit && event
+                    ? () => (
+                        <TouchableOpacity
+                            onPress={() => navigation.navigate("EditEvent", { event })}
+                            style={{ marginRight: 16, width: META_ICON_SIZE, height: META_ICON_SIZE, overflow: "hidden" }}
+                            activeOpacity={0.8}
+                            accessibilityLabel="Edytuj wydarzenie"
+                        >
+                            <SvgSpriteIcon set={2} size={META_ICON_SIZE} offsetX={EDIT_MENU_ICON_OFFSET.x} offsetY={EDIT_MENU_ICON_OFFSET.y} />
+                        </TouchableOpacity>
+                    )
+                    : undefined,
         });
-    }, [navigation, colors.background, colors.text]);
+    }, [navigation, colors.background, colors.text, screenTitle, allowEdit, event]);
 
     if (!event) {
         return (
