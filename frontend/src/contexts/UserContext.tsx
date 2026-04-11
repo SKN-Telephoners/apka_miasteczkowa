@@ -43,10 +43,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setIsLoadingUser(true);
     try {
-      console.log("Odpytywanie API o najświeższy profil...");
       // 1. Odbiór ORYGINAŁU z backendu
       const profileData = await getUserProfile();
-      console.log("Odpowiedź pobrana w fetchUser z API profile:", profileData);
 
       // 2. Usunięcie MOCKOWANYCH danych i wstawienie danych z zapytania
       const nextUser = {
@@ -63,7 +61,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         joinedDate: "Marzec 2024" // TODO: Backend musi zwrócić created_at
       };
       
-      console.log("Nowy obiekt user przygotowany do zapisania w Context:", nextUser);
       setUser(nextUser as any);
     } catch (error) {
       console.error("Error fetching user profile:", error);
@@ -78,8 +75,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateUserProfile = async (data: any) => {
     setIsLoadingUser(true);
-    console.log("--- START : updateUserProfile ---");
-    console.log("Dane wysłane do updateProfile:", data);
 
     // Optymistyczny update, który natychmiast wymusza zmianę na ekranie:
     setUser((prev) => {
@@ -90,17 +85,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: data.description !== undefined ? data.description : prev.description,
         academy: data.academy !== undefined ? data.academy : prev.academy,
       };
-      console.log("Optymistyczny stan Reacta zaktualizowany na:", next);
       return next;
     });
 
     try {
-      const apiResponse = await userService.updateProfile(data);
-      console.log("Odpowiedź z API z update_profile:", apiResponse);
-      
-      console.log("Wymuszenie ponownego fetchUser()...");
+      await userService.updateProfile(data);
       await fetchUser();
-      console.log("--- ZAKOŃCZONO : updateUserProfile ---");
     } catch (error) {
       console.error("Błąd podczas aktualizacji profilu użytkownika:", error);
       throw error; // rzucamy błąd dalej, by mógł zostać złapany i wyświetlony przez komponent
