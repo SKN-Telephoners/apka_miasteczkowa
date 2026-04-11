@@ -6,6 +6,7 @@ import { MOCKS } from "../utils/constants";
 
 export interface UserProfile {
   id: string; // Możemy na razie podmienić pod user_id z serwera
+  user_id: string; // Alias dla bezproblemowego dopasowania isOwner w UserScreen
   username: string;
   email: string;
   description?: string;
@@ -48,6 +49,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // 2. Usunięcie MOCKOWANYCH danych i wstawienie danych z zapytania
       setUser({
         id: profileData.user_id || "1",
+        user_id: profileData.user_id || "1",
         username: profileData.username || "Nieznany", // Tymczasowy fallback jeśli czegoś brakuje
         email: profileData.email || "",
         description: profileData.description || "",
