@@ -18,7 +18,7 @@ const Avatar = ({ uri, size = 80, style }: AvatarProps) => {
             {uri ? (
                 <Image source={{ uri }} style={styles.image} />
             ) : (
-                <View style={styles.placeholder} />
+                <Image source={require("../../assets/portrait_Placeholder.png")} style={styles.image} />
             )}
         </View>
     );

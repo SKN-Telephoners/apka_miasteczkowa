@@ -202,6 +202,7 @@ const CommentCard = ({
                         <UserCard
                             creatorDisplayName={item.username || "nieznany użytkownik"}
                             createdAtDisplay={createdAtDisplay}
+                            avatarUri={item.profile_picture_url || undefined}
                             showMetaRow={true}
                             showMetaIcon={item.user_id === userID || canOpenAuthorProfile}
                             showCreatedAt={true}

@@ -6,6 +6,7 @@ from backend.responses import ResponseTypes, make_api_response
 from flask_jwt_extended import jwt_required, get_current_user
 from backend.helpers import validate_uuid, sanitize_input, has_event_access
 from sqlalchemy.exc import SQLAlchemyError
+from cloudinary.utils import cloudinary_url
 
 comments_bp = Blueprint("comments", __name__, url_prefix="/api/comments")
 
@@ -198,6 +199,10 @@ def get_comments_list(event_id):
         user_ids = {c.user_id for c in comments if c.user_id is not None and not c.deleted}
         users = User.query.filter(User.user_id.in_(user_ids)).all() if user_ids else []
         usernames_by_id = {str(user.user_id): user.display_name for user in users}
+        profile_pictures_by_id = {
+            str(user.user_id): cloudinary_url(user.profile_picture, secure=True)[0] if user.profile_picture else None
+            for user in users
+        }
 
         top_level_comments = [c for c in comments if c.parent_comment_id is None]
         comments_tree = [c.to_dict() for c in top_level_comments]
@@ -205,6 +210,7 @@ def get_comments_list(event_id):
         def attach_usernames(comment_node):
             comment_user_id = comment_node.get("user_id")
             comment_node["username"] = usernames_by_id.get(comment_user_id) if comment_user_id else None
+            comment_node["profile_picture_url"] = profile_pictures_by_id.get(comment_user_id) if comment_user_id else None
             for reply in comment_node.get("replies", []):
                 attach_usernames(reply)
 

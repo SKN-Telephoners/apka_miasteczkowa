@@ -31,11 +31,13 @@ const NotificationsScreen = () => {
             <View style={[styles.itemContainer, { backgroundColor: colors.card }]}>
                 <UserCard
                     creatorDisplayName={item.user.username}
-                    createdAtDisplay={item.user.department && item.user.major ? `${item.user.department} • ${item.user.major}` : undefined}
+                    avatarUri={item.user.profile_picture?.url || item.user.avatarUrl}
+                    createdAtDisplay={item.user.course || undefined}
+                    metaPrefix={item.user.academy || "wydział • kierunek"}
                     showUsernameIcon={false}
                     showMetaIcon={true}
                     showMetaRow={true}
-                    showCreatedAt={false}
+                    showCreatedAt={Boolean(item.user.course)}
                     onMetaIconPress={handleNavigateToProfile}
                 />
                 <View style={styles.actionButtons}>

@@ -48,13 +48,7 @@ const UserCard = ({
 
     return (
         <View style={styles.container}>
-            <Avatar
-                size={avatarSize}
-                uri={
-                    avatarUri ||
-                    "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-                }
-            />
+            <Avatar size={avatarSize} uri={avatarUri} />
             <View style={styles.authorInfoContainer}>
                 <View>
                     <View style={styles.usernameRow}>

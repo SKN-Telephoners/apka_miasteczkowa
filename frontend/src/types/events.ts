@@ -50,6 +50,7 @@ export type Event = {
     location: string;
     creator_id: string;
     creator_username?: string | null;
+    creator_profile_picture_url?: string | null;
     created_at?: string;
     updated_at?: string;
     is_edited?: boolean;

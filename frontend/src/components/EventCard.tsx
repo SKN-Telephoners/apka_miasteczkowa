@@ -257,6 +257,7 @@ const EventCard = ({ item, showActions = true }: { item: Event; showActions?: bo
                     <UserCard
                         creatorDisplayName={creatorDisplayName}
                         createdAtDisplay={createdAtDisplay}
+                        avatarUri={item.creator_profile_picture_url || undefined}
                         showUsernameIcon={canOpenCreatorProfile && !isCreatorFriend}
                         onUsernameIconPress={canOpenCreatorProfile && !isCreatorFriend ? handleSendFriendRequest : undefined}
                         showMetaIcon={canOpenCreatorProfile}

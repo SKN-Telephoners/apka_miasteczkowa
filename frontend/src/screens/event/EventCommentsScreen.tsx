@@ -21,8 +21,6 @@ import SvgSpriteIcon from "../../components/SvgSpriteIcon";
 import { useTheme } from "../../contexts/ThemeContext";
 
 const BASE_TILE_SIZE = 30;
-const FILTER_ICON_SIZE = 30;
-const FILTER_ICON_OFFSET = { x: -BASE_TILE_SIZE, y: 0 };
 const SEND_ICON_SIZE = 28;
 const SEND_ICON_OFFSET = { x: -BASE_TILE_SIZE * 2, y: 0 };
 
@@ -53,17 +51,6 @@ const EventCommentsScreen = () => {
   useEffect(() => {
     navigation.setOptions({
       title: event?.name || "Komentarze",
-      headerRight: () => (
-        <TouchableOpacity
-          onPress={() => navigation.navigate("CommentFilters", { event })}
-          style={styles.headerFilterButton}
-          activeOpacity={0.8}
-        >
-          <View style={styles.headerFilterIconContainer}>
-            <SvgSpriteIcon set={1} size={FILTER_ICON_SIZE} offsetX={FILTER_ICON_OFFSET.x} offsetY={FILTER_ICON_OFFSET.y} />
-          </View>
-        </TouchableOpacity>
-      ),
     });
   }, [navigation, event?.name]);
 
@@ -303,13 +290,6 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     ...THEME.typography.text,
     color: colors.text,
     fontSize: 13,
-  },
-  headerFilterButton: {
-    marginRight: 12,
-  },
-  headerFilterIconContainer: {
-    width: FILTER_ICON_SIZE,
-    height: FILTER_ICON_SIZE,
   },
 });
 

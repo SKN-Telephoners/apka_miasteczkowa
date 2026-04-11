@@ -7,6 +7,7 @@ from backend.helpers import validate_uuid
 import uuid
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy import or_, and_
+from cloudinary.utils import cloudinary_url
 
 friends_bp = Blueprint("friends", __name__, url_prefix="/api/friends")
 
@@ -188,10 +189,19 @@ def get_friends_list():
         if friends_id:
             friends = User.query.filter(User.user_id.in_(friends_id)).all()
             for friend in friends:
+                profile_pic_data = None
+                if friend.profile_picture:
+                    profile_pic_data = {
+                        "cloud_id": friend.profile_picture,
+                        "url": cloudinary_url(friend.profile_picture, secure=True)[0],
+                    }
                 friends_data.append({
                     "id": str(friend.user_id),
                     "username": friend.display_name,
-                    "email": friend.email
+                    "email": friend.email,
+                    "academy": friend.academy,
+                    "course": friend.course,
+                    "profile_picture": profile_pic_data,
                 })
 
         # 2. Fetching pending incoming friend requests
@@ -204,7 +214,13 @@ def get_friends_list():
             "user": {
                 "id": str(r.sender.user_id),
                 "username": r.sender.display_name,
-                "email": r.sender.email
+                "email": r.sender.email,
+                "academy": r.sender.academy,
+                "course": r.sender.course,
+                "profile_picture": {
+                    "cloud_id": r.sender.profile_picture,
+                    "url": cloudinary_url(r.sender.profile_picture, secure=True)[0],
+                } if r.sender.profile_picture else None,
             }
         } for r in incoming_reqs]
 

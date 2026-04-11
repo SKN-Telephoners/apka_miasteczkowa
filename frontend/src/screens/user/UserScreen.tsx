@@ -6,7 +6,7 @@ import { useFriends } from "../../contexts/FriendsContext";
 import { useEvents } from "../../contexts/EventContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useNavigation, useRoute, useFocusEffect } from "@react-navigation/native";
-import { THEME, MOCKS } from "../../utils/constants";
+import { THEME } from "../../utils/constants";
 import Button from "../../components/Button";
 import CollapsibleSection from "../../components/CollapsibleSection";
 import Avatar from "../../components/Avatar";
@@ -122,7 +122,7 @@ const UserScreen = () => {
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={styles.headerRow}>
-        <Avatar uri={profileData?.profile_picture?.url || profileData?.avatarUrl || profileData?.profile_picture || MOCKS.AVATAR} size={80} style={{ marginRight: THEME.spacing.m }} />
+        <Avatar uri={profileData?.profile_picture?.url || profileData?.avatarUrl || (typeof profileData?.profile_picture === "string" ? profileData?.profile_picture : undefined)} size={80} style={{ marginRight: THEME.spacing.m }} />
 
         <View style={styles.headerInfo}>
           <Text style={styles.userName}>{profileData?.username || profileData?.display_name || "Użytkownik"}</Text>
@@ -185,7 +185,7 @@ const UserScreen = () => {
             {searchResults.length > 0 ? (
               searchResults.map((resUser) => (
                 <TouchableOpacity key={resUser.id} onPress={() => goToFriendProfile(resUser)} style={[styles.listItem, { borderColor: colors.border }]}>
-                  <Avatar uri={resUser.avatarUrl || MOCKS.AVATAR} size={40} />
+                  <Avatar uri={resUser?.profile_picture?.url || resUser?.avatarUrl || (typeof resUser?.profile_picture === "string" ? resUser?.profile_picture : undefined)} size={40} />
                   <View style={{ marginLeft: THEME.spacing.m, flex: 1 }}>
                     <Text style={[styles.listText, { marginLeft: 0 }]}>{resUser.username}</Text>
                     <Text style={styles.listSubtitle}>{resUser.academy}</Text>
@@ -197,7 +197,7 @@ const UserScreen = () => {
                 {friends.length > 0 ? (
                   friends.map((friend) => (
                     <TouchableOpacity key={friend.id} onPress={() => goToFriendProfile(friend)} style={[styles.listItem, { borderColor: colors.border }]}>
-                      <Avatar uri={MOCKS.AVATAR} size={40} />
+                      <Avatar uri={friend?.profile_picture?.url || friend?.avatarUrl || (typeof friend?.profile_picture === "string" ? friend?.profile_picture : undefined)} size={40} />
                       <Text style={styles.listText}>{friend.username}</Text>
                     </TouchableOpacity>
                   ))

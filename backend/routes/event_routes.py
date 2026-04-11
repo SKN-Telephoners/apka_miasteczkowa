@@ -465,6 +465,10 @@ def feed():
         creator_ids = {event.creator_id for event in pagination.items if event.creator_id is not None}
         creator_users = User.query.filter(User.user_id.in_(creator_ids)).all() if creator_ids else []
         creator_usernames = {str(user.user_id): user.display_name for user in creator_users}
+        creator_profile_pictures = {
+            str(user.user_id): cloudinary_url(user.profile_picture, secure=True)[0] if user.profile_picture else None
+            for user in creator_users
+        }
 
         event_list=[
             {
@@ -483,6 +487,7 @@ def feed():
                     for pic in event.pictures
                 ],
                 "creator_username": creator_usernames.get(str(event.creator_id)),
+                "creator_profile_picture_url": creator_profile_pictures.get(str(event.creator_id)),
                 "created_at": event.created_at.isoformat() if event.created_at else None,
                 "comment_count": str(comment_counts.get(event.event_id, 0)),
                 "participant_count": int(event.participant_count or 0),

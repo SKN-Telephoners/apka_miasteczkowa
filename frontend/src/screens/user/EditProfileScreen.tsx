@@ -1,14 +1,15 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TextInput, Alert, TouchableOpacity, Image, ScrollView } from 'react-native';
-import { useAuth } from '../../contexts/AuthContext';
 import { useUser } from '../../contexts/UserContext';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../contexts/ThemeContext';
-import { THEME, MOCKS, ACADEMIES } from '../../utils/constants';
+import { THEME, ACADEMIES } from '../../utils/constants';
 import Button from '../../components/Button';
 import { userService } from '../../services/api';
-import Avatar from '../../components/Avatar';
 import AppIcon from '../../components/AppIcon';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
+import { uploadEventPicture } from '../../services/events';
 
 const EditProfileScreen = () => {
     const { user, updateUserProfile } = useUser();
@@ -23,8 +24,11 @@ const EditProfileScreen = () => {
     const [description, setDescription] = useState(user?.description || "");
     const [academy, setAcademy] = useState(user?.academy || "");
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [profilePicture, setProfilePicture] = useState<{ cloud_id: string; url?: string } | null>(user?.profile_picture || null);
+    const [profilePicturePreviewUri, setProfilePicturePreviewUri] = useState<string | null>(null);
+    const [isPictureUploading, setIsPictureUploading] = useState(false);
 
-    const avatar = user?.profile_picture?.url || MOCKS.AVATAR; // read-only
+    const avatarUri = profilePicturePreviewUri || profilePicture?.url || user?.profile_picture?.url || null;
     const [isSaving, setIsSaving] = useState(false);
 
     const isEmailChanged = email !== user?.email;
@@ -38,13 +42,100 @@ const EditProfileScreen = () => {
         }
     };
 
+    const uploadSelectedPicture = async (asset: ImagePicker.ImagePickerAsset) => {
+        if (!asset.uri) {
+            Alert.alert("Błąd", "Nie udało się odczytać zdjęcia.");
+            return;
+        }
+
+        const fileInfo = await FileSystem.getInfoAsync(asset.uri);
+        const maxBytes = 15 * 1024 * 1024;
+        if (fileInfo.exists && typeof fileInfo.size === "number" && fileInfo.size > maxBytes) {
+            Alert.alert("Plik za duży", "Wybierz zdjęcie mniejsze niż 15 MB.");
+            return;
+        }
+
+        setProfilePicturePreviewUri(asset.uri);
+        setIsPictureUploading(true);
+
+        try {
+            const uploadedPicture = await uploadEventPicture(asset.uri, asset.fileName ?? "profile-picture.jpg");
+            setProfilePicture({
+                cloud_id: uploadedPicture.cloud_id,
+                url: uploadedPicture.url ?? asset.uri,
+            });
+        } catch (error: any) {
+            setProfilePicturePreviewUri(null);
+            Alert.alert("Błąd zdjęcia", error?.message || "Nie udało się przesłać zdjęcia.");
+        } finally {
+            setIsPictureUploading(false);
+        }
+    };
+
+    const takePhoto = async () => {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) {
+            Alert.alert("Brak uprawnień", "Aplikacja potrzebuje dostępu do aparatu.");
+            return;
+        }
+
+        const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ["images"],
+            quality: 0.7,
+            allowsEditing: true,
+            aspect: [1, 1],
+        });
+
+        if (!result.canceled && result.assets?.[0]) {
+            await uploadSelectedPicture(result.assets[0]);
+        }
+    };
+
+    const pickFromDevice = async () => {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+            Alert.alert("Brak uprawnień", "Aplikacja potrzebuje dostępu do galerii.");
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ["images"],
+            quality: 0.7,
+            allowsEditing: true,
+            aspect: [1, 1],
+        });
+
+        if (!result.canceled && result.assets?.[0]) {
+            await uploadSelectedPicture(result.assets[0]);
+        }
+    };
+
+    const showPictureOptions = () => {
+        Alert.alert("Zdjęcie profilowe", "Wybierz źródło zdjęcia", [
+            { text: "Zrób zdjęcie", onPress: takePhoto },
+            { text: "Wybierz z urządzenia", onPress: pickFromDevice },
+            (profilePicture || user?.profile_picture)
+                ? {
+                    text: "Usuń zdjęcie",
+                    style: "destructive",
+                    onPress: () => {
+                        setProfilePicture(null);
+                        setProfilePicturePreviewUri(null);
+                    },
+                }
+                : undefined,
+            { text: "Anuluj", style: "cancel" },
+        ].filter(Boolean) as any);
+    };
+
     const handleSave = async () => {
         setIsSaving(true);
         try {
             await updateUserProfile({ 
                 username,
                 description, 
-                academy: academy === "" ? null : academy 
+                academy: academy === "" ? null : academy,
+                profile_picture: profilePicture ? { cloud_id: profilePicture.cloud_id } : null,
             });
             Alert.alert("Sukces", "Zaktualizowano profil", [{ text: "OK", onPress: () => navigation.goBack() }]);
         } catch (error) {
@@ -58,9 +149,18 @@ const EditProfileScreen = () => {
         <View style={styles.container}>
             {/* Sekcja Avatara */}
             <View style={styles.avatarSection}>
-                <Avatar uri={avatar} size={100} style={{ marginBottom: THEME.spacing.s }} />
-                <TouchableOpacity onPress={() => Alert.alert("Zablokowane", "Dodawanie zdjęcia będzie dostępne wkrótce.")}>
-                    <Text style={[styles.changeAvatarText, { color: colors.icon }]}>Zmień zdjęcie (Zablokowane)</Text>
+                <Image
+                    source={
+                        avatarUri
+                            ? { uri: avatarUri }
+                            : require('../../../assets/portrait_Placeholder.png')
+                    }
+                    style={styles.avatarImage}
+                />
+                <TouchableOpacity onPress={showPictureOptions} disabled={isPictureUploading}>
+                    <Text style={[styles.changeAvatarText, { color: colors.icon }]}>
+                        {isPictureUploading ? "Przesyłanie zdjęcia..." : "Zmień zdjęcie"}
+                    </Text>
                 </TouchableOpacity>
             </View>
 
@@ -147,6 +247,15 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     avatarSection: {
         alignItems: 'center',
         marginVertical: THEME.spacing.l,
+    },
+    avatarImage: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        marginBottom: THEME.spacing.s,
+        borderWidth: 2,
+        borderColor: colors.text,
+        backgroundColor: colors.border,
     },
     changeAvatarText: {
         ...THEME.typography.text,
