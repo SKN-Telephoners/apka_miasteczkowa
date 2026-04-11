@@ -73,6 +73,18 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateUserProfile = async (data: any) => {
     setIsLoadingUser(true);
+
+    // Optymistyczny update, który natychmiast wymusza zmianę na ekranie:
+    setUser((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        username: data.username !== undefined ? data.username : prev.username,
+        description: data.description !== undefined ? data.description : prev.description,
+        academy: data.academy !== undefined ? data.academy : prev.academy,
+      };
+    });
+
     try {
       await userService.updateProfile(data);
       await fetchUser();
