@@ -1,3 +1,4 @@
+import React from "react";
 import {
     Text, View, StyleSheet,
     TouchableOpacity, Alert,
@@ -5,7 +6,6 @@ import {
 } from "react-native";
 import { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
 import { Comment } from "../types/comment";
 import { editComment, deleteComment, replyToComment } from "../services/comments";
 import UserCard from "./UserCard";
@@ -13,6 +13,8 @@ import { THEME } from "../utils/constants";
 import SvgSpriteIcon from "./SvgSpriteIcon";
 import { useTheme } from "../contexts/ThemeContext";
 import { useMemo } from "react";
+import { useNavigation } from "@react-navigation/native";
+import { useFriends } from "../contexts/FriendsContext";
 
 const BASE_TILE_SIZE = 30;
 const ACTION_ICON_SIZE = 16;
@@ -88,9 +90,11 @@ const CommentCard = ({
 }) => {
     const { colors } = useTheme();
     const styles = useMemo(() => getStyles(colors), [colors]);
-
+    const navigation = useNavigation<any>();
+    const { friends, sendFriendRequest } = useFriends();
 
     const [showReplies, setShowReplies] = useState(false);
+    const [isCommentAuthorFriend, setIsCommentAuthorFriend] = useState(false);
 
     const [commentValue, setCommentValue] = useState(item.content);
     const [isEditing, setIsEditing] = useState(false);
@@ -105,6 +109,43 @@ const CommentCard = ({
         y: 0,
     });
     const hasParent = Boolean(item.parent_comment_id);
+    const canOpenAuthorProfile = Boolean(item.user_id) && item.user_id !== userID;
+
+    // Check if comment author is a friend
+    useEffect(() => {
+        if (canOpenAuthorProfile && item.user_id) {
+            const isFriend = friends.some(
+                (friend) => friend.id === item.user_id
+            );
+            setIsCommentAuthorFriend(isFriend);
+        } else {
+            setIsCommentAuthorFriend(false);
+        }
+    }, [friends, canOpenAuthorProfile, item.user_id]);
+
+    const handleOpenAuthorProfile = () => {
+        if (!canOpenAuthorProfile) {
+            return;
+        }
+
+        navigation.navigate("UserScreen", {
+            visitedUser: {
+                id: item.user_id,
+                user_id: item.user_id,
+                username: item.username || "nieznany użytkownik",
+                is_friend: false,
+            },
+        });
+    };
+
+    const handleSendFriendRequest = async () => {
+        try {
+            await sendFriendRequest(item.user_id);
+            Alert.alert("Sukces", "Zaproszenie wysłane");
+        } catch (err: any) {
+            Alert.alert("Błąd", err?.message || "Nie udało się wysłać zaproszenia");
+        }
+    };
 
     useEffect(() => {
         setDisplayContent(item.content);
@@ -157,14 +198,16 @@ const CommentCard = ({
                     />
                 )}
                 <View style={styles.header}>
-                    <View style={styles.headerUserCardContainer}>
+                    <View style={[styles.headerUserCardContainer]}>
                         <UserCard
                             creatorDisplayName={item.username || "nieznany użytkownik"}
                             createdAtDisplay={createdAtDisplay}
                             showMetaRow={true}
-                            showMetaIcon={item.user_id === userID}
+                            showMetaIcon={item.user_id === userID || canOpenAuthorProfile}
                             showCreatedAt={true}
+                            showUsernameIcon={canOpenAuthorProfile && !isCommentAuthorFriend}
                             avatarSize={42}
+                            onUsernameIconPress={canOpenAuthorProfile && !isCommentAuthorFriend ? handleSendFriendRequest : undefined}
                             onMetaIconPress={
                                 item.user_id === userID
                                     ? (event) => {
@@ -175,6 +218,8 @@ const CommentCard = ({
                                         });
                                         requestAnimationFrame(() => setMenuVisible(true));
                                     }
+                                    : canOpenAuthorProfile
+                                    ? handleOpenAuthorProfile
                                     : undefined
                             }
                         />

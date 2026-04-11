@@ -17,7 +17,7 @@ import uuid
 from sqlalchemy.exc import SQLAlchemyError
 import cloudinary.uploader
 from cloudinary.utils import cloudinary_url
-from sqlalchemy import or_, and_, case
+from sqlalchemy import or_, and_, case, func
 
 users_bp = Blueprint("users", __name__, url_prefix="/api/users")
 
@@ -333,73 +333,99 @@ def delete_account():
         return make_api_response(ResponseTypes.SERVER_ERROR)
     
 @users_bp.route("/users_list", methods=["GET"])
-@limiter.limit("600 per second")
-@jwt_required
+@limiter.limit("600 per minute")
+@jwt_required()
 def get_users_list():
-    current_user_id = validate_uuid(get_jwt_identity())
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        return make_api_response(ResponseTypes.BAD_REQUEST, message="Invalid JSON format")
-    
+    user = get_current_user()
+    current_user_id = validate_uuid(str(user.user_id))
+
     try:
-        page = max(1, int(data.get("page", 1)))
-        limit = max(1, int(data.get("limit", Constants.PAGINATION_DEFAULT_LIMIT)))
-        if limit > Constants.MAX_PAGINATION_LIMIT:
-            limit = Constants.MAX_PAGINATION_LIMIT
+        page = max(1, int(request.args.get("page", 1)))
+        limit_arg = request.args.get("limit", None)
+        limit = None if limit_arg in (None, "", "all") else max(1, int(limit_arg))
     except (ValueError, TypeError):
         return make_api_response(ResponseTypes.INVALID_DATA, message="Pagination must be a positive integer")
-    
-    users = db.session.query(User).outerjoin(
-        Friendship, 
+
+    search_val = sanitize_input(str(request.args.get("search", ""))).strip()
+    academy_val = sanitize_input(str(request.args.get("academy", ""))).strip()
+    course_val = sanitize_input(str(request.args.get("course", ""))).strip()
+
+    friend_rows = Friendship.query.filter(
         or_(
-            and_(Friendship.user_id == current_user_id, Friendship.friend_id == User.user_id),
-            and_(Friendship.friend_id == current_user_id, Friendship.user_id == User.user_id)
+            Friendship.user_id == current_user_id,
+            Friendship.friend_id == current_user_id,
         )
-    ).filter(User.deleted == False, User.user_id != current_user_id)
+    ).all()
+    friend_ids = set()
+    for friendship in friend_rows:
+        if friendship.user_id == current_user_id:
+            friend_ids.add(friendship.friend_id)
+        else:
+            friend_ids.add(friendship.user_id)
 
-    search_val = data.get("search")
-    if search_val and isinstance(search_val, str):
-        clean_search = sanitize_input(search_val).strip()[:Constants.MAX_USERNAME_LEN]
-        if clean_search:
-            escaped_search = clean_search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-            query = query.filter(User.username.ilike(f"%{escaped_search}%"))
+    query = db.session.query(User).filter(or_(User.deleted.is_(False), User.deleted.is_(None)))
 
-    academy_val = data.get("academy")
-    if academy_val and isinstance(academy_val, str):
-        clean_academy = sanitize_input(academy_val).strip()
-        if clean_academy and clean_academy in current_app.config.get('ACADEMY_DATA', {}):
-            query = query.filter(User.academy == clean_academy)
+    search_lower = search_val.lower()
 
-            course_val = data.get("course")
-            if isinstance(course_val, str):
-                clean_course = sanitize_input(course_val).strip()
-                query = query.filter(User.course == clean_course)
+    if search_val:
+        escaped_search = search_val.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        query = query.filter(User.username.ilike(f"{escaped_search}%"))
 
-    friend_priority = case(
-        (Friendship.friendship_id.isnot(None), 1), 
-        else_=0
+    if academy_val:
+        query = query.filter(User.academy == academy_val)
+
+    if course_val:
+        query = query.filter(User.course == course_val)
+
+    friendship_priority = case(
+        (User.user_id.in_(friend_ids), 1),
+        else_=0,
     )
 
-    query = query.order_by(friend_priority.desc(), User.username.asc())
+    if search_val:
+        search_priority = case(
+            (func.lower(User.username) == search_lower, 0),
+            (func.lower(User.username).like(f"{search_lower}%"), 1),
+            else_=2,
+        )
+    else:
+        search_priority = case((User.user_id.isnot(None), 0), else_=0)
 
-    pagination = query.paginate(page=page, per_page=limit, error_out=False)
+    query = query.order_by(search_priority.asc(), friendship_priority.desc(), User.username.asc())
+
+    rows = query.all()
 
     users_list = []
-    for user in pagination.items:
-        user_info = {
-            "user_id": str(user.user_id),
-            "username": user.display_name,
-            "academy": user.academy,
-            "profile_picture": user.profile_picture,
-            "is_friend": any(f.user_id == current_user_id or f.friend_id == current_user_id for f in user.friendships_as_user + user.friendships_as_friend)
-        }
-        users_list.append(user_info)
+    for user_row in rows:
+        profile_picture = None
+        if user_row.profile_picture:
+            picture_url, _ = cloudinary_url(user_row.profile_picture, secure=True)
+            profile_picture = {
+                "cloud_id": user_row.profile_picture,
+                "url": picture_url,
+            }
 
-    return make_api_response(ResponseTypes.SUCCESS, data={
-        "users": users_list,
-        "pagination": {
-            "total": pagination.total,
-            "pages": pagination.pages,
-            "current_page": pagination.page
-        }
-    })
+        users_list.append(
+            {
+                "user_id": str(user_row.user_id),
+                "username": user_row.display_name,
+                "academy": user_row.academy,
+                "course": user_row.course,
+                "year": user_row.year,
+                "profile_picture": profile_picture,
+                "is_friend": user_row.user_id in friend_ids,
+                "is_self": user_row.user_id == current_user_id,
+            }
+        )
+
+    return make_api_response(
+        ResponseTypes.SUCCESS,
+        data={
+            "users": users_list,
+            "pagination": {
+                "total": len(users_list),
+                "pages": 1,
+                "current_page": 1,
+            },
+        },
+    )

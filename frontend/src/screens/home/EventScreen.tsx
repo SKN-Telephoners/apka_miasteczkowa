@@ -60,8 +60,9 @@ const EventScreen = () => {
             participation: filters.participation,
             created_window: filters.createdAtWindow,
             sort_mode: filters.sortMode,
+            creator_source: filters.creatorSource,
         }),
-        [debouncedSearchQuery, filters.createdAtWindow, filters.participation, filters.sortMode, filters.visibility],
+        [debouncedSearchQuery, filters.createdAtWindow, filters.participation, filters.sortMode, filters.visibility, filters.creatorSource],
     );
 
     const {
@@ -160,7 +161,7 @@ const EventScreen = () => {
             <View style={styles.searchRowContainer}>
                 <View style={styles.searchInputContainer}>
                     <InputField
-                        placeholder="Szukaj"
+                        placeholder="Szukaj wydarzeń"
                         onChangeText={(query) => handleSearch(query)}
                         value={searchQuery}
                         showSearchSpriteIcon

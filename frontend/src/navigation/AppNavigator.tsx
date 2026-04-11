@@ -10,6 +10,7 @@ import MapScreen from "../screens/home/MapScreen";
 import ProfileStack from "./ProfileStack";
 import EventStack from "./EventStack";
 import NotificationsScreen from "../screens/home/NotificationsScreen";
+import UserScreen from "../screens/user/UserScreen";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../contexts/AuthContext";
 import { ActivityIndicator, View, TouchableOpacity } from "react-native";
@@ -34,6 +35,7 @@ const AuthStack = () => {
 
 const ICON_SIZE = 30;
 const SEARCH_ICON_OFFSET = { x: -ICON_SIZE * 2, y: 0 };
+const SearchScreen = require("../screens/user/SearchScreen").default;
 
 // for authenticated users
 const MainTabs = () => {
@@ -65,6 +67,25 @@ const MainTabs = () => {
         tabBarInactiveTintColor: colors.icon,
 
         headerRight: () => {
+          if (route.name === 'Mapa') {
+            return (
+              <View style={{ flexDirection: 'row' }}>
+                <TouchableOpacity
+                  style={{ marginHorizontal: 20 }}
+                  onPress={() => navigation.navigate('Search')}
+                >
+                  <Ionicons name={'search'} size={28} color={colors.icon} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{ marginHorizontal: 20 }}
+                  onPress={() => navigation.navigate('Notifications')}
+                >
+                  <Ionicons name={'notifications'} size={28} color={colors.icon} />
+                </TouchableOpacity>
+              </View>
+            );
+          }
+
           if (route.name !== 'Wydarzenia') {
             return null;
           }
@@ -82,11 +103,11 @@ const MainTabs = () => {
               >
                 <SvgSpriteIcon set={2} size={ICON_SIZE} offsetX={SEARCH_ICON_OFFSET.x} offsetY={SEARCH_ICON_OFFSET.y} />
               </TouchableOpacity>
-              <TouchableOpacity style={{ marginHorizontal: 20 }}>
-                <Ionicons name={'search'} size={28} color={colors.text} />
+              <TouchableOpacity style={{ marginHorizontal: 20 }} onPress={() => navigation.navigate('Search')}>
+                <Ionicons name={'search'} size={28} color={colors.icon} />
             </TouchableOpacity>
             <TouchableOpacity style={{ marginHorizontal: 20 }} onPress={() => navigation.navigate("Notifications")}>
-                <Ionicons name={'notifications'} size={28} color={colors.text} />
+                <Ionicons name={'notifications'} size={28} color={colors.icon} />
             </TouchableOpacity>
             </View>
           );
@@ -148,9 +169,39 @@ const AppNavigator = () => {
             <Stack.Screen
               name="Notifications"
               component={NotificationsScreen}
-              options={{
+              options={({ navigation }) => ({
                 headerShown: true,
                 headerTitle: 'Powiadomienia',
+                headerStyle: { backgroundColor: colors.background },
+                headerTintColor: colors.text,
+                headerTitleStyle: { color: colors.text },
+                headerRight: () => (
+                  <TouchableOpacity
+                    style={{ marginHorizontal: 20 }}
+                    onPress={() => navigation.navigate('Search')}
+                  >
+                    <Ionicons name={'search'} size={28} color={colors.icon} />
+                  </TouchableOpacity>
+                ),
+              })}
+            />
+            <Stack.Screen
+              name="Search"
+              component={SearchScreen}
+              options={{
+                headerShown: true,
+                headerTitle: 'Szukaj użytkowników',
+                headerStyle: { backgroundColor: colors.background },
+                headerTintColor: colors.text,
+                headerTitleStyle: { color: colors.text },
+              }}
+            />
+            <Stack.Screen
+              name="UserScreen"
+              component={UserScreen}
+              options={{
+                headerShown: true,
+                headerTitle: 'Profil użytkownika',
                 headerStyle: { backgroundColor: colors.background },
                 headerTintColor: colors.text,
                 headerTitleStyle: { color: colors.text },

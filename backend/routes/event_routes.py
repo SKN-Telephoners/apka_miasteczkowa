@@ -294,11 +294,7 @@ def feed():
         participation = str(request.args.get("participation", "all")).strip().lower()
         created_window = str(request.args.get("created_window", "all")).strip().lower()
         sort_mode = str(request.args.get("sort_mode", "default")).strip().lower()
-
-        visibility = request.args.get("visibility", default="all", type=str).lower()
-        participation = request.args.get("participation", default="all", type=str).lower()
-        created_window = request.args.get("created_window", default="all", type=str).lower()
-        sort_mode = request.args.get("sort_mode", default="default", type=str).lower()
+        creator_source = str(request.args.get("creator_source", "all")).strip().lower()
 
         if page < 1:
             page = 1
@@ -349,6 +345,22 @@ def feed():
                     ~participant_exists,
                 )
             )
+
+        if creator_source in ("friends", "others"):
+            # Get user's friend IDs (bidirectional)
+            friend_ids = db.session.query(
+                Friendship.friend_id
+            ).filter(Friendship.user_id == user_id).union(
+                db.session.query(
+                    Friendship.user_id
+                ).filter(Friendship.friend_id == user_id)
+            ).all()
+            friend_ids_set = {str(f[0]) for f in friend_ids}
+
+            if creator_source == "friends":
+                events = events.filter(Event.creator_id.in_(friend_ids_set) if friend_ids_set else False)
+            elif creator_source == "others":
+                events = events.filter(~Event.creator_id.in_(friend_ids_set) if friend_ids_set else True)
 
         now_utc = datetime.now(timezone.utc)
 

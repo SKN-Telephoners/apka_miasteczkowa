@@ -1,21 +1,22 @@
 import React, { useMemo, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, TextInput } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, TextInput, Alert } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 import { useUser } from "../../contexts/UserContext";
 import { useFriends } from "../../contexts/FriendsContext";
 import { useEvents } from "../../contexts/EventContext";
 import { useTheme } from "../../contexts/ThemeContext";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute, useFocusEffect } from "@react-navigation/native";
 import { THEME, MOCKS } from "../../utils/constants";
 import Button from "../../components/Button";
 import CollapsibleSection from "../../components/CollapsibleSection";
 import Avatar from "../../components/Avatar";
 import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useCallback } from "react";
 
 const UserScreen = () => {
   const { logout } = useAuth();
   const { user: currentUser } = useUser();
-  const { friends, searchUsers, sendFriendRequest } = useFriends();
+  const { friends, searchUsers, sendFriendRequest, removeFriend, fetchFriends } = useFriends();
   const { events } = useEvents();
   const { colors } = useTheme();
   const navigation = useNavigation<any>();
@@ -28,8 +29,32 @@ const UserScreen = () => {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isFriend, setIsFriend] = useState(false);
 
   const styles = useMemo(() => getStyles(colors), [colors]);
+
+  // Refresh friends list when this screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (!isOwner) {
+        fetchFriends();
+      }
+    }, [isOwner, fetchFriends])
+  );
+
+  // Check if visitedUser is already a friend (runs whenever friends list updates)
+  useEffect(() => {
+    if (!isOwner && visitedUser) {
+      const userIsFriend = friends.some(
+        (friend) =>
+          friend.id === visitedUser.id ||
+          friend.id === visitedUser.user_id
+      );
+      setIsFriend(userIsFriend);
+    } else {
+      setIsFriend(false);
+    }
+  }, [visitedUser, friends, isOwner]);
 
   const gotoEditProfile = () => {
     navigation.navigate("EditProfile");
@@ -58,9 +83,40 @@ const UserScreen = () => {
   }
 
   const handleSendRequest = async () => {
-    if (profileData?.id || profileData?.user_id) {
-      await sendFriendRequest(profileData.id || profileData.user_id);
+    try {
+      if (profileData?.id || profileData?.user_id) {
+        await sendFriendRequest(profileData.id || profileData.user_id);
+      }
+    } catch (err: any) {
+      const errorMsg = err?.message || "Nie udało się wysłać zaproszenia";
+      Alert.alert("Błąd", errorMsg);
     }
+  }
+
+  const handleRemoveFriend = () => {
+    Alert.alert(
+      "Usunąć ze znajomych",
+      "Czy chcesz usunąć tego użytkownika ze znajomych?",
+      [
+        {
+          text: "Anuluj",
+          style: "cancel",
+        },
+        {
+          text: "Usuń",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              if (visitedUser?.id || visitedUser?.user_id) {
+                await removeFriend(visitedUser.id || visitedUser.user_id);
+              }
+            } catch (err: any) {
+              Alert.alert("Błąd", err?.message || "Nie udało się usunąć użytkownika ze znajomych");
+            }
+          },
+        },
+      ]
+    );
   }
 
   return (
@@ -102,10 +158,10 @@ const UserScreen = () => {
           onPress={gotoEditProfile}
           style={styles.editButton}
         />
-      ) : profileData?.is_friend ? (
+      ) : isFriend ? (
         <Button
-          title="Jesteście znajomymi"
-          onPress={() => {}}
+          title="Usuń ze znajomych"
+          onPress={handleRemoveFriend}
           style={[styles.editButton, { backgroundColor: colors.icon }]}
         />
       ) : (

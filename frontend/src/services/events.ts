@@ -150,6 +150,7 @@ export interface FeedQueryParams {
     participation?: "all" | "joined" | "not_joined";
     created_window?: "all" | "today" | "week" | "month" | "year" | "older";
     sort_mode?: "default" | "members_desc" | "members_asc" | "comments_desc" | "comments_asc";
+    creator_source?: "all" | "friends" | "others";
 }
 
 export interface ParticipationStatusResponse {
@@ -204,6 +205,7 @@ export const getEvents = async (
                 ...(query.participation ? { participation: query.participation } : {}),
                 ...(query.created_window ? { created_window: query.created_window } : {}),
                 ...(query.sort_mode ? { sort_mode: query.sort_mode } : {}),
+                ...(query.creator_source ? { creator_source: query.creator_source } : {}),
             },
         });
         return response.data;

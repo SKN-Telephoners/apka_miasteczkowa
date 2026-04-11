@@ -190,6 +190,7 @@ const EventCommentsScreen = () => {
           value={commentValue}
           style={styles.commentInput}
           onChangeText={setCommentValue}
+          placeholderTextColor={colors.text}
           multiline
         />
 

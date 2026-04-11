@@ -13,9 +13,11 @@ type UserCardProps = {
     showCreatedAt?: boolean;
     showMetaIcon?: boolean;
     showMetaRow?: boolean;
+    showUsernameIcon?: boolean;
     metaPrefix?: string;
     avatarSize?: number;
     onMetaIconPress?: (event: any) => void;
+    onUsernameIconPress?: () => void;
     metaTextColor?: string;
 };
 
@@ -31,9 +33,11 @@ const UserCard = ({
     showCreatedAt = true,
     showMetaIcon = true,
     showMetaRow = true,
+    showUsernameIcon = true,
     metaPrefix = "wydział • kierunek",
     avatarSize = 55,
     onMetaIconPress,
+    onUsernameIconPress,
     metaTextColor,
 }: UserCardProps) => {
     const { colors } = useTheme();
@@ -55,9 +59,16 @@ const UserCard = ({
                 <View>
                     <View style={styles.usernameRow}>
                         <Text style={[THEME.typography.eventTitle, { color: colors.text }]}>{creatorDisplayName}</Text>
-                        <View style={styles.usernameIconContainer}>
-                            <SvgSpriteIcon set={1} size={USERNAME_ICON_SIZE} offsetX={USERNAME_ICON_OFFSET.x} offsetY={USERNAME_ICON_OFFSET.y} />
-                        </View>
+                        {showUsernameIcon && (
+                            <TouchableOpacity
+                                style={styles.usernameIconContainer}
+                                onPress={onUsernameIconPress}
+                                disabled={!onUsernameIconPress}
+                                activeOpacity={0.8}
+                            >
+                                <SvgSpriteIcon set={1} size={USERNAME_ICON_SIZE} offsetX={USERNAME_ICON_OFFSET.x} offsetY={USERNAME_ICON_OFFSET.y} />
+                            </TouchableOpacity>
+                        )}
                     </View>
                     {showMetaRow && (
                         <View style={styles.authorMetaRow}>

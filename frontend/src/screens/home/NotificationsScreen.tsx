@@ -1,10 +1,13 @@
 import React, { useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useFriends } from '../../contexts/FriendsContext';
 import { THEME } from '../../utils/constants';
 import { useTheme } from '../../contexts/ThemeContext';
+import UserCard from '../../components/UserCard';
 
 const NotificationsScreen = () => {
+    const navigation = useNavigation<any>();
     const { incomingRequests, acceptRequest, declineRequest, fetchFriends } = useFriends();
     const { colors } = useTheme();
 
@@ -12,27 +15,46 @@ const NotificationsScreen = () => {
         fetchFriends(); // Odświeżenie danych o powiadomieniach
     }, []);
 
-    const renderItem = ({ item }: { item: any }) => (
-        <View style={[styles.itemContainer, { backgroundColor: colors.card }]}>
-            <View style={styles.userInfo}>
-                <Text style={[styles.username, { color: colors.text }]}>{item.user.username}</Text>
+    const renderItem = ({ item }: { item: any }) => {
+        const handleNavigateToProfile = () => {
+            navigation.navigate("UserScreen", {
+                visitedUser: {
+                    id: item.user.id,
+                    user_id: item.user.id,
+                    username: item.user.username,
+                    is_friend: false,
+                },
+            });
+        };
+
+        return (
+            <View style={[styles.itemContainer, { backgroundColor: colors.card }]}>
+                <UserCard
+                    creatorDisplayName={item.user.username}
+                    createdAtDisplay={item.user.department && item.user.major ? `${item.user.department} • ${item.user.major}` : undefined}
+                    showUsernameIcon={false}
+                    showMetaIcon={true}
+                    showMetaRow={true}
+                    showCreatedAt={false}
+                    onMetaIconPress={handleNavigateToProfile}
+                />
+                <View style={styles.actionButtons}>
+                    <TouchableOpacity 
+                        style={[styles.button, { backgroundColor: colors.highlight }]} 
+                        onPress={() => acceptRequest(item.id)}
+                    >
+                        <Text style={styles.buttonText}>Akceptuj</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={[styles.button, styles.declineButton]} 
+                        onPress={() => declineRequest(item.id)}
+                    >
+                        <Text style={styles.buttonText}>Odrzuć</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
-            <View style={styles.actionButtons}>
-                <TouchableOpacity 
-                    style={[styles.button, { backgroundColor: colors.highlight }]} 
-                    onPress={() => acceptRequest(item.id)}
-                >
-                    <Text style={styles.buttonText}>Akceptuj</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                    style={[styles.button, styles.declineButton]} 
-                    onPress={() => declineRequest(item.id)}
-                >
-                    <Text style={styles.buttonText}>Odrzuć</Text>
-                </TouchableOpacity>
-            </View>
-        </View>
-    );
+        );
+    };
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -58,23 +80,17 @@ const styles = StyleSheet.create({
         padding: THEME.spacing.m,
     },
     itemContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
+        flexDirection: 'column',
         padding: THEME.spacing.m,
         marginBottom: THEME.spacing.s,
         borderRadius: THEME.borderRadius.m,
     },
-    userInfo: {
-        flex: 1,
-    },
-    username: {
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
     actionButtons: {
         flexDirection: 'row',
         gap: 8,
+        marginLeft: THEME.spacing.s,
+        marginTop: THEME.spacing.s,
+        alignSelf: 'flex-end',
     },
     button: {
         paddingHorizontal: 12,

@@ -9,6 +9,7 @@ import { joinEvent, leaveEvent } from "../services/events";
 import UserCard from "./UserCard";
 import SvgSpriteIcon from "./SvgSpriteIcon";
 import { useTheme } from "../contexts/ThemeContext";
+import { useFriends } from "../contexts/FriendsContext";
 
 const parseEventDateTime = (event: Event): Date | null => {
     if (!event?.date || !event?.time) return null;
@@ -85,6 +86,7 @@ const EDIT_MENU_ICON_OFFSET = { x: -BASE_TILE_SIZE * 2, y: -BASE_TILE_SIZE };
 const EventCard = ({ item, showActions = true }: { item: Event; showActions?: boolean }) => {
     const navigation = useNavigation<any>();
     const { colors } = useTheme();
+    const { friends, sendFriendRequest } = useFriends();
     const styles = useMemo(() => getStyles(colors), [colors]);
     const eventDateTime = parseEventDateTime(item);
     const isPastEvent = eventDateTime ? eventDateTime.getTime() < Date.now() : false;
@@ -93,12 +95,26 @@ const EventCard = ({ item, showActions = true }: { item: Event; showActions?: bo
     const [isParticipating, setIsParticipating] = useState(Boolean(item?.is_participating));
     const [isParticipationLoading, setIsParticipationLoading] = useState(false);
     const [participantCount, setParticipantCount] = useState<number>(Number(item?.participant_count ?? 0));
+    const [isCreatorFriend, setIsCreatorFriend] = useState(false);
 
     const isPrivateEvent =
         item?.is_private === true ||
         String(item?.is_private).toLowerCase() === "true";
     const creatorDisplayName = item.creator_username?.trim() || "nieznany użytkownik";
     const createdAtDisplay = formatCreatedAt(item.created_at);
+    const canOpenCreatorProfile = Boolean(item.creator_id) && item.creator_id !== userID;
+
+    // Check if creator is a friend
+    useEffect(() => {
+        if (!isOwner && item.creator_id) {
+            const isFriend = friends.some(
+                (friend) => friend.id === item.creator_id
+            );
+            setIsCreatorFriend(isFriend);
+        } else {
+            setIsCreatorFriend(false);
+        }
+    }, [friends, isOwner, item.creator_id]);
 
     useEffect(() => {
         const fetchUserID = async () => {
@@ -117,6 +133,30 @@ const EventCard = ({ item, showActions = true }: { item: Event; showActions?: bo
         setParticipantCount(Number(item?.participant_count ?? 0));
         setIsParticipating(Boolean(item?.is_participating));
     }, [item.participant_count, item.is_participating]);
+
+    const handleOpenCreatorProfile = () => {
+        if (!canOpenCreatorProfile) {
+            return;
+        }
+
+        navigation.navigate("UserScreen", {
+            visitedUser: {
+                id: item.creator_id,
+                user_id: item.creator_id,
+                username: creatorDisplayName,
+                is_friend: false,
+            },
+        });
+    };
+
+    const handleSendFriendRequest = async () => {
+        try {
+            await sendFriendRequest(item.creator_id);
+            Alert.alert("Sukces", "Zaproszenie wysłane");
+        } catch (err: any) {
+            Alert.alert("Błąd", err?.message || "Nie udało się wysłać zaproszenia");
+        }
+    };
 
     const handleJoinEvent = async () => {
         if (isParticipationLoading) return;
@@ -217,6 +257,10 @@ const EventCard = ({ item, showActions = true }: { item: Event; showActions?: bo
                     <UserCard
                         creatorDisplayName={creatorDisplayName}
                         createdAtDisplay={createdAtDisplay}
+                        showUsernameIcon={canOpenCreatorProfile && !isCreatorFriend}
+                        onUsernameIconPress={canOpenCreatorProfile && !isCreatorFriend ? handleSendFriendRequest : undefined}
+                        showMetaIcon={canOpenCreatorProfile}
+                        onMetaIconPress={canOpenCreatorProfile ? handleOpenCreatorProfile : undefined}
                         metaTextColor={isPastEvent ? colors.text : undefined}
                     />
 

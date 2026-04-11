@@ -325,6 +325,7 @@ const AddEvent = () => {
             creatorDisplayName={currentUsername}
             showCreatedAt={false}
             showMetaIcon={false}
+            showUsernameIcon={false}
           />
           <TextInput
             placeholder="Dodaj tytuł... "

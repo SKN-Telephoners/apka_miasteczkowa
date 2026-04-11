@@ -54,7 +54,7 @@ const InputField: React.FC<InputFieldProps> = ({
   floatingLabelColor = THEME.colors.light.text,
   floatingLabelBackgroundColor = THEME.colors.light.background,
 }) => {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
   const [localErrorMessage, setLocalErrorMessage] = useState<string | null>(
     null
@@ -94,6 +94,7 @@ const InputField: React.FC<InputFieldProps> = ({
 
   const resolvedFloatingLabelColor = floatingLabelColor ?? colors.text;
   const resolvedFloatingLabelBackgroundColor = floatingLabelBackgroundColor ?? colors.background;
+  const resolvedPlaceholderTextColor = showSearchSpriteIcon && isDark ? colors.text : colors.searchWord;
 
   return (
     <View style={styles.container}>
@@ -116,6 +117,7 @@ const InputField: React.FC<InputFieldProps> = ({
         <TextInput
           style={styles.input}
           placeholder={placeholder}
+          placeholderTextColor={resolvedPlaceholderTextColor}
           value={value}
           onChangeText={handleTextChange}
           onBlur={handleBlur}

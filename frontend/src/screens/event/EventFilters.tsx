@@ -28,8 +28,8 @@ const visibilityOptions: FilterOption<EventVisibilityFilter>[] = [
 
 const creatorOptions: FilterOption<EventCreatorFilter>[] = [
   { label: "Wszyscy", value: "all" },
-  { label: "Od znajomych", value: "friends", disabled: true },
-  { label: "Od innych", value: "others", disabled: true },
+  { label: "Od znajomych", value: "friends" },
+  { label: "Od innych", value: "others" },
 ];
 
 const participationOptions: FilterOption<EventParticipationFilter>[] = [
@@ -64,10 +64,9 @@ const EventFilters = () => {
   const { colors } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
 
-  const creatorSectionHint = useMemo(
-    () => "Opcje znajomi/inni są przygotowane i jeszcze nieaktywne.",
-    []
-  );
+
+
+
 
   const applyFilters = () => {
     navigation.navigate({
@@ -194,7 +193,6 @@ const EventFilters = () => {
           {renderOptionRow(creatorOptions, filters.creatorSource, (value) => {
             setFilters((prev) => ({ ...prev, creatorSource: value }));
           })}
-          <Text style={styles.hint}>{creatorSectionHint}</Text>
         </View>
 
         <View style={styles.section}>

@@ -37,7 +37,10 @@ export const searchUsers = async (query: string): Promise<User[]> => {
       username: u.username,
       email: "", // publiczna szukajka raczej tego nie zdradzi
       academy: u.academy,
-      avatarUrl: u.profile_picture || undefined,
+      course: u.course,
+      year: u.year,
+      avatarUrl: u.profile_picture?.url || u.profile_picture || undefined,
+      profile_picture: u.profile_picture || null,
       is_friend: u.is_friend
     })) as User[];
   } catch (err) {
@@ -86,6 +89,18 @@ export const cancelRequest = async (friendId: string): Promise<string> => {
   try {
     const response = await api.post<ApiMessage>(`/api/friends/request/${friendId}/cancel`);
     return response.data.message ?? "Friend request canceled";
+  } catch (err: any) {
+    // error handling for now
+    const msg = err?.response?.data?.message || err?.message || "Network error";
+    throw new Error(msg);
+  }
+}
+
+// Function to remove a friend
+export const removeFriend = async (friendId: string): Promise<string> => {
+  try {
+    const response = await api.post<ApiMessage>(`/api/friends/${friendId}/remove`);
+    return response.data.message ?? "Friend removed";
   } catch (err: any) {
     // error handling for now
     const msg = err?.response?.data?.message || err?.message || "Network error";

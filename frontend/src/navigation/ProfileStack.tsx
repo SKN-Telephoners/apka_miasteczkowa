@@ -20,7 +20,10 @@ const ProfileStack = () => {
                 headerShadowVisible: false,
             }}
         >
-            <Stack.Screen name="UserProfile" component={UserScreen} />
+        <Stack.Screen 
+            name="UserProfile" 
+            component={UserScreen}
+        />
             <Stack.Screen
                 name="EditProfile"
                 component={EditProfileScreen}

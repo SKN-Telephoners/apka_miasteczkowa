@@ -135,6 +135,34 @@ def decline_friend_request(friend_id):
         return make_api_response(ResponseTypes.SERVER_ERROR)
     return make_api_response(ResponseTypes.SUCCESS, message="Friend request declined")
 
+@friends_bp.route("/<friend_id>/remove", methods=["POST"])
+@jwt_required()
+@limiter.limit("300 per minute")
+def remove_friend(friend_id):
+    user = get_current_user()
+    friend_id = validate_uuid(friend_id)
+    if friend_id is None:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid friend ID format")
+    
+    friendship = Friendship.query.filter(
+        or_(
+            and_(Friendship.user_id == user.user_id, Friendship.friend_id == friend_id),
+            and_(Friendship.user_id == friend_id, Friendship.friend_id == user.user_id),
+        )
+    ).first()
+
+    if friendship is None:
+        return make_api_response(ResponseTypes.NOT_FOUND, message="Friendship does not exist")
+
+    try:
+        db.session.delete(friendship)
+        db.session.commit()
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        current_app.logger.error(f"Database error: {e}")
+        return make_api_response(ResponseTypes.SERVER_ERROR)
+    return make_api_response(ResponseTypes.SUCCESS, message="Friend removed", data={"friend_id": str(friend_id)})
+
 @friends_bp.route("/list", methods=["GET"])
 @jwt_required()
 def get_friends_list():
