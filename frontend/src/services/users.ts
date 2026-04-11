@@ -21,8 +21,8 @@ interface GetUserResponse {
 export const getUserProfile = async () => {
   try {
     const ts = new Date().getTime();
-    const response = await api.get<GetUserResponse>(`/api/users/profile?t=${ts}`);
-    return response.data.data;
+    const response = await api.get(`/api/users/profile?t=${ts}`);
+    return response.data;
   } catch (err: any) {
     const msg = err?.response?.data?.message || err?.message || "Błąd pobierania profilu";
     throw new Error(msg);
