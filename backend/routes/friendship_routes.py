@@ -1,5 +1,6 @@
 from flask import Blueprint, current_app
 from backend.models import User, FriendRequest, Friendship
+from backend.models.friend import FriendRequestStatus 
 from backend.extensions import db,limiter
 from backend.responses import ResponseTypes, make_api_response
 from flask_jwt_extended import jwt_required, get_current_user
@@ -136,33 +137,53 @@ def decline_friend_request(friend_id):
         return make_api_response(ResponseTypes.SERVER_ERROR)
     return make_api_response(ResponseTypes.SUCCESS, message="Friend request declined")
 
-@friends_bp.route("/<friend_id>/remove", methods=["POST"])
+
+@friends_bp.route("/request/pending", methods=["GET"])
 @jwt_required()
-@limiter.limit("300 per minute")
-def remove_friend(friend_id):
+def get_pending_requests():
     user = get_current_user()
-    friend_id = validate_uuid(friend_id)
-    if friend_id is None:
-        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid friend ID format")
     
-    friendship = Friendship.query.filter(
-        or_(
-            and_(Friendship.user_id == user.user_id, Friendship.friend_id == friend_id),
-            and_(Friendship.user_id == friend_id, Friendship.friend_id == user.user_id),
-        )
-    ).first()
+    incoming_pending_requests = FriendRequest.query.filter_by(
+        receiver_id=user.user_id,
+        status=FriendRequestStatus.pending
+    ).all()
+    
+    outgoing_pending_requests = FriendRequest.query.filter_by(
+        sender_id=user.user_id,
+        status=FriendRequestStatus.pending
+    ).all()
 
-    if friendship is None:
-        return make_api_response(ResponseTypes.NOT_FOUND, message="Friendship does not exist")
+    incoming_requests_data = []
+    for req in incoming_pending_requests:
+        sender = User.query.filter_by(user_id=req.sender_id).first()
+        if sender:
+            incoming_requests_data.append({
+                "request_id": str(req.request_id),
+                "sender_id": str(sender.user_id),
+                "sender_username": sender.display_name,
+                "requested_at": req.requested_at.isoformat()
+            })
 
-    try:
-        db.session.delete(friendship)
-        db.session.commit()
-    except SQLAlchemyError as e:
-        db.session.rollback()
-        current_app.logger.error(f"Database error: {e}")
-        return make_api_response(ResponseTypes.SERVER_ERROR)
-    return make_api_response(ResponseTypes.SUCCESS, message="Friend removed", data={"friend_id": str(friend_id)})
+    outgoing_requests_data = []
+    for req in outgoing_pending_requests:
+        receiver = User.query.filter_by(user_id=req.receiver_id).first()
+        if receiver:
+            outgoing_requests_data.append({
+                "request_id": str(req.request_id),
+                "receiver_id": str(receiver.user_id), 
+                "receiver_username": receiver.display_name, 
+                "requested_at": req.requested_at.isoformat()
+            })
+
+    return make_api_response(
+        ResponseTypes.SUCCESS, 
+        message="Pending requests retrieved", 
+        data={
+            "incoming_pending_requests": incoming_requests_data,
+            "outgoing_pending_requests": outgoing_requests_data 
+        }
+    )
+
 
 @friends_bp.route("/list", methods=["GET"])
 @jwt_required()

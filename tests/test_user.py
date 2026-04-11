@@ -8,10 +8,236 @@ from datetime import datetime
 import json
 import uuid
 
+# =============================================================================
+# Helper for Auth Headers
+# =============================================================================
+def get_auth_header(token):
+    return {"Authorization": f"Bearer {token}"}
+
+# =============================================================================
+# Tests for GET /api/users/profile
+# =============================================================================
+def test_get_user_info_success(client, logged_in_user):
+    user, token = logged_in_user
+    
+    user.academy = "AGH"
+    user.course = "Computer Science"
+    user.year = 2
+    db.session.commit()
+
+    response = client.get(f"/api/users/profile/{user.user_id}", headers=get_auth_header(token))
+    
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["username"] == user.username
+    assert data["email"] == user.email
+    assert data["academy"] == "AGH"
+    assert data["course"] == "Computer Science"
+    assert data["year"] == 2
+    
+def test_get_user_info_deleted_account(client, logged_in_user):
+    user, token = logged_in_user
+    user.deleted = True
+    db.session.commit()
+
+    response = client.get(f"/api/users/profile/{user.user_id}", headers=get_auth_header(token))
+    
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["username"] == "[deleted]"
+    assert data["deleted"] is True
+
+# =============================================================================
+# Tests for PUT /api/users/update_profile
+# =============================================================================
 @pytest.fixture
-def app():
-    """Create and configure a new Flask app instance for testing."""
-    app = create_app(test_mode=True)
+def mock_app_config(app):
+    """Fixture to inject required config data for update_profile."""
+    app.config['ACADEMY_DATA'] = {"AGH": {}, "UW": {}}
+    app.config['COURSES_DATA'] = ["Computer Science", "Physics"]
+    app.config['CLUBS_DATA'] = {"Bite": {}, "DataScience": {}}
+    return app
+
+def test_update_profile_success(client, logged_in_user, app):
+    user, token = logged_in_user
+    
+    payload = {
+        "username": "new_valid_name",
+        "description": "This is my new bio.",
+        "academy": "AGH"
+    }
+    
+    response = client.put("/api/users/update_profile", json=payload, headers=get_auth_header(token))
+    
+    assert response.status_code == 200
+    assert response.get_json()["message"] == "Profile updated successfully"
+    
+    with app.app_context():
+        u = db.session.get(User, user.user_id)
+        assert u.username == "new_valid_name"
+        assert u.description == "This is my new bio."
+        assert u.academy == "AGH"
+
+def test_update_profile_username_taken(client, logged_in_user, registered_friend, app):
+    user, token = logged_in_user
+    friend = registered_friend[0] 
+
+    payload = {
+        "username": friend.username 
+    }
+    
+    response = client.put("/api/users/update_profile", json=payload, headers=get_auth_header(token))
+    
+    assert response.status_code == 400
+    assert "Username already taken" in response.get_json()["message"]
+
+def test_update_profile_invalid_academy(client, logged_in_user, app):
+    user, token = logged_in_user
+    
+    payload = {
+        "academy": "Hogwarts"
+    }
+    
+    response = client.put("/api/users/update_profile", json=payload, headers=get_auth_header(token))
+    
+    assert response.status_code == 400
+    assert "Such academy doesn't exist" in response.get_json()["message"]
+
+def test_update_profile_missing_data(client, logged_in_user):
+    _, token = logged_in_user
+    
+    response = client.put("/api/users/update_profile", json={}, headers=get_auth_header(token))
+    
+    assert response.status_code == 400
+    assert "Invalid JSON or missing data" in response.get_json()["message"]
+
+def test_update_profile_invalid_username(client, logged_in_user, registered_friend, mock_app_config):
+    _, token = logged_in_user
+    friend, _ = registered_friend
+
+    payload = {"username": friend.username}
+    response = client.put("/api/users/update_profile", json=payload, headers=get_auth_header(token))
+    
+    assert response.status_code == 400
+    assert response.get_json()["message"] == "Username already taken"
+
+def test_update_academic_details_success(client, logged_in_user, mock_app_config, app):
+    user, token = logged_in_user
+    
+    with app.app_context():
+        user.academy = "AGH"
+        db.session.commit()
+        
+    u = User.query.filter_by(user_id=user.user_id).first()
+    assert u.academy == "AGH"
+        
+    payload = {
+        "course": "Computer Science",
+        "year": "3",
+        "academic_clubs": "Bite, DataScience"
+    }
+    
+    response = client.put("/api/users/update_academic_details", json=payload, headers=get_auth_header(token))
+    assert response.status_code == 200
+    
+    with app.app_context():
+        u = User.query.filter_by(user_id=user.user_id).first()
+        assert u.course == "Computer Science"
+        assert u.year == 3
+        assert "Bite" in u.academic_clubs
+        assert "DataScience" in u.academic_clubs
+
+
+def test_update_academic_details_fails_for_non_primary(client, logged_in_user, app):
+    user, token = logged_in_user
+    
+    with app.app_context():
+        user = User.query.filter_by(user_id=user.user_id).first()
+        user.academy = "UW" 
+        db.session.commit()
+        
+    payload = {"course": "Computer Science", "year": "2"}
+    response = client.put("/api/users/update_academic_details", json=payload, headers=get_auth_header(token))
+    
+    assert response.status_code == 400
+
+    assert "Only AGH students can add academic details" in response.get_json()["message"]
+
+
+def test_update_academic_details_fails_missing_pair(client, logged_in_user, app):
+    user, token = logged_in_user
+    
+    with app.app_context():
+        user.academy = "AGH"
+        db.session.commit()
+        
+    u = User.query.filter_by(user_id=user.user_id).first()
+    assert u.academy == "AGH"
+
+    payload = {"course": "Computer Science"}
+    response = client.put("/api/users/update_academic_details", json=payload, headers=get_auth_header(token))
+    
+    assert response.status_code == 400
+    assert response.get_json()["message"] == "Both course and year must be provided together"
+
+
+def test_update_academic_details_invalid_year(client, logged_in_user, app):
+    user, token = logged_in_user
+    
+    with app.app_context():
+        user.academy = "AGH"
+        db.session.commit()
+        
+    u = User.query.filter_by(user_id=user.user_id).first()
+    assert u.academy == "AGH"
+
+    payload = {
+        "course": "Computer Science",
+        "year": "7" 
+    }
+    
+    response = client.put("/api/users/update_academic_details", json=payload, headers=get_auth_header(token))
+    
+    assert response.status_code == 400
+    assert response.get_json()["message"] == "Year must be between 1 and 6"
+
+# =============================================================================
+# Tests for PUT /api/users/settings/password
+# =============================================================================
+def test_change_password_success(client, logged_in_user):
+    user, token = logged_in_user
+    
+    payload = {
+        "old_password": "Secret123!", #from fixture
+        "new_password": "NewStrongPassword!1"
+    }
+
+    response = client.put("/api/users/settings/password", json=payload, headers=get_auth_header(token))
+    
+    assert response.status_code == 200
+    assert user.validate_password("NewStrongPassword!1") is True
+    
+    # Check if old tokens were revoked
+    revoked_token = TokenBlocklist.query.filter_by(user_id=user.user_id).first()
+    assert revoked_token is not None
+
+def test_change_password_wrong_old_password(client, logged_in_user):
+    _, token = logged_in_user
+    payload = {
+        "old_password": "WrongPassword123",
+        "new_password": "NewStrongPassword!1"
+    }
+    response = client.put("/api/users/settings/password", json=payload, headers=get_auth_header(token))
+    assert response.status_code == 401
+    assert response.get_json()["message"] == "Old password incorrect"
+
+# =============================================================================
+# Tests for PUT /api/users/settings/change_email
+# =============================================================================
+def test_change_email_success(client, app, logged_in_user):
+    user, token = logged_in_user
+    new_email = "new_email@gmail.com"
+    old_email = user.email
 
     with app.app_context():
         yield app
@@ -582,8 +808,74 @@ def test_accept_friend_request(client, app):
             "message": "Friend request accepted"
         }
 
-        assert (Friendship.query.filter_by(user_id=user.user_id, friend_id=friend.user_id).first() or
-                Friendship.query.filter_by(user_id=friend.user_id, friend_id=user.user_id).first()) is not None
+    response = client.post(f"/api/email/confirm_change/{token}")
+    assert response.status_code == 401
+
+# =============================================================================
+# Test display_name property
+# =============================================================================
+
+#/api/users/profile
+def test_profile_displays_deleted_username(client, logged_in_user):
+    user, token = logged_in_user
+    
+    user.deleted = True
+    user.username = "del_a1b2c3d4e5"
+    db.session.commit()
+
+    response = client.get(f"/api/users/profile/{user.user_id}", headers=get_auth_header(token))
+    
+    assert response.status_code == 200
+    data = response.get_json()
+    
+    assert data["username"] == "[deleted]"
+    assert data["deleted"] is True
+
+#/api/friends/list
+def test_friends_list_shows_deleted_user(client, app, logged_in_user):
+    active_user, token = logged_in_user
+    
+    with app.app_context():
+        deleted_friend = User(
+            username="del_123456789", 
+            email="del_123@del.local", 
+            password="scrambled",
+            deleted=True
+        )
+        db.session.add(deleted_friend)
+        db.session.commit()
+
+        id1, id2 = str(active_user.user_id), str(deleted_friend.user_id)
+        u_id, f_id = (id1, id2) if id1 < id2 else (id2, id1)
+
+        friendship = Friendship(user_id=u_id, friend_id=f_id)
+        db.session.add(friendship)
+        db.session.commit()
+
+    response = client.get("/api/friends/list", headers=get_auth_header(token))
+    
+    assert response.status_code == 200
+    data = response.get_json()["friends"]
+    
+    assert len(data) == 1
+    assert data[0]["username"] == "[deleted]"
+
+
+#/api/events/feed
+def test_feed_shows_deleted_creator(client, app, logged_in_user):
+    active_user, token = logged_in_user
+    
+    with app.app_context():
+        deleted_creator = User(
+            username="del_987654321", 
+            email="del_987@del.local", 
+            password="scrambled",
+            deleted=True
+        )
+        db.session.add(deleted_creator)
+        db.session.commit()
+
+        future_date = datetime.now(timezone.utc) + timedelta(days=1)
         
         assert FriendRequest.query.filter_by(sender_id=user.user_id, receiver_id=friend.user_id).first() is None
 
@@ -1058,9 +1350,17 @@ def test_delete_event_not_owner(client, app):
         db.session.add(event)
         db.session.commit()
 
-        # login as user2
-        login_resp = client.post("/api/login", json={"username": "user2", "password": "root"})
-        token = login_resp.get_json()["access_token"]
+    response = client.get("/api/events/feed", headers=get_auth_header(token))
+    
+    assert response.status_code == 200
+
+    response_json = response.get_json()
+    events = response_json.get("data", [])
+    
+    assert len(events) >= 1
+    
+    ghost_event = next(e for e in events if e["name"] == "Ghost Event")
+    assert ghost_event["creator_username"] == "[deleted]"
 
         # attempt delete
         response_delete_event = client.delete(f"/delete_event/{event.event_id}", headers={
@@ -1086,7 +1386,134 @@ def test_delete_invalid_event(client, app):
             "Authorization": f"Bearer {token}"
         })
 
-        assert response_delete_event.status_code == 400
-        assert response_delete_event.get_json() == {
-            "message": "Event doesn't exist"
-        }
+        deleted_user_comment = Comment(
+            event_id=event.event_id,
+            user_id=deleted_commenter.user_id,
+            content="This is a comment from the past.",
+        )
+        db.session.add(deleted_user_comment)
+        db.session.commit()
+        
+        event_id_to_test = event.event_id
+
+    response = client.get(f"/api/comments/event/{event_id_to_test}", headers=get_auth_header(token))
+    
+    assert response.status_code == 200
+    comments = response.get_json()["comments"]
+    
+    assert len(comments) == 1
+    assert comments[0]["content"] == "This is a comment from the past."
+    assert comments[0]["username"] == "[deleted]"
+
+# =============================================================================
+# Tests for profile pictures lifecycle
+# =============================================================================
+
+def test_get_profile_no_picture(client, logged_in_user, app):
+    user, token = logged_in_user
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    response = client.get(f"/api/users/profile/{user.user_id}", headers=headers)
+    
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["profile_picture"] is None
+
+
+def test_update_profile_add_picture(client, logged_in_user, app):
+    user, token = logged_in_user
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    payload = {
+        "profile_picture": {"cloud_id": "profile_pic_123"}
+    }
+    
+    response = client.put("/api/users/update_profile", json=payload, headers=headers)
+    assert response.status_code == 200
+    
+    profile_res = client.get(f"/api/users/profile/{user.user_id}", headers=headers)
+    pic_data = profile_res.get_json()["profile_picture"]
+    
+    assert pic_data is not None
+    assert pic_data["cloud_id"] == "profile_pic_123"
+    assert "url" in pic_data 
+
+
+@patch('cloudinary.uploader.destroy')
+def test_update_profile_replace_picture(mock_destroy, client, logged_in_user, app):
+    user, token = logged_in_user
+    headers = {"Authorization": f"Bearer {token}"}
+
+    client.put("/api/users/update_profile", json={"profile_picture": {"cloud_id": "old_pic"}}, headers=headers)
+    
+    replace_payload = {
+        "profile_picture": {"cloud_id": "new_pic"}
+    }
+    response = client.put("/api/users/update_profile", json=replace_payload, headers=headers)
+    assert response.status_code == 200
+    
+    mock_destroy.assert_called_once_with("old_pic")
+    
+    with app.app_context():
+        user = User.query.filter_by(user_id=user.user_id).first()
+        assert user.profile_picture == "new_pic"
+
+
+@patch('cloudinary.uploader.destroy')
+def test_update_profile_delete_picture(mock_destroy, client, logged_in_user, app):
+    user, token = logged_in_user
+    headers = {"Authorization": f"Bearer {token}"}
+
+    client.put("/api/users/update_profile", json={"profile_picture": {"cloud_id": "to_delete_pic"}}, headers=headers)
+
+    delete_payload = {
+        "profile_picture": None
+    }
+    response = client.put("/api/users/update_profile", json=delete_payload, headers=headers)
+    assert response.status_code == 200
+
+    mock_destroy.assert_called_once_with("to_delete_pic")
+    
+    with app.app_context():
+        user = User.query.filter_by(user_id=user.user_id).first()
+        assert user.profile_picture == None
+
+
+@patch('cloudinary.uploader.destroy')
+def test_delete_account_removes_picture(mock_destroy, client, logged_in_user, app):
+    user, token = logged_in_user
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    client.put("/api/users/update_profile", json={"profile_picture": {"cloud_id": "account_del_pic"}}, headers=headers)
+    
+    delete_payload = {"password": "Secret123!"} 
+    
+    response = client.delete("/api/users/settings/delete_account", json=delete_payload, headers=headers)
+    assert response.status_code == 200
+    
+    mock_destroy.assert_called_once_with("account_del_pic")
+    
+    with app.app_context():
+        user = User.query.filter_by(user_id=user.user_id).first()
+        assert user.profile_picture == None
+
+
+def test_get_user_info_friend_count(client, logged_in_user, registered_friend, app):
+    with app.app_context():
+        user, token = logged_in_user
+        friend = registered_friend[0]
+
+        if user.user_id < friend.user_id:
+            friendship = Friendship(user_id=user.user_id, friend_id=friend.user_id)
+        else:
+            friendship = Friendship(user_id=friend.user_id, friend_id=user.user_id)
+            
+        db.session.add(friendship)
+        db.session.commit()
+        
+        response = client.get(f"/api/users/profile/{user.user_id}", headers=get_auth_header(token))
+        assert response.status_code == 200
+        
+        data = response.get_json()
+        assert "friend_count" in data
+        assert data["friend_count"] == 1
