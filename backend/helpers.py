@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from backend.extensions import db
 from flask_jwt_extended import decode_token
 from backend.models import TokenBlocklist
+from backend.models.event import Event_visibility
 from sqlalchemy.exc import NoResultFound
 import uuid
 import bleach
@@ -69,13 +70,29 @@ def revoke_all_user_tokens(user_id, token_type=None):
         print(f"Error revoking all tokens from user: {user_id}: {e}")
         raise
 
-def validate_uuid(uuid_string):
+def validate_uuid(uuid_val):
+    if isinstance(uuid_val, uuid.UUID):
+        return uuid_val
     try:
-        return uuid.UUID(uuid_string)
-    except (ValueError, TypeError):
+        return uuid.UUID(str(uuid_val))
+    except (ValueError, TypeError, AttributeError):
         return None
-    
+
 def sanitize_input(text):
-    if not text:
-        return text
-    return bleach.clean(text, tags=[], attributes=[], strip=True)
+    if text is None:
+        return ""
+    clean_text = bleach.clean(str(text), tags=[], attributes=[], strip=True)
+    return clean_text
+
+def has_event_access(user_id, event):
+    if not event.is_private:
+        return True
+    if event.creator_id == user_id:
+        return True
+
+    access = Event_visibility.query.filter_by(
+        event_id=event.event_id, 
+        shared_with=user_id
+    ).first()
+    
+    return access is not None

@@ -1,6 +1,9 @@
-import { TouchableOpacity, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import React, { useState, useEffect } from "react";
 import DateTimePickerNative, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import Button from "./Button";
+import { THEME } from "../utils/constants";
+import { useTheme } from "../contexts/ThemeContext";
 
 interface DatePickerProps {
     onDateSelected: (date: string, time: string) => void;
@@ -13,6 +16,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
     initialDate,
     initialTime
 }) => {
+    const { colors } = useTheme();
 
     const [eventDate, setEventDate] = useState(initialDate);
     const [eventTime, setEventTime] = useState(initialTime);
@@ -55,10 +59,13 @@ const DatePicker: React.FC<DatePickerProps> = ({
     return (
         <View style={{ flex: 1, justifyContent: 'center', flexDirection: "row" }}>
             <View style={{ marginHorizontal: 10 }}>
-                <TouchableOpacity onPress={() => setShowDatePicker(true)} style={{ backgroundColor: '#045ddaff', paddingVertical: 10, borderRadius: 25, paddingHorizontal: 25 }}>
-                    <Text style={{ color: '#ffffff' }}>Wybierz datę</Text>
-                </TouchableOpacity>
-                <Text style={{ color: '#000000', paddingVertical: 10, alignSelf: "center", fontWeight: "bold"}}>
+                <Button
+                    title="Wybierz datę"
+                    onPress={() => setShowDatePicker(true)}
+                    style={{ width: "auto", marginVertical: 0, paddingHorizontal: 25 }}
+                    textStyle={{ color: colors.background }}
+                />
+                <Text style={[THEME.typography.text, { color: colors.text, paddingVertical: 10, alignSelf: "center" }] }>
                         {eventDate.toLocaleDateString('pl-PL')}
                 </Text>
                 {showDatePicker && (
@@ -72,11 +79,14 @@ const DatePicker: React.FC<DatePickerProps> = ({
                 )}
             </View>
             <View style={{ marginHorizontal: 10 }}>
-                <TouchableOpacity onPress={() => setShowTimePicker(true)} style={{ backgroundColor: '#045ddaff', paddingVertical: 10, borderRadius: 25, paddingHorizontal: 20 }}>
-                    <Text style={{ color: '#ffffff' }}>Wybierz godzinę</Text>
-                </TouchableOpacity>
+                <Button
+                    title="Wybierz godzinę"
+                    onPress={() => setShowTimePicker(true)}
+                    style={{ width: "auto", marginVertical: 0, paddingHorizontal: 20 }}
+                    textStyle={{ color: colors.background }}
+                />
                 
-                    <Text style={{ color: '#000000', paddingVertical: 10, alignSelf: "center", fontWeight: "bold"}}>
+                    <Text style={[THEME.typography.text, { color: colors.text, paddingVertical: 10, alignSelf: "center" }] }>
                         {eventTime.toLocaleTimeString('pl-PL', {
                             hour: '2-digit',
                             minute: '2-digit',

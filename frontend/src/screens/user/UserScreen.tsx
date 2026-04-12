@@ -1,150 +1,373 @@
-import React from "react";
-import { View, Text, StyleSheet, Button, ScrollView, TouchableOpacity } from "react-native";
+import React, { useMemo, useState } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
+import { useUser } from "../../contexts/UserContext";
 import { useFriends } from "../../contexts/FriendsContext";
-import { useNavigation } from "@react-navigation/native";
-
-// Mock do zmiany na wczoraj, jeśli backend obsłuży te pola
-const MOCK_EXTRAS = {
-  avatar: "👤", // Placeholder avatara
-  bio: "Status: Zew Miasteczka za 3,50!", // Domyślne bio
-};
+import { useEvents } from "../../contexts/EventContext";
+import { useTheme } from "../../contexts/ThemeContext";
+import { useNavigation, useRoute, useFocusEffect } from "@react-navigation/native";
+import { THEME } from "../../utils/constants";
+import Button from "../../components/Button";
+import CollapsibleSection from "../../components/CollapsibleSection";
+import Avatar from "../../components/Avatar";
+import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useCallback } from "react";
+import { getPublicUserProfile } from "../../services/users";
+import InputField from "../../components/InputField";
+import UserCard from "../../components/UserCard";
 
 const UserScreen = () => {
-  const { user, logout } = useAuth();
-  const { friends } = useFriends();
-  const navigation = useNavigation<any>(); // Typowanie any dla uproszczenia
+  const { logout } = useAuth();
+  const { user: currentUser } = useUser();
+  const { friends, sendFriendRequest, removeFriend, fetchFriends } = useFriends();
+  const { events } = useEvents();
+  const { colors } = useTheme();
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
 
-  const handleEditProfile = () => {
+  // Przechwytywanie trybu
+  const visitedUser = route.params?.visitedUser;
+  const isOwner = !visitedUser || visitedUser.id === currentUser?.user_id || visitedUser.user_id === currentUser?.user_id;
+  const [visitedProfileData, setVisitedProfileData] = useState<any | null>(null);
+  const profileData = isOwner ? currentUser : (visitedProfileData || visitedUser);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isFriend, setIsFriend] = useState(false);
+
+  const styles = useMemo(() => getStyles(colors), [colors]);
+
+  // Refresh friends list when this screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (!isOwner) {
+        fetchFriends();
+      }
+    }, [isOwner, fetchFriends])
+  );
+
+  useEffect(() => {
+    const loadVisitedUser = async () => {
+      if (isOwner || !visitedUser) {
+        setVisitedProfileData(null);
+        return;
+      }
+
+      const targetId = visitedUser.user_id || visitedUser.id;
+      if (!targetId) {
+        setVisitedProfileData(visitedUser);
+        return;
+      }
+
+      try {
+        const fullData = await getPublicUserProfile(targetId);
+        setVisitedProfileData(fullData);
+      } catch {
+        setVisitedProfileData(visitedUser);
+      }
+    };
+
+    loadVisitedUser();
+  }, [isOwner, visitedUser?.id, visitedUser?.user_id]);
+
+  // Check if visitedUser is already a friend (runs whenever friends list updates)
+  useEffect(() => {
+    if (!isOwner && visitedUser) {
+      const userIsFriend = friends.some(
+        (friend) =>
+          friend.id === visitedUser.id ||
+          friend.id === visitedUser.user_id
+      );
+      setIsFriend(userIsFriend);
+    } else {
+      setIsFriend(false);
+    }
+  }, [visitedUser, friends, isOwner]);
+
+  const gotoEditProfile = () => {
     navigation.navigate("EditProfile");
   };
 
-  const goToFriendProfile = (friendName: string) => {
-    console.log(`Przejście do profilu: ${friendName}`);
-    // TODO: Zaimplementować widok profilu innego użytkownika
+  const gotoSettings = () => {
+    navigation.navigate("SettingsScreen");
+  }
+
+  const handleAddPhoto = () => {
+    console.log("Dodawanie zdjęcia...");
   };
 
+  const goToFriendProfile = (friendData: any) => {
+    navigation.push("UserProfile", { visitedUser: friendData });
+  };
+
+  const handleSearch = (text: string) => {
+    setSearchQuery(text);
+  };
+
+  const filteredFriends = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return friends;
+    }
+
+    return friends.filter((friend) =>
+      (friend.username || "").toLowerCase().includes(normalizedQuery)
+    );
+  }, [friends, searchQuery]);
+
+  const handleSendRequest = async () => {
+    try {
+      if (profileData?.id || profileData?.user_id) {
+        await sendFriendRequest(profileData.id || profileData.user_id);
+      }
+    } catch (err: any) {
+      const errorMsg = err?.message || "Nie udało się wysłać zaproszenia";
+      Alert.alert("Błąd", errorMsg);
+    }
+  }
+
+  const handleRemoveFriend = () => {
+    Alert.alert(
+      "Usunąć ze znajomych",
+      "Czy chcesz usunąć tego użytkownika ze znajomych?",
+      [
+        {
+          text: "Anuluj",
+          style: "cancel",
+        },
+        {
+          text: "Usuń",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              if (visitedUser?.id || visitedUser?.user_id) {
+                await removeFriend(visitedUser.id || visitedUser.user_id);
+              }
+            } catch (err: any) {
+              Alert.alert("Błąd", err?.message || "Nie udało się usunąć użytkownika ze znajomych");
+            }
+          },
+        },
+      ]
+    );
+  }
+
   return (
-    <ScrollView style={styles.container}>
-      {/* 1. Nagłówek i Avartar */}
-      <View style={styles.header}>
-        <Text style={styles.avatarPlaceholder}>{MOCK_EXTRAS.avatar}</Text>
-        {/* Wyświetlamy prawdziwe dane z tokena/bazy */}
-        <Text style={styles.userName}>{user?.username || "Użytkownik"}</Text>
-        <Text style={styles.userEmail}>{user?.email}</Text>
-        <Text style={styles.userBio}>{MOCK_EXTRAS.bio}</Text>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
+      <View style={styles.headerRow}>
+        <Avatar uri={profileData?.profile_picture?.url || profileData?.avatarUrl || (typeof profileData?.profile_picture === "string" ? profileData?.profile_picture : undefined)} size={80} style={{ marginRight: THEME.spacing.m }} />
 
-        <View style={styles.buttonRow}>
-          <Button title="Edytuj Profil" onPress={handleEditProfile} />
+        <View style={styles.headerInfo}>
+          <Text style={styles.userName}>{profileData?.username || profileData?.display_name || "Użytkownik"}</Text>
+          {isOwner && (
+            <>
+              <Text style={styles.statsText}>
+                Znajomi: <Text style={styles.statsNumber}>{friends.length}</Text>
+              </Text>
+              <Text style={styles.statsText}>
+                Dołączył: <Text style={styles.statsNumber}>{profileData?.joinedDate || "Nieznana"}</Text>
+              </Text>
+            </>
+          )}
         </View>
-      </View>
 
-      {/* 2. Statystyki */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>📈 Statystyki</Text>
-        <View style={styles.statsRow}>
-          {/* Liczba znajomych brana z kontekstu */}
-          <Text style={styles.statItem}>Znajomi: **{friends.length}**</Text>
-          <Text style={styles.statItem}>Posty: **0** (Wkrótce)</Text>
-        </View>
-      </View>
-
-      {/* 3. Lista Postów */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>📜 Twoje Posty</Text>
-        <Text style={styles.infoText}>Historia postów jest w trakcie budowy!.</Text>
-      </View>
-
-      {/* 4. Lista Znajomych */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>🤝 Znajomi ({friends.length})</Text>
-        {friends.length > 0 ? (
-          friends.map((friend, index) => (
-            <TouchableOpacity key={friend.id || index} onPress={() => goToFriendProfile(friend.username)}>
-              <Text style={styles.listItem}>➡️ {friend.username}</Text>
-            </TouchableOpacity>
-          ))
-        ) : (
-          <Text style={styles.infoText}>To też w budowie!</Text>
+        {isOwner && (
+          <TouchableOpacity onPress={gotoSettings} style={styles.settingsIcon}>
+            <Ionicons name="settings-outline" size={28} color={colors.text} />
+          </TouchableOpacity>
         )}
       </View>
 
-      {/* 5. Funkcjonalność Wylogowania */}
-      <View style={styles.section}>
-        <Button title="Wyloguj" onPress={logout} color="red" />
-      </View>
+      <Text style={styles.facultyText}>{profileData?.academy || "Brak Uczelni"}</Text>
+      {isOwner && (
+        <Text style={styles.majorText}>{profileData?.course ? `${profileData.course} ${profileData.year || ""} rok` : "Brak przypisanego kierunku"}</Text>
+      )}
 
-      <View style={{ height: 50 }} />
+      <Text style={styles.userBio}>{profileData?.description || (isOwner ? "Brak opisu" : "")}</Text>
+
+      {isOwner ? (
+        <Button
+          title="Edytuj profil"
+          onPress={gotoEditProfile}
+          style={styles.editButton}
+        />
+      ) : isFriend ? (
+        <Button
+          title="Usuń ze znajomych"
+          onPress={handleRemoveFriend}
+          style={[styles.editButton, { backgroundColor: colors.icon }]}
+        />
+      ) : (
+        <Button
+          title="Wyślij zaproszenie"
+          onPress={handleSendRequest}
+          style={styles.editButton}
+        />
+      )}
+
+      {isOwner && (
+        <>
+          <CollapsibleSection title="Znajomi">
+            <InputField
+              placeholder="Szukaj znajomych..."
+              value={searchQuery}
+              onChangeText={handleSearch}
+              showSearchSpriteIcon
+              showFloatingLabel={false}
+              reserveErrorSpace={false}
+            />
+            {filteredFriends.length > 0 ? (
+              filteredFriends.map((friend) => (
+                <TouchableOpacity key={friend.id} onPress={() => goToFriendProfile(friend)} style={[styles.listItem, { borderColor: colors.border }]}> 
+                  <UserCard
+                    creatorDisplayName={friend.username}
+                    avatarUri={friend?.profile_picture?.url || friend?.avatarUrl || (typeof friend?.profile_picture === "string" ? friend?.profile_picture : undefined)}
+                    createdAtDisplay=""
+                    showCreatedAt={false}
+                    showMetaIcon={false}
+                    showUsernameIcon={false}
+                    metaPrefix={`${friend?.academy || "wydział"} • ${friend?.course || "kierunek"}`}
+                    avatarSize={40}
+                  />
+                </TouchableOpacity>
+              ))
+            ) : searchQuery.trim().length > 0 ? (
+              <Text style={styles.infoText}>Brak znajomych pasujących do wyszukiwania</Text>
+            ) : (
+              <Text style={styles.infoText}>Brak znajomych na liście</Text>
+            )}
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Moje wydarzenia">
+            {events.length > 0 ? (
+              events.map((event) => (
+                <TouchableOpacity
+                  key={event.id}
+                  style={[styles.listItem, { borderColor: colors.border }]}
+                  activeOpacity={0.8}
+                  onPress={() => navigation.navigate("MyEventPreview", { event, screenTitle: "Moje wydarzenie", allowEdit: true })}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.listTitle}>{event.name}</Text>
+                    <Text style={styles.listSubtitle}>{event.date} o {event.time} • {event.location}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <Text style={styles.infoText}>Nie utworzyłeś jeszcze żadnych wydarzeń</Text>
+            )}
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Zapisane wydarzenia">
+            <Text style={styles.infoText}>Brak zapisanych wydarzeń (Oczekuje na endpoint w backendzie)</Text>
+          </CollapsibleSection>
+
+          <CollapsibleSection
+            title="Zdjęcia"
+            rightActionIcon="add"
+            onRightActionPress={handleAddPhoto}
+            initialExpanded={true}
+          >
+            <View style={styles.placeholderBox}>
+              <Image
+                source={{ uri: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" }}
+                style={styles.mockPhoto}
+              />
+            </View>
+          </CollapsibleSection>
+        </>
+      )}
+
     </ScrollView>
   );
 };
 
-// Podstawowe style
-const styles = StyleSheet.create({
+const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: "#fff",
+    padding: THEME.spacing.m,
+    backgroundColor: colors.background,
   },
-  header: {
+  headerRow: {
+    flexDirection: "row",
     alignItems: "center",
-    marginBottom: 20,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    marginBottom: THEME.spacing.s,
   },
-  avatarPlaceholder: {
-    fontSize: 50,
-    marginBottom: 10,
+  headerInfo: {
+    flex: 1,
+    justifyContent: "center",
   },
   userName: {
-    fontSize: 22,
-    fontWeight: "bold",
-    marginBottom: 2,
+    fontFamily: "Roboto",
+    fontWeight: "700" as const,
+    lineHeight: 20,
+    fontSize: 20,
+    color: colors.text,
   },
-  userEmail: {
-    fontSize: 14,
-    color: "#888",
-    marginBottom: 5,
+  statsText: {
+    ...THEME.typography.text,
+    color: colors.text,
+  },
+  statsNumber: {
+    fontWeight: "bold",
+  },
+  settingsIcon: {
+    position: "absolute",
+    right: 0,
+    padding: 8,
+  },
+  facultyText: {
+    ...THEME.typography.faculty,
+    fontSize: 18,
+    lineHeight: 20.5,
+    color: colors.text,
+  },
+  majorText: {
+    ...THEME.typography.text,
+    marginBottom: THEME.spacing.s,
+    color: colors.text,
   },
   userBio: {
-    fontSize: 14,
-    color: "#666",
-    textAlign: "center",
-    marginBottom: 10,
-    fontStyle: 'italic',
+    ...THEME.typography.text,
+    color: colors.text,
+    marginBottom: THEME.spacing.m,
   },
-  section: {
-    marginBottom: 25,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-    paddingBottom: 5,
-  },
-  statsRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-  },
-  statItem: {
-    fontSize: 16,
-    textAlign: "center",
-  },
-  listItem: {
-    fontSize: 16,
-    paddingVertical: 8,
-    color: "#007AFF",
+  editButton: {
+    marginBottom: THEME.spacing.l,
   },
   infoText: {
-    fontSize: 14,
-    color: "#999",
+    ...THEME.typography.text,
+    color: colors.icon,
     fontStyle: "italic",
+    textAlign: "center",
+    padding: THEME.spacing.m,
   },
-  buttonRow: {
-    marginTop: 10,
+  placeholderBox: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: THEME.borderRadius.m,
+    overflow: 'hidden',
+  },
+  mockPhoto: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  listItem: {
+    width: "100%",
+    paddingVertical: THEME.spacing.s,
+    borderBottomWidth: 1,
+  },
+  listTitle: {
+    ...THEME.typography.text,
+    fontWeight: "bold",
+    fontSize: 16,
+    color: colors.text,
+  },
+  listSubtitle: {
+    ...THEME.typography.text,
+    fontSize: 14,
+    color: colors.text,
+    marginTop: 2,
   }
 });
 

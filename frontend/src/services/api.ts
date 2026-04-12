@@ -1,10 +1,11 @@
 import axios from "axios";
 import { tokenStorage } from "../utils/storage";
-import { API_BASE_URL, STORAGE_KEYS } from "../utils/constants";
+import { API_BASE_URL } from "../utils/constants";
 
 const MAX_RETRY_ATTEMPTS = 2;
 const INITIAL_RETRY_DELAY = 500; // in milliseconds
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms)); // helper function for delay
+let refreshPromise: Promise<string> | null = null;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -21,12 +22,51 @@ export async function handleSessionExpiry() {
   await tokenStorage.clearTokens();
     //TO DO : redirect to login screen
 }
+
+async function refreshAccessToken(): Promise<string> {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      const refreshToken = await tokenStorage.getRefreshToken();
+
+      if (!refreshToken) {
+        throw new Error("Missing refresh token");
+      }
+
+      console.log("Attempting token refresh");
+      const response = await axios.post(`${API_BASE_URL}/api/auth/refresh`, {}, {
+        headers: { Authorization: `Bearer ${refreshToken}` },
+      });
+
+      const { access_token, refresh_token } = response.data;
+
+      if (!access_token || !refresh_token) {
+        throw new Error("Invalid refresh response");
+      }
+
+      await tokenStorage.saveTokens(access_token, refresh_token);
+      return access_token;
+    })().finally(() => {
+      refreshPromise = null;
+    });
+  }
+
+  return refreshPromise;
+}
 // Request interceptor - adds auth token to all requests
 api.interceptors.request.use(
   async (config) => {
     console.log("Request interceptor for", config.url);
+
+    // Let axios/runtime set multipart boundary for FormData automatically.
+    if (typeof FormData !== "undefined" && config.data instanceof FormData) {
+      if (config.headers) {
+        delete (config.headers as any)["Content-Type"];
+        delete (config.headers as any)["content-type"];
+      }
+    }
+
     const token = await tokenStorage.getAccessToken();
-    if (token) {
+    if (token && !config.headers?.Authorization) {
       console.log("Found token, adding to headers");
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -42,30 +82,26 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    console.log('Response error Błąd:', error.response?.status, 'dla URL:', originalRequest.url);
+    console.log('Response error Błąd:', error.response?.status, 'dla URL:', originalRequest?.url);
+
+    if (!originalRequest) {
+      return Promise.reject(error);
+    }
     
-    // if 401 and not already retried, try to refresh token
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    const requestUrl: string = String(originalRequest.url || "");
+    const isAuthEndpoint =
+      requestUrl.includes("/api/auth/login") ||
+      requestUrl.includes("/api/auth/register") ||
+      requestUrl.includes("/api/auth/refresh");
+
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
 
       try {
-        const refreshToken = await tokenStorage.getRefreshToken();
-
-        if (refreshToken) {
-          console.log("Attempting token refresh");
-          const response = await axios.post(`${API_BASE_URL}/api/refresh`, {}, {
-            headers: { Authorization: `Bearer ${refreshToken}`}
-          });
-
-          const { access_token, refresh_token } = response.data;
-          await tokenStorage.saveTokens(access_token, refresh_token);
-
-          // retry original request with new token
-          originalRequest.headers.Authorization = `Bearer ${access_token}`;
-          return api(originalRequest);
-        } 
+        const accessToken = await refreshAccessToken();
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        return api(originalRequest);
       } catch (refreshError) {
-        // refresh failed, clear tokens and redirect to login
         await handleSessionExpiry();
         return Promise.reject(new Error("Session expired. Please log in again."));
       }
@@ -90,11 +126,11 @@ api.interceptors.response.use(
 
 export const authService = {
   login: async (username: string, password: string) => {
-    const response = await api.post("/api/login", { username, password });
+    const response = await api.post("/api/auth/login", { username, password });
     return response.data;
   },
   register: async (username: string, email: string, password: string) => {
-    const response = await api.post("/api/register", {
+    const response = await api.post("/api/auth/register", {
       username,
       email,
       password,
@@ -102,23 +138,36 @@ export const authService = {
     return response.data;
   },
   resetPassword: async (email: string) => {
-    const response = await api.post("/api/reset-password", { email });
+    const response = await api.post("/api/email/reset_password_request", { email });
     return response.data;
   },
   logout: async () => {
-    const response = await api.post("/api/logout");
+    const refreshToken = await tokenStorage.getRefreshToken();
+    const accessToken = await tokenStorage.getAccessToken();
+
+    const response = await api.delete("/api/auth/logout", {
+      data: { access_token: accessToken },
+      headers: refreshToken
+        ? { Authorization: `Bearer ${refreshToken}` }
+        : undefined,
+    });
     return response.data;
   },
 };
 
 export const userService = {
   getProfile: async () => {
-    const response = await api.get("/api/user/profile");
+    const response = await api.get("/api/users/profile");
     return response.data;
   },
 
   updateProfile: async (data: any) => {
-    const response = await api.put("/api/user/profile", data);
+    const response = await api.put("/api/users/update_profile", data);
+    return response.data;
+  },
+
+  changeEmail: async (newEmail: string) => {
+    const response = await api.put("/api/users/settings/change_email", { new_email: newEmail });
     return response.data;
   },
 };

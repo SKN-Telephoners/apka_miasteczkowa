@@ -4,6 +4,7 @@ class ResponseTypes:
     #2xx
     SUCCESS = ("Operation successful", 200)
     CREATED = ("Resource created successfully", 201)
+    DELETE = ("Resource delete successfully",204)
     LOGIN_SUCCESS = ("Login successful", 200)
     LOGOUT_SUCCESS = ("Logged out successfully", 200)
     TOKEN_REVOKED = ("Token revoked successfully", 200)

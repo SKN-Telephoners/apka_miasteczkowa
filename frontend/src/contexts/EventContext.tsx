@@ -1,12 +1,28 @@
 import React, { createContext, useContext, useState } from "react";
 import { Event } from "../types";
-import { createEvent, deleteEvent } from "../services/events";
+import { createEvent, CreateEventData, deleteEvent, getEvents } from "../services/events";
+
+const normalizeEventPictures = (
+  pictures?: CreateEventData["pictures"] | CreateEventData["picture"],
+) => {
+  if (!pictures) {
+    return undefined;
+  }
+
+  const pictureList = Array.isArray(pictures) ? pictures : [pictures];
+  const normalized = pictureList
+    .filter((picture): picture is NonNullable<typeof picture> => Boolean(picture && picture.cloud_id))
+    .map((picture) => ({ cloud_id: picture.cloud_id }));
+
+  return normalized.length > 0 ? normalized : undefined;
+};
 
 interface EventContextType {
   events: Event[];
   isLoading: boolean;
-  addEvent: (eventData: { name: string; description: string; date: string; time: string; location: string }) => Promise<void>;
+  addEvent: (eventData: CreateEventData) => Promise<void>;
   removeEvent: (eventId: string) => Promise<void>;
+  fetchEvents: (page?: number) => Promise<void>;
 }
 
 const EventContext = createContext<EventContextType | undefined>(undefined);
@@ -15,19 +31,39 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const addEvent = async (eventData: { name: string; description: string; date: string; time: string; location: string }) => {
+  const fetchEvents = async (page: number = 1) => {
+    setIsLoading(true);
+    try {
+      const response = await getEvents(page);
+      setEvents(response.data || []);
+    } catch (error) {
+      console.error("Error fetching events:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  const addEvent = async (eventData: CreateEventData) => {
     setIsLoading(true);
     try {
       const response = await createEvent(eventData);
       const newEvent: Event = {
-        event_id: response.event_id,
+        id: response.event_id,
         name: eventData.name,
         description: eventData.description,
-        date_and_time: `${eventData.date} ${eventData.time}`,
+        date: eventData.date,
+        time: eventData.time,
         location: eventData.location,
-        creator_id: 'current_user', // Placeholder, bo backend nie zwraca
+        creator_id: response.creator_id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        comment_count: 0,
+        is_private: eventData.is_private,
+        pictures: normalizeEventPictures(eventData.pictures ?? eventData.picture),
       };
       setEvents(prev => [...prev, newEvent]);
     } catch (error) {
@@ -42,7 +78,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsLoading(true);
     try {
       await deleteEvent(eventId);
-      setEvents(prev => prev.filter(event => event.event_id !== eventId));
+      setEvents(prev => prev.filter(event => event.id !== eventId));
     } catch (error) {
       console.error("Error deleting event:", error);
       throw error;
@@ -52,7 +88,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   return (
-    <EventContext.Provider value={{ events, isLoading, addEvent, removeEvent }}>
+    <EventContext.Provider value={{ events, isLoading, addEvent, removeEvent, fetchEvents }}>
       {children}
     </EventContext.Provider>
   );
