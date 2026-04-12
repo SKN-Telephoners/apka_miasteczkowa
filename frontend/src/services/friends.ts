@@ -25,7 +25,7 @@ export const getFriendsList = async (): Promise<FriendsDataResponse> => {
   }
 }
 
-// Function to search users
+// Function to search users - move do correct spot 
 export const searchUsers = async (query: string): Promise<User[]> => {
   try {
     const response = await api.get<{ users: any[] }>('/api/users/users_list', {
