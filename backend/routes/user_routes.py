@@ -334,22 +334,21 @@ def delete_account():
     
 @users_bp.route("/users_list", methods=["GET"])
 @limiter.limit("600 per second")
-@jwt_required
+@jwt_required()
 def get_users_list():
     current_user_id = validate_uuid(get_jwt_identity())
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        return make_api_response(ResponseTypes.BAD_REQUEST, message="Invalid JSON format")
     
     try:
-        page = max(1, int(data.get("page", 1)))
-        limit = max(1, int(data.get("limit", Constants.PAGINATION_DEFAULT_LIMIT)))
+        page = request.args.get("page", default=1, type=int)
+        limit = request.args.get("limit", default=Constants.PAGINATION_DEFAULT_LIMIT, type=int)
         if limit > Constants.MAX_PAGINATION_LIMIT:
             limit = Constants.MAX_PAGINATION_LIMIT
     except (ValueError, TypeError):
         return make_api_response(ResponseTypes.INVALID_DATA, message="Pagination must be a positive integer")
-    
-    users = db.session.query(User).outerjoin(
+
+    search_val = request.args.get("search", default="", type=str).strip()
+
+    query = db.session.query(User, Friendship.friend_id).outerjoin(
         Friendship, 
         or_(
             and_(Friendship.user_id == current_user_id, Friendship.friend_id == User.user_id),
@@ -357,23 +356,12 @@ def get_users_list():
         )
     ).filter(User.deleted == False, User.user_id != current_user_id)
 
-    search_val = data.get("search")
-    if search_val and isinstance(search_val, str):
+    if search_val:
         clean_search = sanitize_input(search_val).strip()[:Constants.MAX_USERNAME_LEN]
         if clean_search:
             escaped_search = clean_search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-            query = query.filter(User.username.ilike(f"%{escaped_search}%"))
+            query = query.filter(User.username.startswith(f"{escaped_search}"))
 
-    academy_val = data.get("academy")
-    if academy_val and isinstance(academy_val, str):
-        clean_academy = sanitize_input(academy_val).strip()
-        if clean_academy and clean_academy in current_app.config.get('ACADEMY_DATA', {}):
-            query = query.filter(User.academy == clean_academy)
-
-            course_val = data.get("course")
-            if isinstance(course_val, str):
-                clean_course = sanitize_input(course_val).strip()
-                query = query.filter(User.course == clean_course)
 
     friend_priority = case(
         (Friendship.friendship_id.isnot(None), 1), 
@@ -385,13 +373,14 @@ def get_users_list():
     pagination = query.paginate(page=page, per_page=limit, error_out=False)
 
     users_list = []
-    for user in pagination.items:
+    for user, f_id in pagination.items:
+        is_friend = f_id is not None
         user_info = {
             "user_id": str(user.user_id),
             "username": user.display_name,
             "academy": user.academy,
             "profile_picture": user.profile_picture,
-            "is_friend": any(f.user_id == current_user_id or f.friend_id == current_user_id for f in user.friendships_as_user + user.friendships_as_friend)
+            "is_friend": is_friend
         }
         users_list.append(user_info)
 
