@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
     View,
     Text,
@@ -7,101 +7,119 @@ import {
     FlatList,
     RefreshControl,
     TouchableOpacity,
+    StyleSheet,
 } from "react-native";
 import EventCard from "../../components/EventCard"
-import { Event } from "../../types";
+import { DEFAULT_EVENT_FILTERS, Event, EventFilterState } from "../../types";
 import InputField from "../../components/InputField";
 import { getEvents } from "../../services/events";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
+import { THEME } from "../../utils/constants";
+import ItemSeparator from "../../components/ItemSeparator"
+import { useInfiniteQuery } from "@tanstack/react-query"
+import SvgSpriteIcon from "../../components/SvgSpriteIcon";
+import { useTheme } from "../../contexts/ThemeContext";
+
+const BASE_TILE_SIZE = 30;
+const FILTER_ICON_SIZE = 30;
+const FILTER_ICON_OFFSET = { x: -BASE_TILE_SIZE, y: 0 };
+const PAGE_SIZE = 20;
+
+const mergeUniqueEventsById = (events: Event[]): Event[] => {
+    const uniqueEvents = new Map<string, Event>();
+    for (const event of events) {
+        if (!event?.id) continue;
+        uniqueEvents.set(event.id, event);
+    }
+    return Array.from(uniqueEvents.values());
+};
 
 const EventScreen = () => {
 
     const [searchQuery, setSearchQuery] = useState("");
-    const [isLoading, setIsLoading] = useState(false);
-    const [data, setData] = useState<Event[]>([]);
-    const [error, setError] = useState(false);
-    const [currentPage, setCurrentPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const [refreshing, setRefreshing] = useState(false);
-    const [loadingMore, setLoadingMore] = useState(false);
-    const [hasMore, setHasMore] = useState(true);
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+    const [canLoadMore, setCanLoadMore] = useState(false);
+    const [filters, setFilters] = useState<EventFilterState>(DEFAULT_EVENT_FILTERS);
+    const { colors } = useTheme();
 
     const navigation = useNavigation<any>();
-
-    const loadEvents = async (p = currentPage, isLoadMore: boolean = false) => {
-        try {
-            if (isLoadMore) {
-                setLoadingMore(true);
-            } else {
-                if (p === 1) setIsLoading(true);
-            }
-
-            const response = await getEvents(p, 20);
-
-            if (isLoadMore) {
-                setData(prevData => [...prevData, ...response.data]);
-            } else {
-                setData(response.data);
-            }
-
-            setCurrentPage(response.pagination.page);
-            setTotalPages(response.pagination.pages)
-
-        } catch (error) {
-            console.error('Failed to load events:', error);
-            setError(true);
-        } finally {
-            setIsLoading(false);
-            setRefreshing(false);
-            setLoadingMore(false);
-        }
-    }
+    const route = useRoute<any>();
 
     useEffect(() => {
-        // Listen for screen focus to lazy-load events
-        const unsubscribe = navigation.addListener('focus', () => {
-            if (data.length === 0 && !error) {
-                loadEvents(1, false);
-            }
-        });
-        return unsubscribe;
-    }, [navigation, data.length, error]);
+        const timeout = setTimeout(() => {
+            setDebouncedSearchQuery(searchQuery.trim());
+        }, 350);
+
+        return () => clearTimeout(timeout);
+    }, [searchQuery]);
+
+    const feedParams = useMemo(
+        () => ({
+            q: debouncedSearchQuery || undefined,
+            visibility: filters.visibility,
+            participation: filters.participation,
+            created_window: filters.createdAtWindow,
+            sort_mode: filters.sortMode,
+            creator_source: filters.creatorSource,
+        }),
+        [debouncedSearchQuery, filters.createdAtWindow, filters.participation, filters.sortMode, filters.visibility, filters.creatorSource],
+    );
+
+    const {
+        data,
+        error,
+        isPending,
+        isRefetching,
+        isFetchingNextPage,
+        hasNextPage,
+        fetchNextPage,
+        refetch,
+    } = useInfiniteQuery({
+        queryKey: ["events-feed", PAGE_SIZE, feedParams],
+        queryFn: ({ pageParam }) => getEvents(pageParam, PAGE_SIZE, feedParams),
+        initialPageParam: 1,
+        getNextPageParam: (lastPage) => {
+            const nextPage = lastPage.pagination.page + 1;
+            return nextPage <= lastPage.pagination.pages ? nextPage : undefined;
+        },
+        refetchOnMount: true,
+    });
+
+    const allEvents = useMemo(() => {
+        const mergedPages = data?.pages.flatMap((page) => page.data) ?? [];
+        return mergeUniqueEventsById(mergedPages);
+    }, [data]);
+
+    useFocusEffect(
+        useCallback(() => {
+            refetch();
+        }, [refetch]),
+    );
+
+    useEffect(() => {
+        if (!route?.params?.eventFilters) return;
+        setFilters(route.params.eventFilters as EventFilterState);
+    }, [route?.params?.eventFilters]);
 
     const handleRefresh = useCallback(() => {
-        setRefreshing(true);
-        setHasMore(true);
-        loadEvents(1);
-    }, []);
+        refetch();
+    }, [refetch]);
 
     const loadMore = () => {
-        if (!loadingMore && hasMore && currentPage < totalPages) {
-            loadEvents(currentPage + 1, true);
+        if (!canLoadMore) return;
+        if (hasNextPage && !isFetchingNextPage && !isRefetching) {
+            setCanLoadMore(false);
+            fetchNextPage();
         }
     };
 
 
     const handleSearch = (query: string) => {
         setSearchQuery(query);
-        const lowerCaseQuery = query.toLowerCase().trim();
-        if (lowerCaseQuery === "") {
-            loadEvents(1, false);
-            return
-        }
-
-
-        const filteredData = data.filter((event: Event) => {
-
-            const { name, location, description } = event;
-            return name?.toLowerCase().includes(lowerCaseQuery) ||
-                location?.toLowerCase().includes(lowerCaseQuery) ||
-                description?.toLowerCase().includes(lowerCaseQuery)
-
-        })
-        setData(filteredData)
     }
 
     const renderFooter = () => {
-        if (!loadingMore) return null;
+        if (!isFetchingNextPage) return null;
 
         return (
             <View style={{
@@ -109,15 +127,15 @@ const EventScreen = () => {
                 justifyContent: 'center',
                 alignItems: 'center'
             }}>
-                <ActivityIndicator size="large" color="#0000ff" />
+                <ActivityIndicator size="large" color={colors.transparentHighlight} />
             </View>
         );
     };
 
 
-    if (isLoading && !refreshing) {
+    if (isPending && !isRefetching) {
         return (
-            <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+            <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.background }}>
                 <ActivityIndicator size="large" />
             </View>
         );
@@ -125,56 +143,90 @@ const EventScreen = () => {
 
     if (error) {
         return (
-            <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-                <Text>Wystąpił błąd podczas pobierania wydarzeń</Text>
+            <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.background}}>
+                <Text style={{ color: colors.text }}>Wystąpił błąd podczas pobierania wydarzeń</Text>
                 <TouchableOpacity
                     onPress={() => {
-                        setError(false);
-                        setIsLoading(true);
-                        loadEvents(1, false);
+                        refetch();
                     }}
                 >
-                    <Text style={{ color: '#0000ff', fontWeight: 'bold' }}>Spróbuj ponownie</Text>
+                    <Text style={{ color: colors.transparentHighlight, fontWeight: 'bold' }}>Spróbuj ponownie</Text>
                 </TouchableOpacity>
             </View>
         );
     }
 
     return (
-        <SafeAreaView style={{ flex: 1, marginHorizontal: 10 }}>
-            <View style={{ marginVertical: 10 }}>
-                <InputField
-                    placeholder="Szukaj"
-                    onChangeText={(query) => handleSearch(query)}
-                    value={searchQuery}
-                />
-                <TouchableOpacity onPress={() => navigation.navigate('AddEvent')} style={{ backgroundColor: '#045ddaff', alignItems: 'center', padding: 10, borderRadius: 25 }} >
-                    <Text style={{ color: '#ffffff' }}>Dodaj wydarzenie</Text>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+            <View style={styles.searchRowContainer}>
+                <View style={styles.searchInputContainer}>
+                    <InputField
+                        placeholder="Szukaj wydarzeń"
+                        onChangeText={(query) => handleSearch(query)}
+                        value={searchQuery}
+                        showSearchSpriteIcon
+                        showFloatingLabel={false}
+                        reserveErrorSpace={false}
+                    />
+                </View>
+                <TouchableOpacity
+                    onPress={() => navigation.navigate("EventFilters", { initialFilters: filters })}
+                    style={styles.filterButton}
+                    activeOpacity={0.8}
+                >
+                    <View style={styles.filterIconContainer}>
+                        <SvgSpriteIcon set={1} size={FILTER_ICON_SIZE} offsetX={FILTER_ICON_OFFSET.x} offsetY={FILTER_ICON_OFFSET.y} />
+                    </View>
                 </TouchableOpacity>
-
             </View>
 
 
             <FlatList
-                data={data}
+                data={allEvents}
                 renderItem={({ item }) => <EventCard item={item} />}
-                keyExtractor={(item: Event) => item.id!}
+                keyExtractor={(item: Event, index) => item.id || `${item.name}-${index}`}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+                    <RefreshControl refreshing={isRefetching && !isFetchingNextPage} onRefresh={handleRefresh} />
                 }
                 ListFooterComponent={renderFooter}
                 onEndReached={loadMore}
                 onEndReachedThreshold={0.5}
+                onMomentumScrollBegin={() => setCanLoadMore(true)}
                 initialNumToRender={10}
                 maxToRenderPerBatch={10}
                 windowSize={10}
                 removeClippedSubviews={true}
+                ItemSeparatorComponent={ItemSeparator}
 
             />
 
         </SafeAreaView>
     );
 }
+
+const styles = StyleSheet.create({
+    searchRowContainer: {
+        marginHorizontal: 10,
+        marginTop: 5,
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    searchInputContainer: {
+        flex: 1,
+    },
+    filterButton: {
+        marginLeft: 10,
+        width: 38,
+        height: 38,
+        borderRadius: 19,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    filterIconContainer: {
+        width: FILTER_ICON_SIZE,
+        height: FILTER_ICON_SIZE,
+    },
+});
 
 
 

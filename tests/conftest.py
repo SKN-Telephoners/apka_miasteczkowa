@@ -2,10 +2,12 @@ import pytest
 from backend import create_app
 from backend.extensions import db, mail
 from backend.models import User, TokenBlocklist, Friendship, FriendRequest, Event
+from backend.helpers import add_token_to_db
+from flask_jwt_extended import create_access_token
 from datetime import datetime, timezone, timedelta
 from re import search
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def app():
     """Create and configure a new Flask app instance for testing."""
     app = create_app(test_mode=True)
@@ -15,15 +17,6 @@ def app():
         yield app
         db.session.remove()
         db.drop_all()  
-
-@pytest.fixture(autouse=True)
-def rollback_db(app):
-    """Rollback any changes made to the database after each test."""
-    yield  # run the test
-    db.session.rollback()  # undo everything done not commited
-    for model in [User, TokenBlocklist, Friendship, FriendRequest, Event]:
-        db.session.query(model).delete() # delete everything commited
-    db.session.commit()
 
 @pytest.fixture
 def client(app):
@@ -35,46 +28,65 @@ def runner(app):
     """Provide a test CLI runner."""
     return app.test_cli_runner()
 
-@pytest.fixture
-def registered_user(client):
-    # Updated password to meet new complexity requirements
-    payload = {"username": "user1", "password": "Secret123", "email": "user1@gmail.com"}
-    client.post("/api/auth/register", json=payload)
-    user = User.query.filter_by(username="user1").first()
-    #confirm email
-    with mail.record_messages() as outbox:
-        response = client.post("/api/email/verify_request", json={"email": user.email})
-        match = search(r'(http://.+/verify/\S+)', outbox[0].body)
-        auth_url = match.group()
-        token_path = auth_url.replace("http://localhost", "")
-        client.post(token_path)
-
-    return user, payload["password"]
+@pytest.fixture(autouse=True)
+def rollback_db(app):
+    """Clean database rows after each test."""
+    yield  
+    db.session.rollback()  
+    for model in [User, TokenBlocklist, Friendship, FriendRequest, Event]:
+        db.session.query(model).delete() 
+    db.session.commit()
 
 @pytest.fixture
-def logged_in_user(registered_user, client):
-    user, password = registered_user
-    payload = {"username": user.username, "password": password}
-    response = client.post("/api/auth/login", json=payload)
-    data = response.get_json()
-    token = data["access_token"]
-    return user, token
+def registered_user(app):
+    password = "Secret123!"
 
+    user = User(
+        username="user_fixture", 
+        password=password, 
+        email="user_fixture@gmail.com",
+        is_confirmed=True
+    )
+    db.session.add(user)
+    db.session.commit()
+    
+    return user, password
 
 @pytest.fixture
-def registered_friend(client):
-    # Updated password to meet new complexity requirements
-    payload = {"username": "friend", "password": "FriendSecret123", "email": "friend@gmail.com"}
-    client.post("/api/auth/register", json=payload)
-    friend = User.query.filter_by(username="friend").first()
-    #confirm email
-    with mail.record_messages() as outbox:
-        response = client.post("api/email/verify_request", json={"email": friend.email})
-        match = search(r'(http://.+/verify/\S+)', outbox[0].body)
-        auth_url = match.group()
-        token_path = auth_url.replace("http://localhost", "")
-        client.post(token_path)
-    return friend, payload["password"]
+def registered_friend(app):
+    password = "FriendSecret123!"
+
+    friend = User(
+        username="friend", 
+        password=password, 
+        email="friend@gmail.com",
+        is_confirmed=True
+    )
+    db.session.add(friend)
+    db.session.commit()
+    
+    return friend, password
+
+@pytest.fixture
+def logged_in_user(app, registered_user):
+    user, _ = registered_user
+
+    access_token = create_access_token(identity=user.user_id)
+    add_token_to_db(access_token)
+    
+    return user, access_token
+
+@pytest.fixture
+def create_events(app, logged_in_user):
+    user, _ = logged_in_user 
+    
+    events_to_insert = []
+    
+    for event_id in range(1, 23):
+        event_time = datetime.now(timezone.utc) + timedelta(days=event_id)
+        payload = {"name": str(event_id)+"ssss", "description": "Lore ipsum", "date": event_time.strftime("%d.%m.%Y"), "time":event_time.strftime("%H:%M"), "location":"Poland", "is_private": False}
+        response=client.post("/create_event", json=payload, headers=headers)
+        assert response.status_code == 201
 
 
 @pytest.fixture
@@ -101,9 +113,10 @@ def event(client, logged_in_user):
         "description": "very cool event",
         "date": future_date.strftime("%d.%m.%Y"),
         "time": "21:37",
-        "location": "here"
+        "location": "here",
+        "is_private": False
     }
 
     client.post("/api/events/create", headers={"Authorization": f"Bearer {token}"}, json=payload)
-    event = Event.query.filter_by(name="event1").first()
+    event = Event.query.filter_by(event_name="event1").first()
     return event

@@ -1,5 +1,6 @@
 from flask import Blueprint, current_app
 from backend.models import User, FriendRequest, Friendship
+from backend.models.friend import FriendRequestStatus 
 from backend.extensions import db,limiter
 from backend.responses import ResponseTypes, make_api_response
 from flask_jwt_extended import jwt_required, get_current_user
@@ -7,6 +8,7 @@ from backend.helpers import validate_uuid
 import uuid
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy import or_, and_
+from cloudinary.utils import cloudinary_url
 
 friends_bp = Blueprint("friends", __name__, url_prefix="/api/friends")
 
@@ -34,7 +36,6 @@ def create_friend_request(friend_id):
 
     if existing_friend_request is not None:
         return make_api_response(ResponseTypes.CONFLICT, message="Request already exists")
-
     existing_friendship = Friendship.query.filter(
         or_(
             and_(Friendship.user_id == user.user_id, Friendship.friend_id == friend_id),
@@ -80,7 +81,6 @@ def cancel_friend_request(friend_id):
         db.session.rollback()
         current_app.logger.error(f"Database error: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
-
     return make_api_response(ResponseTypes.SUCCESS, message="Friend request cancelled", data={"friend_id": str(friend_id)})
 
 @friends_bp.route("/request/<friend_id>/accept", methods=["POST"])
@@ -113,7 +113,6 @@ def accept_friend_request(friend_id):
         db.session.rollback()
         current_app.logger.error(f"Database error: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
-
     return make_api_response(ResponseTypes.SUCCESS, message="Friend request accepted", data={"friend_id": str(friend_id)})
 
 @friends_bp.route("/request/<friend_id>/decline", methods=["POST"])
@@ -136,39 +135,125 @@ def decline_friend_request(friend_id):
         db.session.rollback()
         current_app.logger.error(f"Database error: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
-
     return make_api_response(ResponseTypes.SUCCESS, message="Friend request declined")
+
+
+@friends_bp.route("/request/pending", methods=["GET"])
+@jwt_required()
+def get_pending_requests():
+    user = get_current_user()
+    
+    incoming_pending_requests = FriendRequest.query.filter_by(
+        receiver_id=user.user_id,
+        status=FriendRequestStatus.pending
+    ).all()
+    
+    outgoing_pending_requests = FriendRequest.query.filter_by(
+        sender_id=user.user_id,
+        status=FriendRequestStatus.pending
+    ).all()
+
+    incoming_requests_data = []
+    for req in incoming_pending_requests:
+        sender = User.query.filter_by(user_id=req.sender_id).first()
+        if sender:
+            incoming_requests_data.append({
+                "request_id": str(req.request_id),
+                "sender_id": str(sender.user_id),
+                "sender_username": sender.display_name,
+                "requested_at": req.requested_at.isoformat()
+            })
+
+    outgoing_requests_data = []
+    for req in outgoing_pending_requests:
+        receiver = User.query.filter_by(user_id=req.receiver_id).first()
+        if receiver:
+            outgoing_requests_data.append({
+                "request_id": str(req.request_id),
+                "receiver_id": str(receiver.user_id), 
+                "receiver_username": receiver.display_name, 
+                "requested_at": req.requested_at.isoformat()
+            })
+
+    return make_api_response(
+        ResponseTypes.SUCCESS, 
+        message="Pending requests retrieved", 
+        data={
+            "incoming_pending_requests": incoming_requests_data,
+            "outgoing_pending_requests": outgoing_requests_data 
+        }
+    )
+
 
 @friends_bp.route("/list", methods=["GET"])
 @jwt_required()
 def get_friends_list():
-    user= get_current_user()
+    user = get_current_user()
     
     try:
+        # 1. Fetching accepted friendships
         friendships = Friendship.query.filter(
             or_(
                 Friendship.user_id == user.user_id,
                 Friendship.friend_id == user.user_id
             )
         ).all()
-        if not friendships:
-            return make_api_response(ResponseTypes.SUCCESS, message="Empty friends list", data={"friends": []})
 
-        friends_id=[]
+        friends_id = []
         for friendship in friendships:
-            if user.user_id==friendship.user_id:
+            if user.user_id == friendship.user_id:
                 friends_id.append(friendship.friend_id)
             else:
                 friends_id.append(friendship.user_id)
-        friends = User.query.filter(User.user_id.in_(friends_id)).all()
-
+                
         friends_data = []
-        for friend in friends:
-            friends_data.append({
-                "id": str(friend.user_id),
-                "username": friend.username
-            })
-        return make_api_response(ResponseTypes.SUCCESS, message="Friends list", data={"friends": friends_data})
+        if friends_id:
+            friends = User.query.filter(User.user_id.in_(friends_id)).all()
+            for friend in friends:
+                profile_pic_data = None
+                if friend.profile_picture:
+                    profile_pic_data = {
+                        "cloud_id": friend.profile_picture,
+                        "url": cloudinary_url(friend.profile_picture, secure=True)[0],
+                    }
+                friends_data.append({
+                    "id": str(friend.user_id),
+                    "username": friend.display_name,
+                    "email": friend.email,
+                    "academy": friend.academy,
+                    "course": friend.course,
+                    "profile_picture": profile_pic_data,
+                })
+
+        # 2. Fetching pending incoming friend requests
+        incoming_reqs = FriendRequest.query.filter_by(receiver_id=user.user_id).all()
+        incoming_data = [{
+            "id": str(r.sender_id),
+            "senderId": str(r.sender_id),
+            "receiverId": str(r.receiver_id),
+            "createdAt": r.requested_at.isoformat(),
+            "user": {
+                "id": str(r.sender.user_id),
+                "username": r.sender.display_name,
+                "email": r.sender.email,
+                "academy": r.sender.academy,
+                "course": r.sender.course,
+                "profile_picture": {
+                    "cloud_id": r.sender.profile_picture,
+                    "url": cloudinary_url(r.sender.profile_picture, secure=True)[0],
+                } if r.sender.profile_picture else None,
+            }
+        } for r in incoming_reqs]
+
+        return make_api_response(
+            ResponseTypes.SUCCESS, 
+            message="Friends list and requests", 
+            data={
+                "friends": friends_data,
+                "incomingRequests": incoming_data,
+                "outgoingRequests": []
+            }
+        )
     except SQLAlchemyError as e:
         current_app.logger.error(f"Database error: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)

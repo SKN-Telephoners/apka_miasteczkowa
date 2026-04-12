@@ -4,6 +4,19 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
+def _get_max_content_length() -> int:
+    default_limit = 16 * 1024 * 1024  # 16 MB
+    raw_value = os.getenv("MAX_CONTENT_LENGTH", str(default_limit))
+
+    try:
+        parsed = int(raw_value)
+    except (TypeError, ValueError):
+        return default_limit
+
+    # Guard against misconfigured tiny values that cause 413 for normal photos.
+    return max(parsed, default_limit)
+
 class Config:
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -22,6 +35,9 @@ class Config:
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
     MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER")
 
+    MAX_CONTENT_LENGTH = _get_max_content_length()
+    MAX_FORM_MEMORY_SIZE = 16777216  
+
     CELERY_BROKER_URL = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
     CELERY = dict(
@@ -32,6 +48,8 @@ class Config:
     
     
 class TestConfig(Config):
+    BCRYPT_LOG_ROUNDS = 4
+    
     MAIL_SUPPRESS_SEND = True
     MAIL_BACKEND = 'flask_mail.backends.locmem.EmailBackend'
     TESTING = True

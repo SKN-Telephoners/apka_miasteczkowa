@@ -12,7 +12,7 @@ import {
 import { ScrollView } from "react-native-gesture-handler";
 import { authService } from "../../services/api";
 import InputField from "../../components/InputField";
-import { MESSAGES } from "../../utils/constants";
+import { MESSAGES, THEME } from "../../utils/constants";
 
 const RegisterScreen = ({ navigation }: { navigation: any }) => {
   const [username, setUsername] = useState("");
@@ -139,6 +139,8 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
             value={username}
             onChangeText={setUsername}
             secureTextEntry={false}
+            floatingLabelColor={THEME.colors.lm_srch_wrd}
+            floatingLabelBackgroundColor="transparent"
             errorMessage={usernameError}
             validate={validateUsername}
           />
@@ -148,6 +150,8 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
             value={email}
             onChangeText={setEmail}
             secureTextEntry={false}
+            floatingLabelColor={THEME.colors.lm_srch_wrd}
+            floatingLabelBackgroundColor="transparent"
             errorMessage={emailError}
             validate={validateEmail}
           />
@@ -157,6 +161,8 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
             value={password}
             onChangeText={setPassword}
             secureTextEntry={secureText}
+            floatingLabelColor={THEME.colors.lm_srch_wrd}
+            floatingLabelBackgroundColor="transparent"
             toggleSecure={() => setSecureText(!secureText)}
             errorMessage={passwordError}
             validate={validatePassword}
@@ -167,6 +173,8 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             secureTextEntry={secureTextConfirm}
+            floatingLabelColor={THEME.colors.lm_srch_wrd}
+            floatingLabelBackgroundColor="transparent"
             toggleSecure={() => setSecureTextConfirm(!secureTextConfirm)}
             errorMessage={confirmPasswordError}
             validate={validateConfirmPassword}

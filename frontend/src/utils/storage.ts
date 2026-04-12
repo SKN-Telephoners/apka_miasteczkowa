@@ -22,16 +22,32 @@ export const tokenStorage = {
   },
 
   getUserId: async () => {
-    const accessToken = await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+    try {
+      const accessToken = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
 
-    if (!accessToken) {
+      if (!accessToken) {
+        return null;
+      }
+
+      const parts = accessToken.split(".");
+      if (parts.length !== 3) return null;
+
+      const payload = parts[1];
+      // Manuall base64 decode for react-native
+      const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+      const jsonPayload = decodeURIComponent(
+        Array.prototype.map
+          .call(atob(base64), (c) => {
+            return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
+          })
+          .join("")
+      );
+
+      const plainObject = JSON.parse(jsonPayload);
+      return plainObject.sub || plainObject.user_id || null;
+    } catch (e) {
+      console.error("Error decoding JWT:", e);
       return null;
     }
-
-    const payload = accessToken.split(".")[1];
-    const decodedPayload = JSON.parse(atob(payload));
-    const plainObject = JSON.parse(JSON.stringify(decodedPayload));
-
-    return plainObject.sub;
   },
 };

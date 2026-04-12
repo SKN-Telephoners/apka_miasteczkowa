@@ -73,10 +73,10 @@ def test_password_reset_revokes_all_tokens(client, registered_user, app):
 
             assert response.status_code == 200
 
-        protected_response = client.get("api/users/me", headers={"Authorization": f"Bearer {initial_access_token}"})
+        protected_response = client.get(f"/api/users/profile/{user.user_id}", headers={"Authorization": f"Bearer {initial_access_token}"})
         assert protected_response.status_code == 401
         
-        refresh_response = client.post("api/auth/refresh", headers={"Authorization": f"Bearer {initial_refresh_token}"})
+        refresh_response = client.post("/api/auth/refresh", headers={"Authorization": f"Bearer {initial_refresh_token}"})
         assert refresh_response.status_code == 401
 
         login_response_new = client.post("/api/auth/login", json={"username": user.username, "password": "NewSecret123"})

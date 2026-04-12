@@ -1,136 +1,332 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, Button, Alert, TouchableOpacity } from 'react-native';
-import { useAuth } from '../../contexts/AuthContext';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, TextInput, Alert, TouchableOpacity, Image, ScrollView } from 'react-native';
+import { useUser } from '../../contexts/UserContext';
 import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../../contexts/ThemeContext';
+import { THEME, ACADEMIES } from '../../utils/constants';
+import Button from '../../components/Button';
+import { userService } from '../../services/api';
+import AppIcon from '../../components/AppIcon';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
+import { uploadEventPicture } from '../../services/events';
 
 const EditProfileScreen = () => {
-    const { user } = useAuth();
+    const { user, updateUserProfile } = useUser();
     const navigation = useNavigation();
+    const { colors } = useTheme();
+
+    const styles = useMemo(() => getStyles(colors), [colors]);
 
     // Lokalne stany dla formularza
-    // W przyszłości te wartości początkowe powinny pochodzić z UserContext / API
-    const [bio, setBio] = useState("Status: Zdałem AUE!?@!");
-    const [email, setEmail] = useState(user?.email || "");
     const [username, setUsername] = useState(user?.username || "");
+    const [email, setEmail] = useState(user?.email || "");
+    const [description, setDescription] = useState(user?.description || "");
+    const [academy, setAcademy] = useState(user?.academy || "");
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [profilePicture, setProfilePicture] = useState<{ cloud_id: string; url?: string } | null>(user?.profile_picture || null);
+    const [profilePicturePreviewUri, setProfilePicturePreviewUri] = useState<string | null>(null);
+    const [isPictureUploading, setIsPictureUploading] = useState(false);
 
-    // Mock zapisu
-    const handleSave = () => {
-        // Tu powinno być wywołanie API: await updateUserProfile({ bio, email ... })
-        console.log("Zapisywanie profilu:", { username, bio, email });
+    const avatarUri = profilePicturePreviewUri || profilePicture?.url || user?.profile_picture?.url || null;
+    const [isSaving, setIsSaving] = useState(false);
 
-        Alert.alert(
-            "Sukces",
-            "Zaktualizowano profil (Mock)",
-            [
-                { text: "OK", onPress: () => navigation.goBack() }
-            ]
-        );
+    const isEmailChanged = email !== user?.email;
+
+    const handleEmailRequest = async () => {
+        try {
+            await userService.changeEmail(email);
+            Alert.alert("Wysłano", "Weryfikacja została wysłana na podany nowy adres e-mail.");
+        } catch (error) {
+            Alert.alert("Błąd", "Nie udało się zainicjować zmiany adresu e-mail.");
+        }
+    };
+
+    const uploadSelectedPicture = async (asset: ImagePicker.ImagePickerAsset) => {
+        if (!asset.uri) {
+            Alert.alert("Błąd", "Nie udało się odczytać zdjęcia.");
+            return;
+        }
+
+        const fileInfo = await FileSystem.getInfoAsync(asset.uri);
+        const maxBytes = 15 * 1024 * 1024;
+        if (fileInfo.exists && typeof fileInfo.size === "number" && fileInfo.size > maxBytes) {
+            Alert.alert("Plik za duży", "Wybierz zdjęcie mniejsze niż 15 MB.");
+            return;
+        }
+
+        setProfilePicturePreviewUri(asset.uri);
+        setIsPictureUploading(true);
+
+        try {
+            const uploadedPicture = await uploadEventPicture(asset.uri, asset.fileName ?? "profile-picture.jpg");
+            setProfilePicture({
+                cloud_id: uploadedPicture.cloud_id,
+                url: uploadedPicture.url ?? asset.uri,
+            });
+        } catch (error: any) {
+            setProfilePicturePreviewUri(null);
+            Alert.alert("Błąd zdjęcia", error?.message || "Nie udało się przesłać zdjęcia.");
+        } finally {
+            setIsPictureUploading(false);
+        }
+    };
+
+    const takePhoto = async () => {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) {
+            Alert.alert("Brak uprawnień", "Aplikacja potrzebuje dostępu do aparatu.");
+            return;
+        }
+
+        const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ["images"],
+            quality: 0.7,
+            allowsEditing: true,
+            aspect: [1, 1],
+        });
+
+        if (!result.canceled && result.assets?.[0]) {
+            await uploadSelectedPicture(result.assets[0]);
+        }
+    };
+
+    const pickFromDevice = async () => {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+            Alert.alert("Brak uprawnień", "Aplikacja potrzebuje dostępu do galerii.");
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ["images"],
+            quality: 0.7,
+            allowsEditing: true,
+            aspect: [1, 1],
+        });
+
+        if (!result.canceled && result.assets?.[0]) {
+            await uploadSelectedPicture(result.assets[0]);
+        }
+    };
+
+    const showPictureOptions = () => {
+        Alert.alert("Zdjęcie profilowe", "Wybierz źródło zdjęcia", [
+            { text: "Zrób zdjęcie", onPress: takePhoto },
+            { text: "Wybierz z urządzenia", onPress: pickFromDevice },
+            (profilePicture || user?.profile_picture)
+                ? {
+                    text: "Usuń zdjęcie",
+                    style: "destructive",
+                    onPress: () => {
+                        setProfilePicture(null);
+                        setProfilePicturePreviewUri(null);
+                    },
+                }
+                : undefined,
+            { text: "Anuluj", style: "cancel" },
+        ].filter(Boolean) as any);
+    };
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            await updateUserProfile({ 
+                username,
+                description, 
+                academy: academy === "" ? null : academy,
+                profile_picture: profilePicture ? { cloud_id: profilePicture.cloud_id } : null,
+            });
+            Alert.alert("Sukces", "Zaktualizowano profil", [{ text: "OK", onPress: () => navigation.goBack() }]);
+        } catch (error) {
+            Alert.alert("Błąd", "Nie udało się zapisać zmian");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
-        <ScrollView style={styles.container}>
+        <View style={styles.container}>
+            {/* Sekcja Avatara */}
             <View style={styles.avatarSection}>
-                <View style={styles.avatarPlaceholder}>
-                    <Text style={styles.avatarEmoji}>👤</Text>
-                </View>
-                <TouchableOpacity onPress={() => Alert.alert("Info", "Zmiana avatara dostępna wkrótce!")}>
-                    <Text style={styles.changeAvatarText}>Zmień zdjęcie</Text>
+                <Image
+                    source={
+                        avatarUri
+                            ? { uri: avatarUri }
+                            : require('../../../assets/portrait_Placeholder.png')
+                    }
+                    style={styles.avatarImage}
+                />
+                <TouchableOpacity onPress={showPictureOptions} disabled={isPictureUploading}>
+                    <Text style={[styles.changeAvatarText, { color: colors.icon }]}>
+                        {isPictureUploading ? "Przesyłanie zdjęcia..." : "Zmień zdjęcie"}
+                    </Text>
                 </TouchableOpacity>
             </View>
 
+            {/* Sekcja Formularza */}
             <View style={styles.formSection}>
                 <Text style={styles.label}>Nazwa użytkownika</Text>
                 <TextInput
                     style={styles.input}
                     value={username}
                     onChangeText={setUsername}
-                    editable={false}
                 />
-                <Text style={styles.hint}>To też w w budowie!</Text>
 
-                <Text style={styles.label}>Email (Tylko do odczytu)</Text>
+                <Text style={[styles.label, { marginTop: THEME.spacing.m }]}>Email</Text>
                 <TextInput
-                    style={[styles.input, styles.disabledInput]}
+                    style={styles.input}
                     value={email}
-                    editable={false}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
                 />
+                {isEmailChanged && (
+                    <TouchableOpacity onPress={handleEmailRequest} style={{ marginTop: THEME.spacing.xs, alignSelf: 'flex-start' }}>
+                        <Text style={{ color: colors.primary, fontWeight: 'bold' }}>
+                            Zatwierdź zmianę e-maila
+                        </Text>
+                    </TouchableOpacity>
+                )}
 
-                <Text style={styles.label}>Bio / Status</Text>
+                <Text style={[styles.label, { marginTop: THEME.spacing.m }]}>Uczelnia</Text>
+                <View style={styles.dropdownContainer}>
+                    <TouchableOpacity
+                        style={styles.dropdownButton}
+                        onPress={() => setIsDropdownOpen(!isDropdownOpen)}
+                    >
+                        <Text style={[styles.input, styles.dropdownInputText]}>
+                            {academy || "Wybierz uczelnię"}
+                        </Text>
+                        <AppIcon name="ArrowDown" size={24} />
+                    </TouchableOpacity>
+
+                    {isDropdownOpen && (
+                        <View style={styles.dropdownList}>
+                            <ScrollView nestedScrollEnabled style={{ maxHeight: 150 }}>
+                                {ACADEMIES.map((acc) => (
+                                    <TouchableOpacity
+                                        key={acc}
+                                        style={styles.dropdownItem}
+                                        onPress={() => {
+                                            setAcademy(acc);
+                                            setIsDropdownOpen(false);
+                                        }}
+                                    >
+                                        <Text style={styles.dropdownItemText}>{acc}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    )}
+                </View>
+
+                <Text style={[styles.label, { marginTop: THEME.spacing.m }]}>Opis / Bio</Text>
                 <TextInput
                     style={[styles.input, styles.bioInput]}
-                    value={bio}
-                    onChangeText={setBio}
+                    value={description}
+                    onChangeText={setDescription}
                     multiline
                     placeholder="Napisz coś o sobie..."
+                    placeholderTextColor={colors.searchWord}
                 />
             </View>
 
-            <View style={styles.buttonSection}>
-                <Button title="Zapisz zmiany" onPress={handleSave} />
-            </View>
-        </ScrollView>
+            {/* Przycisk zapisu */}
+            <Button title={isSaving ? "Zapisywanie..." : "Zapisz zmiany"} onPress={handleSave} disabled={isSaving} />
+        </View>
     );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
-        padding: 20,
+        backgroundColor: colors.background,
+        padding: THEME.spacing.m,
     },
     avatarSection: {
         alignItems: 'center',
-        marginVertical: 20,
+        marginVertical: THEME.spacing.l,
     },
-    avatarPlaceholder: {
+    avatarImage: {
         width: 100,
         height: 100,
         borderRadius: 50,
-        backgroundColor: '#f0f0f0',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 10,
-    },
-    avatarEmoji: {
-        fontSize: 50,
+        marginBottom: THEME.spacing.s,
+        borderWidth: 2,
+        borderColor: colors.text,
+        backgroundColor: colors.border,
     },
     changeAvatarText: {
-        color: '#007AFF',
-        fontSize: 16,
+        ...THEME.typography.text,
+        color: colors.highlight,
+        fontWeight: 'bold',
     },
     formSection: {
-        marginBottom: 30,
+        flex: 1, // Pozwala przyciskowi odsunąć się na dół, jeśli jest mało miejsca
     },
     label: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 5,
-        color: '#333',
+        ...THEME.typography.text,
+        color: colors.text,
+        marginBottom: THEME.spacing.xs,
     },
     input: {
+        ...THEME.typography.text,
         borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 8,
-        padding: 12,
-        fontSize: 16,
-        marginBottom: 5,
-        backgroundColor: '#fafafa',
+        borderColor: colors.border,
+        borderRadius: THEME.borderRadius.m,
+        padding: THEME.spacing.m,
+        backgroundColor: colors.background,
+        color: colors.text,
     },
     disabledInput: {
-        backgroundColor: '#eee',
-        color: '#888',
+        backgroundColor: colors.border,
+        color: colors.icon,
     },
     bioInput: {
         height: 100,
-        textAlignVertical: 'top', // Dla Androida
+        textAlignVertical: 'top', // Wyrównanie do góry na Androidzie
     },
     hint: {
-        fontSize: 12,
-        color: '#888',
-        marginBottom: 15,
+        ...THEME.typography.text,
+        color: colors.icon,
+        marginBottom: THEME.spacing.s,
+        marginTop: THEME.spacing.xs,
     },
-    buttonSection: {
-        marginBottom: 40,
+    dropdownContainer: {
+        position: 'relative',
+        zIndex: 10,
+    },
+    dropdownButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: THEME.borderRadius.m,
+        backgroundColor: colors.background,
+        paddingRight: THEME.spacing.s,
+    },
+    dropdownInputText: {
+        flex: 1,
+        borderWidth: 0,
+        backgroundColor: 'transparent',
+    },
+    dropdownList: {
+        marginTop: THEME.spacing.xs,
+        backgroundColor: colors.background,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: THEME.borderRadius.m,
+        overflow: 'hidden',
+    },
+    dropdownItem: {
+        padding: THEME.spacing.m,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+    },
+    dropdownItemText: {
+        ...THEME.typography.text,
+        color: colors.text,
     }
 });
 

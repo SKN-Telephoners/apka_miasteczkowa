@@ -4,6 +4,7 @@ import { tokenStorage } from "../utils/storage";
 
 interface AuthContextType {
   isAuthenticated: boolean;
+  userId: string | null;
   isLoading: boolean;
   login: (accessToken: string, refreshToken: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -15,6 +16,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -24,7 +26,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const checkAuthStatus = async () => {
     try {
       const token = await tokenStorage.getAccessToken();
+      const id = await tokenStorage.getUserId();
       setIsAuthenticated(!!token);
+      setUserId(id);
     } catch (error) {
       console.error("Error checking auth status:", error);
       setIsAuthenticated(false);
@@ -35,6 +39,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const login = async (accessToken: string, refreshToken: string) => {
     await tokenStorage.saveTokens(accessToken, refreshToken);
+    const id = await tokenStorage.getUserId();
+    setUserId(id);
     setIsAuthenticated(true);
     setIsLoading(false);
   };
@@ -42,11 +48,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const logout = async () => {
     await tokenStorage.clearTokens();
     await AsyncStorage.clear();
+    setUserId(null);
     setIsAuthenticated(false);
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, userId, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
