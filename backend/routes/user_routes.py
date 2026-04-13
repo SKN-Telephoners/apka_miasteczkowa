@@ -216,7 +216,6 @@ def change_password():
 
     return make_api_response(ResponseTypes.SUCCESS, message="Password updated successfully")
 
-
 @users_bp.route("/settings/change_email", methods=["PUT"])
 @jwt_required()
 @limiter.limit("300 per minute")
