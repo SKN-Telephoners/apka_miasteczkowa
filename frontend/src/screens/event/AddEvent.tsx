@@ -1,11 +1,10 @@
 import React from "react";
 import { View, Text, Alert, StyleSheet, SafeAreaView, Image, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
-import { createEvent, uploadEventPicture } from "../../services/events";
+import { createEvent, inviteToEvent, uploadEventPicture } from "../../services/events";
 import DatePicker from "../../components/DateTimePicker";
 import Checkbox from 'expo-checkbox';
 import UserCard from "../../components/UserCard";
-import api from "../../services/api";
 import { THEME } from "../../utils/constants";
 import { TextInput } from "react-native";
 import ItemSeparator from "../../components/ItemSeparator";
@@ -18,11 +17,15 @@ import { EventPicture } from "../../types";
 import { buildEventPreview } from "../../utils/eventPreview";
 import SvgSpriteIcon from "../../components/SvgSpriteIcon";
 import { useTheme } from "../../contexts/ThemeContext";
+import { useUser } from "../../contexts/UserContext";
+import { useFriends } from "../../contexts/FriendsContext";
+import InputField from "../../components/InputField";
 
 
 const AddEvent = () => {
   const navigation = useNavigation<any>();
   const { colors } = useTheme();
+  const { user: currentUser } = useUser();
   const PREVIEW_ICON_SIZE = 22;
   const PREVIEW_ICON_OFFSET = { x: 0, y: -60 };
 
@@ -33,11 +36,12 @@ const AddEvent = () => {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
-  const [currentUsername, setCurrentUsername] = useState("użytkownik");
-  const [currentUserAvatarUri, setCurrentUserAvatarUri] = useState<string | null>(null);
   const [eventPicture, setEventPicture] = useState<EventPicture | null>(null);
   const [eventPicturePreviewUri, setEventPicturePreviewUri] = useState<string | null>(null);
   const [isPictureUploading, setIsPictureUploading] = useState(false);
+  const { friends } = useFriends();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [queuedInviteIds, setQueuedInviteIds] = useState<Record<string, boolean>>({});
   const DESCRIPTION_LINE_HEIGHT = 20;
   const DESCRIPTION_MIN_HEIGHT = DESCRIPTION_LINE_HEIGHT * 5 + 20;
   const [descriptionInputHeight, setDescriptionInputHeight] = useState(DESCRIPTION_MIN_HEIGHT);
@@ -51,12 +55,12 @@ const AddEvent = () => {
       time,
       isPrivate,
       creatorId: "preview-user",
-      creatorUsername: currentUsername,
-      creatorProfilePictureUrl: currentUserAvatarUri,
+      creatorUsername: currentUser?.username || "użytkownik",
+      creatorProfilePictureUrl: currentUser?.profile_picture?.url || null,
       picture: eventPicture,
       pictureUri: eventPicturePreviewUri,
     });
-  }, [title, description, location, date, time, isPrivate, currentUsername, currentUserAvatarUri, eventPicture, eventPicturePreviewUri]);
+  }, [title, description, location, date, time, isPrivate, currentUser, eventPicture, eventPicturePreviewUri]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -72,28 +76,6 @@ const AddEvent = () => {
       ),
     });
   }, [navigation, previewEvent]);
-
-  useEffect(() => {
-    const loadCurrentUser = async () => {
-      try {
-        const response = await api.get("/api/users/profile");
-        const username = response?.data?.username;
-        const avatarUrl =
-          response?.data?.profile_picture?.url ||
-          response?.data?.profile_picture_url ||
-          (typeof response?.data?.profile_picture === "string" ? response.data.profile_picture : null);
-        if (typeof username === "string" && username.trim()) {
-          setCurrentUsername(username.trim());
-        }
-        setCurrentUserAvatarUri(typeof avatarUrl === "string" && avatarUrl.trim() ? avatarUrl : null);
-      } catch {
-        setCurrentUsername("użytkownik");
-        setCurrentUserAvatarUri(null);
-      }
-    };
-
-    loadCurrentUser();
-  }, []);
 
   const [titleError, setTitleError] = useState("");
   const [locationError, setLocationError] = useState("");
@@ -270,7 +252,7 @@ const AddEvent = () => {
       return;
     }
     try {
-      await createEvent(
+      const createdEvent = await createEvent(
         {
           name: title,
           description: description,
@@ -281,6 +263,22 @@ const AddEvent = () => {
           picture: eventPicture,
         }
       );
+
+      const selectedInviteIds = Object.entries(queuedInviteIds)
+        .filter(([, queued]) => queued)
+        .map(([friendId]) => friendId);
+
+      if (createdEvent?.event_id && selectedInviteIds.length > 0) {
+        const inviteResults = await Promise.allSettled(
+          selectedInviteIds.map((friendId) => inviteToEvent(createdEvent.event_id, friendId))
+        );
+
+        const failedInvites = inviteResults.filter((result) => result.status === "rejected").length;
+        if (failedInvites > 0) {
+          Alert.alert("Uwaga", `Wydarzenie utworzone, ale ${failedInvites} zaproszeń nie udało się wysłać.`);
+        }
+      }
+
       setTitle("");
       setDescription("");
       setLocation("");
@@ -289,6 +287,8 @@ const AddEvent = () => {
       setIsPrivate(false);
       setEventPicture(null);
       setEventPicturePreviewUri(null);
+      setSearchQuery("");
+      setQueuedInviteIds({});
       setTitleError("");
       setLocationError("");
 
@@ -320,6 +320,28 @@ const AddEvent = () => {
     setTime(selectedTime);
   };
 
+  const handleSearch = (text: string) => {
+    setSearchQuery(text);
+  };
+
+  const toggleQueuedInvite = (friendId: string) => {
+    setQueuedInviteIds((prev) => ({
+      ...prev,
+      [friendId]: !prev[friendId],
+    }));
+  };
+
+  const filteredFriends = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return friends;
+    }
+
+    return friends.filter((friend) =>
+      (friend.username || "").toLowerCase().includes(normalizedQuery)
+    );
+  }, [friends, searchQuery]);
+
   return (
     <SafeAreaView style={styles.screen}>
       <ScrollView
@@ -330,8 +352,8 @@ const AddEvent = () => {
       >
         <View style={styles.container}>
           <UserCard
-            creatorDisplayName={currentUsername}
-            avatarUri={currentUserAvatarUri ?? undefined}
+            creatorDisplayName={currentUser?.username || "użytkownik"}
+            avatarUri={currentUser?.profile_picture?.url ?? undefined}
             showCreatedAt={false}
             showMetaIcon={false}
             showUsernameIcon={false}
@@ -408,6 +430,53 @@ const AddEvent = () => {
 
           <ItemSeparator></ItemSeparator>
 
+          <CollapsibleSection title="Zaproś znajomych" initialExpanded={true} style={{ padding: 10 }}>
+            <InputField
+              placeholder="Szukaj znajomych..."
+              value={searchQuery}
+              onChangeText={handleSearch}
+              showSearchSpriteIcon
+              showFloatingLabel={false}
+              reserveErrorSpace={false}
+            />
+
+            {filteredFriends.length > 0 ? (
+              filteredFriends.map((friend) => {
+                const friendId = String(friend?.id || "");
+                const isQueued = Boolean(queuedInviteIds[friendId]);
+
+                return (
+                  <View key={friend.id} style={[styles.listItem, styles.friendRow, { borderColor: colors.border }]}> 
+                    <View style={styles.friendInfo}>
+                      <UserCard
+                        creatorDisplayName={friend.username}
+                        avatarUri={friend?.profile_picture?.url || friend?.avatarUrl || (typeof friend?.profile_picture === "string" ? friend?.profile_picture : undefined)}
+                        createdAtDisplay=""
+                        showCreatedAt={false}
+                        showMetaIcon={false}
+                        showUsernameIcon={false}
+                        metaPrefix={`${friend?.academy || "wydział"} • ${friend?.course || "kierunek"}`}
+                        avatarSize={40}
+                      />
+                    </View>
+                    <Button
+                      title={isQueued ? "Wysłano" : "Zaproś"}
+                      onPress={() => toggleQueuedInvite(friendId)}
+                      style={styles.inviteButton}
+                      textStyle={styles.inviteButtonText}
+                    />
+                  </View>
+                );
+              })
+            ) : searchQuery.trim().length > 0 ? (
+              <Text style={styles.infoText}>Brak znajomych pasujących do wyszukiwania</Text>
+            ) : (
+              <Text style={styles.infoText}>Brak znajomych na liście</Text>
+            )}
+          </CollapsibleSection>
+
+          <ItemSeparator></ItemSeparator>
+
           <CollapsibleSection title="Data i czas" initialExpanded={true} style={{ padding: 10 }}>
             <DatePicker
               onDateSelected={handleDateTimeSelected}
@@ -471,6 +540,38 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     ...THEME.typography.title,
     fontWeight: "700",
     color: colors.text,
+  },
+
+  infoText: {
+    ...THEME.typography.text,
+    color: colors.icon,
+    fontStyle: "italic",
+    textAlign: "center",
+    padding: THEME.spacing.m,
+  },
+  listItem: {
+    width: "100%",
+    paddingVertical: THEME.spacing.s,
+    borderBottomWidth: 1,
+  },
+  friendRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  friendInfo: {
+    flex: 1,
+  },
+  inviteButton: {
+    width: "auto",
+    marginVertical: 0,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    minHeight: 40,
+  },
+  inviteButtonText: {
+    fontWeight: "700",
   },
 
   textInput: {

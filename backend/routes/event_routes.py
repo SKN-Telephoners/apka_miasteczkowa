@@ -1,5 +1,5 @@
 from flask import jsonify, Blueprint, request, current_app
-from backend.models.event import Event, Event_visibility, Event_participants
+from backend.models.event import Event, Event_visibility, Event_participants, Invites, InviteRequestStatus
 from backend.models.event import Pictures
 from backend.models import User, Comment, Friendship 
 from backend.extensions import db, limiter
@@ -303,13 +303,6 @@ def feed():
         if limit > Constants.MAX_PAGINATION_LIMIT:
             limit = Constants.MAX_PAGINATION_LIMIT
 
-        visibility_exists = exists().where(
-            and_(
-                Event_visibility.event_id == Event.event_id,
-                Event_visibility.shared_with == user_id,
-            )
-        )
-
         participant_exists = exists().where(
             and_(
                 Event_participants.event_id == Event.event_id,
@@ -321,7 +314,6 @@ def feed():
             or_(
                 Event.is_private.is_(False),
                 Event.creator_id == user_id,
-                visibility_exists,
                 participant_exists,
             )
         )
@@ -654,13 +646,12 @@ def invite_to_event(event_id):
         return make_api_response(ResponseTypes.FORBIDDEN, message="You can only invite your friends")
     
     if event.is_private:
-        # na razie tylko autor ma możliwość zapraszania na swój event osoby, którym udostępnił do wyświetlania
         if event.creator_id != u_uuid:
             return make_api_response(ResponseTypes.FORBIDDEN, message="Only creator of the private event can invite")
-        
+
         has_visibility = db.session.query(Event_visibility).filter_by(event_id=e_uuid, shared_with=i_uuid).first()
-        if not has_visibility:
-            return make_api_response(ResponseTypes.FORBIDDEN, message=f"User does not have priviledges to view this event")
+    else:
+        has_visibility = None
 
     is_already_participant = db.session.query(Event_participants).filter_by(event_id=e_uuid, user_id=i_uuid).first()
     if is_already_participant:
@@ -671,6 +662,15 @@ def invite_to_event(event_id):
         return make_api_response(ResponseTypes.CONFLICT, message="Invite already sent")
         
     try:
+        if event.is_private and not has_visibility:
+            db.session.add(
+                Event_visibility(
+                    event_id=e_uuid,
+                    sharing=u_uuid,
+                    shared_with=i_uuid,
+                )
+            )
+
         new_invite = Invites(
             event_id=e_uuid,
             inviter_id=u_uuid,
@@ -768,6 +768,109 @@ def change_invite_status(invite_id):
         return make_api_response(ResponseTypes.SERVER_ERROR)
     
     return make_api_response(ResponseTypes.SUCCESS, message="Invite status changed successfully")
+
+
+@events_bp.route("/invites/<event_id>", methods=["GET"])
+@limiter.limit("200 per minute")
+@jwt_required()
+def get_event_invites(event_id):
+    user = get_current_user()
+    e_uuid = validate_uuid(event_id)
+    u_uuid = validate_uuid(user.user_id)
+
+    if not e_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid event ID")
+    if not u_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid user ID")
+
+    event = db.session.get(Event, e_uuid)
+    if event is None:
+        return make_api_response(ResponseTypes.NOT_FOUND, message="This event does not exist")
+
+    invited_ids = [
+        str(invite.invited_id)
+        for invite in db.session.query(Invites).filter_by(
+            event_id=e_uuid,
+            inviter_id=u_uuid,
+            status=InviteRequestStatus.pending,
+        ).all()
+    ]
+
+    return make_api_response(ResponseTypes.SUCCESS, data={"invited_ids": invited_ids})
+
+
+@events_bp.route("/invites/incoming", methods=["GET"])
+@limiter.limit("300 per minute")
+@jwt_required()
+def get_incoming_invites():
+    user = get_current_user()
+    u_uuid = validate_uuid(user.user_id)
+
+    if not u_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid user ID")
+
+    invites = db.session.query(Invites).filter_by(
+        invited_id=u_uuid,
+        status=InviteRequestStatus.pending,
+    ).order_by(Invites.created_at.desc()).all()
+
+    incoming_invites = []
+    for invite in invites:
+        inviter = invite.inviter
+        event = invite.event
+        creator = event.creator if event else None
+
+        if not inviter or not event:
+            continue
+
+        inviter_profile_picture = None
+        if inviter.profile_picture:
+            inviter_profile_picture = {
+                "cloud_id": inviter.profile_picture,
+                "url": cloudinary_url(inviter.profile_picture, secure=True)[0],
+            }
+
+        creator_profile_picture_url = None
+        if creator and creator.profile_picture:
+            creator_profile_picture_url = cloudinary_url(creator.profile_picture, secure=True)[0]
+
+        pictures = []
+        for pic in event.pictures:
+            pictures.append({
+                "cloud_id": pic.cloud_id,
+                "url": cloudinary_url(pic.cloud_id, secure=True)[0],
+            })
+
+        incoming_invites.append({
+            "id": str(invite.invite_id),
+            "createdAt": invite.created_at.isoformat() if invite.created_at else None,
+            "inviter": {
+                "id": str(inviter.user_id),
+                "username": inviter.display_name,
+                "email": inviter.email,
+                "academy": inviter.academy,
+                "course": inviter.course,
+                "profile_picture": inviter_profile_picture,
+            },
+            "event": {
+                "id": str(event.event_id),
+                "name": event.event_name,
+                "description": event.description or "",
+                "date": event.date_and_time.astimezone(local_tz).strftime("%d.%m.%Y"),
+                "time": event.date_and_time.astimezone(local_tz).strftime("%H:%M"),
+                "location": event.location,
+                "creator_id": str(event.creator_id),
+                "creator_username": creator.display_name if creator else None,
+                "creator_profile_picture_url": creator_profile_picture_url,
+                "created_at": event.created_at.isoformat() if event.created_at else None,
+                "comment_count": int(event.comment_count or 0),
+                "participant_count": int(event.participant_count or 0),
+                "is_private": event.is_private,
+                "pictures": pictures,
+            },
+        })
+
+    return make_api_response(ResponseTypes.SUCCESS, data={"incomingInvites": incoming_invites})
 
 
 @events_bp.route("/<user_id>/info", methods=["GET"])

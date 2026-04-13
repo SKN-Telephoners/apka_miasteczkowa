@@ -158,6 +158,21 @@ export interface ParticipationStatusResponse {
     participant_count: number;
 }
 
+export interface EventInviteNotification {
+    id: string;
+    createdAt?: string | null;
+    inviter: {
+        id: string;
+        username: string;
+        email?: string;
+        academy?: string | null;
+        course?: string | null;
+        avatarUrl?: string;
+        profile_picture?: { cloud_id: string; url: string } | null;
+    };
+    event: Event;
+}
+
 // Create event
 export const createEvent = async(eventData: CreateEventData) : Promise<CreateEventResponse> =>{ // check promise
     try {
@@ -244,6 +259,64 @@ export const leaveEvent = async (eventId: string): Promise<string> => {
     try {
         const response = await api.delete<ApiMessage>(`/api/events/leave/${eventId}`);
         return response.data.message ?? "Left event successfully";
+    } catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || "Network error";
+        throw new Error(msg);
+    }
+};
+
+export const inviteToEvent = async (eventId: string, invitedUserId: string): Promise<string> => {
+    try {
+        const response = await api.post<ApiMessage>(`/api/events/invite/${eventId}`, {
+            invited: invitedUserId,
+        });
+        return response.data.message ?? "Invite created successfully";
+    } catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || "Network error";
+        throw new Error(msg);
+    }
+};
+
+export const deleteInviteToEvent = async (eventId: string, invitedUserId: string): Promise<string> => {
+    try {
+        const response = await api.delete<ApiMessage>(`/api/events/delete_invite/${eventId}`, {
+            data: {
+                invited: invitedUserId,
+            },
+        });
+        return response.data.message ?? "Invite deleted successfully";
+    } catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || "Network error";
+        throw new Error(msg);
+    }
+};
+
+export const getSentInvitesForEvent = async (eventId: string): Promise<string[]> => {
+    try {
+        const response = await api.get<{ invited_ids?: string[] }>(`/api/events/invites/${eventId}`);
+        const invitedIds = response.data?.invited_ids;
+        return Array.isArray(invitedIds) ? invitedIds : [];
+    } catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || "Network error";
+        throw new Error(msg);
+    }
+};
+
+export const getIncomingEventInvites = async (): Promise<EventInviteNotification[]> => {
+    try {
+        const response = await api.get<{ incomingInvites?: EventInviteNotification[] }>("/api/events/invites/incoming");
+        const incomingInvites = response.data?.incomingInvites;
+        return Array.isArray(incomingInvites) ? incomingInvites : [];
+    } catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || "Network error";
+        throw new Error(msg);
+    }
+};
+
+export const changeInviteStatus = async (inviteId: string, status: "accepted" | "declined"): Promise<string> => {
+    try {
+        const response = await api.post<ApiMessage>(`/api/events/change_invite_status/${inviteId}`, { status });
+        return response.data.message ?? "Invite status changed successfully";
     } catch (err: any) {
         const msg = err?.response?.data?.message || err?.message || "Network error";
         throw new Error(msg);

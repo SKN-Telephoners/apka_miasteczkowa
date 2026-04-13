@@ -24,47 +24,6 @@ users_bp = Blueprint("users", __name__, url_prefix="/api/users")
 
 @users_bp.route("/profile/<user_id>", methods=["GET"])
 @jwt_required()
-def get_user_info(user_id):
-    user = User.query.filter_by(user_id=user_id).first()
-
-    if not user:
-        return make_api_response(ResponseTypes.NOT_FOUND, message="User not found")
-    
-    profile_pic_data = None
-    if user.profile_picture:
-        url, _ = cloudinary_url(user.profile_picture, secure=True)
-        profile_pic_data = {
-            "cloud_id": user.profile_picture,
-            "url": url
-        }
-
-    friend_count = Friendship.query.filter(
-        or_(
-            Friendship.user_id == user.user_id,
-            Friendship.friend_id == user.user_id
-        )
-    ).count()
-
-    user_data = {
-        "user_id": str(user.user_id),
-        "username": user.display_name,
-        "email": user.email,
-        "created_at": user.created_at.isoformat(),
-        "academy": user.academy,
-        "course": user.course,
-        "year": user.year,
-        "academic_clubs": user.academic_clubs,
-        "description": user.description,
-        "profile_picture": profile_pic_data,
-        "friend_count": friend_count,
-        "deleted": user.deleted
-    }
-
-    return make_api_response(ResponseTypes.SUCCESS, data=user_data)
-
-
-@users_bp.route("/profile/<user_id>", methods=["GET"])
-@jwt_required()
 def get_public_user_info(user_id):
     target_user_id = validate_uuid(user_id)
     if not target_user_id:
