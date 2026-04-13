@@ -3,7 +3,7 @@ from backend.extensions import db
 from datetime import datetime, timezone, timedelta
 import uuid
 import base64
-from backend.models import Event
+from backend.models import Event, User
 from backend.models.event import Event_visibility, Pictures
 from zoneinfo import ZoneInfo
 from unittest.mock import patch
@@ -252,6 +252,143 @@ def test_edit_event_not_owner(client, logged_in_user, registered_friend, app):
             "message": "You can edit your own events only"
         }
 
+def test_edit_event_switch_private_to_public_clears_visibility(client, logged_in_user, registered_friend, app):
+    user, token = logged_in_user
+    friend, _ = registered_friend
+
+    with app.app_context():
+        ev = Event(event_name="Private Event", location="X", creator_id=user.user_id, is_private=True)
+        db.session.add(ev)
+        db.session.flush()
+        
+        vis = Event_visibility(event_id=ev.event_id, sharing=user.user_id, shared_with=friend.user_id)
+        db.session.add(vis)
+        db.session.commit()
+        event_id = ev.event_id
+
+    payload = {"is_private": False}
+    response = client.put(f"/api/events/edit/{event_id}", headers={"Authorization": f"Bearer {token}"}, json=payload)
+    
+    assert response.status_code == 200
+    
+    with app.app_context():
+        vis_count = Event_visibility.query.filter_by(event_id=event_id).count()
+        assert vis_count == 0
+        updated_ev = db.session.get(Event, event_id)
+        assert updated_ev.is_private is False
+
+def test_edit_event_manage_shared_list(client, logged_in_user, registered_friend, app):
+    user, token = logged_in_user
+    friend, _ = registered_friend
+ 
+    with app.app_context():
+        friend2 = User(username="friend2", email="f2@test.pl", password="Password123!")
+        db.session.add(friend2)
+        db.session.commit()
+        f2_id = str(friend2.user_id)
+
+    payload_create = {
+        "name": "Secret Party",
+        "description": "...",
+        "date": "01.01.2050",
+        "time": "20:00",
+        "location": "Secret",
+        "is_private": True,
+        "shared_list": [str(friend.user_id)]
+    }
+    res_create = client.post("/api/events/create", headers={"Authorization": f"Bearer {token}"}, json=payload_create)
+    event_id = res_create.get_json()["event_id"]
+
+    payload_edit = {
+        "shared_list": [f2_id]
+    }
+    res_edit = client.put(f"/api/events/edit/{event_id}", headers={"Authorization": f"Bearer {token}"}, json=payload_edit)
+    assert res_edit.status_code == 200
+
+    with app.app_context():
+        visible_to = Event_visibility.query.filter_by(event_id=event_id).all()
+        shared_ids = [str(v.shared_with) for v in visible_to]
+        
+        assert f2_id in shared_ids
+        assert str(friend.user_id) not in shared_ids
+        assert len(shared_ids) == 1
+
+def test_feed_pagination(client, logged_in_user, app):
+    with app.app_context():
+        user, token = logged_in_user
+        # Tworzymy 25 eventów
+        for i in range(25):
+            ev = Event(event_name=f"E{i}", location="X", creator_id=user.user_id, is_private=False)
+            db.session.add(ev)
+        db.session.commit()
+
+        # Pierwsza strona, limit 10
+        response = client.get("/api/events/feed?page=1&limit=10", headers={"Authorization": f"Bearer {token}"})
+        data = response.get_json()
+        assert len(data["data"]) == 10
+        assert data["pagination"]["total"] == 25
+        assert data["pagination"]["pages"] == 3
+
+def test_feed_sorting_and_visibility(client, logged_in_user, registered_friend, app):
+    with app.app_context():
+        user, token = logged_in_user
+        friend, _ = registered_friend
+        
+        # 1. Event publiczny - jutro
+        ev1 = Event(event_name="Public Future", location="X", creator_id=friend.user_id, 
+                    is_private=False, date_and_time=datetime.now(timezone.utc) + timedelta(days=1))
+        # 2. Event publiczny - pojutrze
+        ev2 = Event(event_name="Public Later", location="X", creator_id=friend.user_id, 
+                    is_private=False, date_and_time=datetime.now(timezone.utc) + timedelta(days=2))
+        # 3. Event prywatny (nieudostępniony)
+        ev3 = Event(event_name="Private Hidden", location="X", creator_id=friend.user_id, 
+                    is_private=True, date_and_time=datetime.now(timezone.utc) + timedelta(days=1))
+        
+        db.session.add_all([ev1, ev2, ev3])
+        db.session.commit()
+
+        response = client.get("/api/events/feed", headers={"Authorization": f"Bearer {token}"})
+        data = response.get_json()["data"]
+        assert len(data) == 2
+
+        assert data[0]["name"] == "Public Future"
+
+        response_desc = client.get("/api/events/feed?sort=2", headers={"Authorization": f"Bearer {token}"})
+        data_desc = response_desc.get_json()["data"]
+        assert data_desc[0]["name"] == "Public Later"
+
+def test_private_event_visibility_denied(client, logged_in_user, registered_friend, app):
+    with app.app_context():
+        user, token = logged_in_user # Użytkownik A
+        friend, _ = registered_friend # Użytkownik B
+
+        ev = Event(event_name="Secret", location="X", creator_id=friend.user_id, is_private=True)
+        db.session.add(ev)
+        db.session.commit()
+
+        # Użytkownik A nie powinien go widzieć w feedzie
+        response = client.get("/api/events/feed", headers={"Authorization": f"Bearer {token}"})
+        data = response.get_json()["data"]
+        ids = [e["id"] for e in data]
+        assert str(ev.event_id) not in ids
+
+def test_private_event_shared_access(client, logged_in_user, registered_friend, app):
+    with app.app_context():
+        user, token = logged_in_user
+        friend, _ = registered_friend
+        ev = Event(event_name="Shared Secret", location="X", creator_id=friend.user_id, is_private=True)
+        db.session.add(ev)
+        db.session.flush()
+        
+        vis = Event_visibility(event_id=ev.event_id, sharing=friend.user_id, shared_with=user.user_id)
+        db.session.add(vis)
+        db.session.commit()
+
+        # Teraz Użytkownik A powinien go widzieć
+        response = client.get("/api/events/feed", headers={"Authorization": f"Bearer {token}"})
+        names = [e["name"] for e in response.get_json()["data"]]
+        assert "Shared Secret" in names
+
 # =============================================================================
 # Tests for handling events' pictures lifecycle
 # =============================================================================
@@ -420,3 +557,65 @@ def test_feed_returns_pictures(client, logged_in_user, app):
     assert len(feed_event["pictures"]) == 1
     assert feed_event["pictures"][0]["cloud_id"] == "feed_pic_1"
     assert "url" in feed_event["pictures"][0]
+
+def test_edit_event_pictures_duplicates_in_payload(client, logged_in_user, app):
+    user, token = logged_in_user
+    
+    with app.app_context():
+        ev = Event(event_name="Duplicate Test", location="X", creator_id=user.user_id)
+        db.session.add(ev)
+        db.session.commit()
+        event_id = str(ev.event_id)
+
+    payload = {
+        "pictures": [
+            {"cloud_id": "pic1"},
+            {"cloud_id": "pic1"}
+        ]
+    }
+    res = client.put(f"/api/events/edit/{event_id}", headers={"Authorization": f"Bearer {token}"}, json=payload)
+    assert res.status_code == 200
+    
+    with app.app_context():
+        pics = Pictures.query.filter_by(event_id=event_id).all()
+        assert len(pics) == 1
+
+def test_edit_event_pictures_limit_logic(client, logged_in_user, app):
+    user, token = logged_in_user
+    
+    with app.app_context():
+        ev = Event(event_name="Pic Test", location="X", creator_id=user.user_id, is_private=False)
+        db.session.add(ev)
+        db.session.flush()
+        p1 = Pictures(cloud_id="pic1", event_id=ev.event_id)
+        p2 = Pictures(cloud_id="pic2", event_id=ev.event_id)
+        p3 = Pictures(cloud_id="pic3", event_id=ev.event_id)
+        db.session.add_all([p1, p2, p3])
+        db.session.commit()
+        event_id = str(ev.event_id)
+
+    payload_ok = {
+        "pictures": [
+            {"cloud_id": "pic1"},
+            {"cloud_id": "pic2"},
+            {"cloud_id": "pic4"},
+            {"cloud_id": "pic5"},
+            {"cloud_id": "pic6"}
+        ]
+    }
+    res_ok = client.put(f"/api/events/edit/{event_id}", headers={"Authorization": f"Bearer {token}"}, json=payload_ok)
+    assert res_ok.status_code == 200
+
+    payload_fail = {
+        "pictures": [
+            {"cloud_id": "pic1"},
+            {"cloud_id": "pic2"},
+            {"cloud_id": "pic7"},
+            {"cloud_id": "pic8"},
+            {"cloud_id": "pic9"},
+            {"cloud_id": "pic10"}
+        ]
+    }
+    res_fail = client.put(f"/api/events/edit/{event_id}", headers={"Authorization": f"Bearer {token}"}, json=payload_fail)
+    assert res_fail.status_code == 400
+    assert "Limit of pictures exceeded" in res_fail.get_json()["message"]
