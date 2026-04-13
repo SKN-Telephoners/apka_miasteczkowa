@@ -51,6 +51,7 @@ def get_user_info(user_id):
         "academy": user.academy,
         "course": user.course,
         "year": user.year,
+        "faculty": user.faculty,
         "academic_clubs": user.academic_clubs,
         "description": user.description,
         "profile_picture": profile_pic_data,
@@ -111,6 +112,7 @@ def update_profile():
         if user.academy != Constants.PRIMARY_ACADEMY:
             user.course = None
             user.year = None
+            user.faculty = None
             user.academic_clubs = None
 
     if "profile_picture" in user_data:
@@ -172,18 +174,24 @@ def update_academic_details():
 
     raw_course = data.get("course")
     raw_year = data.get("year")
+    raw_faculty = data.get("faculty")
     raw_clubs = data.get("academic_clubs")
 
     courses_data = current_app.config.get('COURSES_DATA', [])
     academic_clubs_data = current_app.config.get('CLUBS_DATA', {})
+    faculties_data = current_app.config.get('FACULTIES_DATA', [])
 
 
-    if raw_course is not None or raw_year is not None:
-        if not raw_course or not raw_year:
-            return make_api_response(ResponseTypes.BAD_REQUEST, message="Both course and year must be provided together")
+    if raw_faculty is not None or raw_course is not None or raw_year is not None:
+        if not raw_faculty or not raw_course or not raw_year:
+            return make_api_response(ResponseTypes.BAD_REQUEST, message="Faculty, course and year must be provided together")
 
+        faculty = sanitize_input(str(raw_faculty)).strip()
         course = sanitize_input(str(raw_course)).strip()
         year = sanitize_input(str(raw_year)).strip()
+
+        if faculty not in faculties_data:
+            return make_api_response(ResponseTypes.BAD_REQUEST, message="Such faculty doesn't exist")
 
         if course not in courses_data:
             return make_api_response(ResponseTypes.BAD_REQUEST, message="Such course doesn't exist")
@@ -191,6 +199,7 @@ def update_academic_details():
         if str(year) not in ["1", "2", "3", "4", "5", "6"]:
             return make_api_response(ResponseTypes.BAD_REQUEST, message="Year must be between 1 and 6")
 
+        user.faculty = faculty
         user.course = course
         user.year = int(year) 
 
@@ -339,6 +348,7 @@ def delete_account():
 
         user.description = None
         user.academy = None
+        user.faculty = None
         user.course = None
         user.year = None
         user.academic_clubs = None
