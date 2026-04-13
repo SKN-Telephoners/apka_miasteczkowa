@@ -145,7 +145,7 @@ def delete_event(event_id):
     if not e_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Event ID")
 
-    event = Event.query.filter_by(event_id=event_id).first()
+    event = Event.query.filter_by(event_id=e_uuid).first()
 
     if event is None:
         return make_api_response(ResponseTypes.NOT_FOUND, message="Event doesn't exist")
@@ -214,8 +214,39 @@ def edit_event(event_id):
 
     raw_is_private = event_data.get("is_private")
     if raw_is_private is not None:
-        event.is_private = str(raw_is_private).strip().lower() in ['true', '1', 't', 'y', 'yes']
+        new_is_private = str(raw_is_private).strip().lower() in ['true', '1', 't', 'y', 'yes']
+        if event.is_private and not new_is_private: # private -> public 
+            Event_visibility.query.filter_by(event_id=event.event_id).delete()
+        event.is_private = new_is_private
     
+    if event.is_private and "shared_list" in event_data:
+        raw_shared_list = event_data["shared_list"]
+        if not isinstance(raw_shared_list, list):
+            return make_api_response(ResponseTypes.BAD_REQUEST, message="shared_list must be an array")
+        incoming_user_uuids = set()
+        for uid in raw_shared_list:
+            u_uuid = validate_uuid(uid)
+            if u_uuid and u_uuid != user.user_id:
+                incoming_user_uuids.add(u_uuid)
+
+        current_visibility = Event_visibility.query.filter_by(event_id=event.event_id).all()
+        current_user_ids = {v.shared_with for v in current_visibility}
+        
+        #synchronization
+        to_remove = current_user_ids - incoming_user_uuids
+        to_add = incoming_user_uuids - current_user_ids
+
+        if to_remove:
+            Event_visibility.query.filter(
+                Event_visibility.event_id == event.event_id,
+                Event_visibility.shared_with.in_(list(to_remove))
+            ).delete(synchronize_session=False)
+
+        for new_uid in to_add:
+            if db.session.get(User, new_uid):
+                new_vis = Event_visibility(event_id=event.event_id, sharing=user.user_id, shared_with=new_uid)
+                db.session.add(new_vis)
+
     date_str = event_data.get("date")
     time_str = event_data.get("time")
     
@@ -238,21 +269,26 @@ def edit_event(event_id):
         except ValueError:
             return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid date format. Use DD.MM.YYYY and HH:MM")
 
-    raw_pictures = event_data.get("pictures")
+    raw_pictures = event_data.get("pictures", [])
     if raw_pictures is not None:
         if not isinstance(raw_pictures, list):
             return make_api_response(ResponseTypes.BAD_REQUEST, message="Pictures must be a list")
         
-        if len(raw_pictures) > Constants.MAX_PICTURES_COUNT: #TODO: impove!!
-            return make_api_response(ResponseTypes.BAD_REQUEST, message=f"Maximum of {Constants.MAX_PICTURES_COUNT} pictures allowed per event")
-
         existing_pictures_map = {pic.cloud_id: pic for pic in event.pictures}
         existing_ids = set(existing_pictures_map.keys())
         
         incoming_ids = {pic["cloud_id"] for pic in raw_pictures if pic.get("cloud_id")}
 
+        staying_ids = existing_ids.intersection(incoming_ids)
+
         ids_to_delete = existing_ids - incoming_ids
         ids_to_add = incoming_ids - existing_ids
+
+        count_staying = len(staying_ids)
+        count_to_add = len(ids_to_add)
+        total_after_edit = count_staying + count_to_add
+        if total_after_edit > Constants.MAX_PICTURES_COUNT:
+            return make_api_response(ResponseTypes.BAD_REQUEST, message=f"Limit of pictures exceeded, you can only add {Constants.MAX_PICTURES_COUNT} pictures at best")
 
         for pic_id in ids_to_delete:
             pic_to_remove = existing_pictures_map[pic_id]
@@ -264,7 +300,7 @@ def edit_event(event_id):
             event.pictures.remove(pic_to_remove)
 
         for new_id in ids_to_add:
-            new_picture = Pictures(cloud_id=new_id)
+            new_picture = Pictures(cloud_id=new_id, event_id=event.event_id)
             event.pictures.append(new_picture)
 
     try:
