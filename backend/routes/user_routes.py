@@ -1,13 +1,14 @@
 from flask import Blueprint, request, current_app, url_for
-from flask_jwt_extended import jwt_required, get_current_user, create_access_token
+from flask_jwt_extended import jwt_required, get_current_user, create_access_token, get_jwt_identity
 from backend.extensions import db, limiter
-from backend.models import User
+from backend.models import User, Friendship
 from backend.responses import ResponseTypes, make_api_response
 from backend.tasks import send_email_async
 from backend.helpers import (
     sanitize_input, 
     revoke_all_user_tokens, 
-    add_token_to_db
+    add_token_to_db,
+    validate_uuid
 )
 from backend.constants import Constants
 from datetime import datetime, timezone, timedelta
@@ -16,6 +17,7 @@ import uuid
 from sqlalchemy.exc import SQLAlchemyError
 import cloudinary.uploader
 from cloudinary.utils import cloudinary_url
+from sqlalchemy import or_, and_, case
 
 users_bp = Blueprint("users", __name__, url_prefix="/api/users")
 
@@ -329,3 +331,64 @@ def delete_account():
         db.session.rollback()
         current_app.logger.error(f"Delete account error: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
+    
+@users_bp.route("/users_list", methods=["GET"])
+@limiter.limit("600 per second")
+@jwt_required()
+def get_users_list():
+    current_user_id = validate_uuid(get_jwt_identity())
+    
+    try:
+        page = request.args.get("page", default=1, type=int)
+        limit = request.args.get("limit", default=Constants.PAGINATION_DEFAULT_LIMIT, type=int)
+        if limit > Constants.MAX_PAGINATION_LIMIT:
+            limit = Constants.MAX_PAGINATION_LIMIT
+    except (ValueError, TypeError):
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Pagination must be a positive integer")
+
+    search_val = request.args.get("search", default="", type=str).strip()
+
+    query = db.session.query(User, Friendship.friend_id).outerjoin(
+        Friendship, 
+        or_(
+            and_(Friendship.user_id == current_user_id, Friendship.friend_id == User.user_id),
+            and_(Friendship.friend_id == current_user_id, Friendship.user_id == User.user_id)
+        )
+    ).filter(User.deleted == False, User.user_id != current_user_id)
+
+    if search_val:
+        clean_search = sanitize_input(search_val).strip()[:Constants.MAX_USERNAME_LEN]
+        if clean_search:
+            escaped_search = clean_search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            query = query.filter(User.username.startswith(f"{escaped_search}"))
+
+
+    friend_priority = case(
+        (Friendship.friendship_id.isnot(None), 1), 
+        else_=0
+    )
+
+    query = query.order_by(friend_priority.desc(), User.username.asc())
+
+    pagination = query.paginate(page=page, per_page=limit, error_out=False)
+
+    users_list = []
+    for user, f_id in pagination.items:
+        is_friend = f_id is not None
+        user_info = {
+            "user_id": str(user.user_id),
+            "username": user.display_name,
+            "academy": user.academy,
+            "profile_picture": user.profile_picture,
+            "is_friend": is_friend
+        }
+        users_list.append(user_info)
+
+    return make_api_response(ResponseTypes.SUCCESS, data={
+        "users": users_list,
+        "pagination": {
+            "total": pagination.total,
+            "pages": pagination.pages,
+            "current_page": pagination.page
+        }
+    })

@@ -6,12 +6,12 @@ from backend.constants import Constants
 from backend.responses import ResponseTypes, make_api_response
 from flask_jwt_extended import jwt_required, get_current_user
 from backend.helpers import validate_uuid, sanitize_input
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from sqlalchemy.exc import SQLAlchemyError
 import cloudinary.uploader
 from cloudinary.utils import cloudinary_url
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, asc, desc
 
 events_bp = Blueprint("events", __name__, url_prefix="/api/events")
 local_tz = ZoneInfo("Europe/Warsaw")
@@ -319,11 +319,18 @@ def edit_event(event_id):
 def feed():
     try:
         user = get_current_user()
+        user_id = user.user_id
+
         page = request.args.get("page", default=1, type=int)
         limit = request.args.get("limit", default=Constants.PAGINATION_DEFAULT_LIMIT, type=int)
-        sort=request.args.get("sort", default=1, type=int)
+        
+        q = request.args.get("q", default="", type=str).strip()
+        q = sanitize_input(q) if q else ""
 
-        user_id = user.user_id
+        visibility = request.args.get("visibility", default="all", type=str).lower()
+        participation = request.args.get("participation", default="all", type=str).lower()
+        created_window = request.args.get("created_window", default="all", type=str).lower()
+        sort_mode = request.args.get("sort_mode", default="default", type=str).lower()
 
         if page < 1:
             page = 1
@@ -332,32 +339,73 @@ def feed():
         if limit > Constants.MAX_PAGINATION_LIMIT:
             limit = Constants.MAX_PAGINATION_LIMIT
 
-        events = Event.query.outerjoin(
-            Event_visibility, Event.event_id == Event_visibility.event_id
-        ).filter(
+        visibility_subquery = db.session.query(Event_visibility.event_id).filter(
+            Event_visibility.event_id == Event.event_id,
+            Event_visibility.shared_with == user_id
+        )
+
+        query = Event.query.filter(
             or_(
-                Event.is_private == False,              
-                Event.creator_id == user_id,               
-                Event_visibility.shared_with == user_id
+                Event.is_private == False,
+                Event.creator_id == user_id,
+                visibility_subquery.exists()
             )
-        ).distinct() 
+        )
 
-        if sort==1:
-            events=events.order_by(Event.date_and_time.asc())
-        elif sort==2:
-            events=events.order_by(Event.date_and_time.desc())
+        if q:
+            search_filter = f"%{q}%"
+            query = query.filter(or_(
+                Event.event_name.ilike(search_filter),
+                Event.description.ilike(search_filter)
+            ))
+
+        if visibility == "public":
+            query = query.filter(Event.is_private == False)
+        elif visibility == "private":
+            query = query.filter(Event.is_private == True)
+
+        if participation != "all":
+            participation_exists = db.session.query(Event_participants.event_id).filter(
+                Event_participants.event_id == Event.event_id,
+                Event_participants.user_id == user_id
+            ).exists()
+
+            query = query.filter(participation_exists if participation == "joined" else ~participation_exists)
+
+        now = datetime.now(timezone.utc)
+        if created_window != "all":
+            if created_window == "today":
+                start_date = now - timedelta(days=1)
+            elif created_window == "week":
+                start_date = now - timedelta(weeks=1)
+            elif created_window == "month":
+                start_date = now - timedelta(days=30)
+            elif created_window == "year":
+                start_date = now - timedelta(days=365)
+            if created_window == "older":
+                query = query.filter(Event.created_at < (now - timedelta(days=365)))
+            else:
+                query = query.filter(Event.created_at >= start_date)
+
+        if sort_mode == "members_asc": 
+            query = query.order_by(Event.participant_count.asc())
+        elif sort_mode == "members_desc": 
+            query = query.order_by(Event.participant_count.desc())
+        elif sort_mode == "comments_asc": 
+            query = query.order_by(Event.comment_count.asc())
+        elif sort_mode == "comments_desc": 
+            query = query.order_by(Event.comment_count.desc())
         else:
-            events = events.order_by(Event.date_and_time.asc())
+            query = query.order_by(Event.date_and_time.asc())
+        
+        pagination = query.distinct().paginate(page=page, per_page=limit, error_out=False)
 
-        pagination = events.paginate(page=page, per_page=limit, error_out=False)
-
-        creator_ids = {event.creator_id for event in pagination.items if event.creator_id is not None}
-        creator_users = User.query.filter(User.user_id.in_(creator_ids)).all() if creator_ids else []
-        creator_usernames = {str(user.user_id): user.display_name for user in creator_users}
+        creator_ids = {e.creator_id for e in pagination.items if e.creator_id}
+        creators = {str(u.user_id): u.display_name for u in User.query.filter(User.user_id.in_(creator_ids)).all()}
 
         event_list=[
             {
-                "id": str(event.event_id),
+                "event_id": str(event.event_id),
                 "name": event.event_name,
                 "description": event.description,
                 "date": event.date_and_time.astimezone(local_tz).strftime("%d.%m.%Y"),
@@ -371,9 +419,13 @@ def feed():
                     } 
                     for pic in event.pictures
                 ],
-                "creator_username": creator_usernames.get(str(event.creator_id)),
+                "creator_username": creators.get(str(event.creator_id), "[deleted]"),
                 "comment_count": str(event.comment_count),
+                "participation_count": event.participant_count,
                 "is_private": event.is_private,
+                "is_joined": db.session.query(Event_participants).filter_by(
+                    event_id=event.event_id, user_id=user_id
+                ).first() is not None
             }
             for event in pagination.items
         ]
@@ -384,7 +436,8 @@ def feed():
                 "page": pagination.page,
                 "limit": limit,
                 "total": pagination.total,
-                "pages": pagination.pages
+                "pages": pagination.pages,
+                "has_next": pagination.has_next
             }
         })
     except Exception as e:
