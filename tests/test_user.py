@@ -1497,23 +1497,101 @@ def test_delete_account_removes_picture(mock_destroy, client, logged_in_user, ap
         user = User.query.filter_by(user_id=user.user_id).first()
         assert user.profile_picture == None
 
+# =============================================================================
+# Tests for users list 
+# =============================================================================
 
-def test_get_user_info_friend_count(client, logged_in_user, registered_friend, app):
+
+def test_get_users_list_success(client, logged_in_user, registered_friend, app):
+    """Test podstawowy: pobieranie listy, wykluczenie siebie i usuniętych użytkowników."""
     with app.app_context():
         user, token = logged_in_user
-        friend = registered_friend[0]
+        friend, _ = registered_friend
 
-        if user.user_id < friend.user_id:
-            friendship = Friendship(user_id=user.user_id, friend_id=friend.user_id)
-        else:
-            friendship = Friendship(user_id=friend.user_id, friend_id=user.user_id)
-            
+        deleted_user = User(username="ghost_user", email="ghost@del.local", password="password123")
+        deleted_user.deleted = True
+        db.session.add(deleted_user)
+        db.session.commit()
+
+        response = client.get("/api/users/users_list", headers=get_auth_header(token))
+
+        assert response.status_code == 200
+        res_json = response.get_json()
+
+        users = res_json["users"]
+        user_ids = [u["user_id"] for u in users]
+
+        assert str(friend.user_id) in user_ids
+        assert str(user.user_id) not in user_ids
+        assert str(deleted_user.user_id) not in user_ids
+
+def test_get_users_list_search(client, logged_in_user, app):
+    """Test wyszukiwania po parametrze ?search=."""
+    with app.app_context():
+        _, token = logged_in_user
+        
+        u1 = User(username="Alexander", email="alex@test.com", password="password123", is_confirmed=True)
+        u2 = User(username="Barnaba", email="barney@test.com", password="password123", is_confirmed=True)
+        db.session.add_all([u1, u2])
+        db.session.commit()
+
+        response = client.get("/api/users/users_list?search=Alex", headers=get_auth_header(token))
+
+        assert response.status_code == 200
+        res_json = response.get_json()
+        users = res_json["users"]
+        
+        assert any(u["username"] == "Alexander" for u in users)
+        assert not any(u["username"] == "Barnaba" for u in users)
+
+def test_get_users_list_friend_priority(client, logged_in_user, app):
+    """Test czy znajomi pojawiają się na początku listy."""
+    with app.app_context():
+        user, token = logged_in_user
+        
+        u_stranger = User(username="A_stranger", email="stranger@test.com", password="password123", is_confirmed=True)
+        u_friend = User(username="Z_friend", email="friend@test.com", password="password123", is_confirmed=True)
+        db.session.add_all([u_stranger, u_friend])
+        db.session.commit()
+
+        uid1, uid2 = sorted([user.user_id, u_friend.user_id])
+        friendship = Friendship(user_id=uid1, friend_id=uid2)
         db.session.add(friendship)
         db.session.commit()
-        
-        response = client.get(f"/api/users/profile/{user.user_id}", headers=get_auth_header(token))
+
+        response = client.get("/api/users/users_list", headers=get_auth_header(token))
+
         assert response.status_code == 200
+        users = response.get_json()["users"]
+
+        idx_friend = next(i for i, u in enumerate(users) if u["username"] == "Z_friend")
+        idx_stranger = next(i for i, u in enumerate(users) if u["username"] == "A_stranger")
         
-        data = response.get_json()
-        assert "friend_count" in data
-        assert data["friend_count"] == 1
+        assert idx_friend < idx_stranger
+
+def test_get_users_list_pagination(client, logged_in_user, app):
+    """Test paginacji i limitów."""
+    with app.app_context():
+        _, token = logged_in_user
+        
+        for i in range(5):
+            db.session.add(User(username=f"PaginationUser_{i}", email=f"page{i}@test.com", password="password123", is_confirmed=True))
+        db.session.commit()
+
+        response = client.get("/api/users/users_list?page=1&limit=2", headers=get_auth_header(token))
+        
+        assert response.status_code == 200
+        res_json = response.get_json()
+        
+        assert len(res_json["users"]) == 2
+        assert res_json["pagination"]["current_page"] == 1
+        assert res_json["pagination"]["total"] >= 5
+
+def test_get_users_list_invalid_pagination(client, logged_in_user):
+    """Test obsługi błędnych danych paginacji (np. tekst zamiast liczb)."""
+    _, token = logged_in_user
+
+    response = client.get("/api/users/users_list?page=abc&limit=xyz", headers=get_auth_header(token))
+
+    assert response.status_code == 200
+    assert "Operation successful" in response.get_json()["message"]
