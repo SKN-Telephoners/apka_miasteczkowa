@@ -22,6 +22,7 @@ def test_get_user_info_success(client, logged_in_user):
     
     user.academy = "AGH"
     user.course = "Computer Science"
+    user.faculty = "Wydział Informatyki"
     user.year = 2
     db.session.commit()
 
@@ -33,6 +34,7 @@ def test_get_user_info_success(client, logged_in_user):
     assert data["email"] == user.email
     assert data["academy"] == "AGH"
     assert data["course"] == "Computer Science"
+    assert data["faculty"] == "Wydział Informatyki"
     assert data["year"] == 2
     
 def test_get_user_info_deleted_account(client, logged_in_user):
@@ -55,6 +57,7 @@ def mock_app_config(app):
     """Fixture to inject required config data for update_profile."""
     app.config['ACADEMY_DATA'] = {"AGH": {}, "UW": {}}
     app.config['COURSES_DATA'] = ["Computer Science", "Physics"]
+    app.config['FACULTIES_DATA'] = ["Faculty1", "Faculty2"]
     app.config['CLUBS_DATA'] = {"Bite": {}, "DataScience": {}}
     return app
 
@@ -133,6 +136,7 @@ def test_update_academic_details_success(client, logged_in_user, mock_app_config
         
     payload = {
         "course": "Computer Science",
+        "faculty": "Faculty1",
         "year": "3",
         "academic_clubs": "Bite, DataScience"
     }
@@ -143,6 +147,7 @@ def test_update_academic_details_success(client, logged_in_user, mock_app_config
     with app.app_context():
         u = User.query.filter_by(user_id=user.user_id).first()
         assert u.course == "Computer Science"
+        assert u.faculty == "Faculty1"
         assert u.year == 3
         assert "Bite" in u.academic_clubs
         assert "DataScience" in u.academic_clubs
@@ -156,7 +161,7 @@ def test_update_academic_details_fails_for_non_primary(client, logged_in_user, a
         user.academy = "UW" 
         db.session.commit()
         
-    payload = {"course": "Computer Science", "year": "2"}
+    payload = {"course": "Computer Science", "faculty": "Faculty1", "year": "2"}
     response = client.put("/api/users/update_academic_details", json=payload, headers=get_auth_header(token))
     
     assert response.status_code == 400
@@ -174,11 +179,11 @@ def test_update_academic_details_fails_missing_pair(client, logged_in_user, app)
     u = User.query.filter_by(user_id=user.user_id).first()
     assert u.academy == "AGH"
 
-    payload = {"course": "Computer Science"}
+    payload = {"course": "Computer Science", "faculty": "Faculty1"}
     response = client.put("/api/users/update_academic_details", json=payload, headers=get_auth_header(token))
     
     assert response.status_code == 400
-    assert response.get_json()["message"] == "Both course and year must be provided together"
+    assert response.get_json()["message"] == "Faculty, course and year must be provided together"
 
 
 def test_update_academic_details_invalid_year(client, logged_in_user, app):
@@ -192,6 +197,7 @@ def test_update_academic_details_invalid_year(client, logged_in_user, app):
     assert u.academy == "AGH"
 
     payload = {
+        "faculty": "Faculty1",
         "course": "Computer Science",
         "year": "7" 
     }
