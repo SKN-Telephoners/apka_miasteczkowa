@@ -13,6 +13,7 @@ import Avatar from "../../components/Avatar";
 import AppIcon from "../../components/AppIcon";
 import { useEffect, useCallback } from "react";
 import { getPublicUserProfile } from "../../services/users";
+import { getUserEventsInfo, UserEventsInfoResponse } from "../../services/events";
 import InputField from "../../components/InputField";
 import UserCard from "../../components/UserCard";
 
@@ -34,6 +35,7 @@ const UserScreen = () => {
     ? String(visitedUserId) === String(userId)
     : isOwnerRoute;
   const [visitedProfileData, setVisitedProfileData] = useState<any | null>(null);
+  const [visitorEvents, setVisitorEvents] = useState<UserEventsInfoResponse | null>(null);
   const profileData = isOwner ? currentUser : (visitedProfileData || visitedUser);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -52,20 +54,27 @@ const UserScreen = () => {
     const loadVisitedUser = async () => {
       if (isOwner || !visitedUser) {
         setVisitedProfileData(null);
+        setVisitorEvents(null);
         return;
       }
 
       const targetId = visitedUser.user_id || visitedUser.id;
       if (!targetId) {
         setVisitedProfileData(visitedUser);
+        setVisitorEvents(null);
         return;
       }
 
       try {
-        const fullData = await getPublicUserProfile(targetId);
+        const [fullData, eventsData] = await Promise.all([
+          getPublicUserProfile(targetId),
+          getUserEventsInfo(targetId)
+        ]);
         setVisitedProfileData(fullData);
+        setVisitorEvents(eventsData);
       } catch {
         setVisitedProfileData(visitedUser);
+        setVisitorEvents(null);
       }
     };
 
@@ -126,6 +135,22 @@ const UserScreen = () => {
     return events.filter(e => e.is_participating && String(e.creator_id) !== String(profileData?.id || profileData?.user_id));
   }, [events, profileData]);
 
+  const publicCreatedEvents = useMemo(() => {
+    if (isOwner || !visitorEvents) return [];
+    return visitorEvents.created.map(slim => {
+      const full = events.find(e => String(e.id) === String(slim.event_id) || String((e as any).event_id) === String(slim.event_id));
+      return full ? full : { id: slim.event_id, name: slim.name, isSlim: true };
+    });
+  }, [visitorEvents, events, isOwner]);
+
+  const publicJoinedEvents = useMemo(() => {
+    if (isOwner || !visitorEvents) return [];
+    return visitorEvents.participating.map(slim => {
+      const full = events.find(e => String(e.id) === String(slim.event_id) || String((e as any).event_id) === String(slim.event_id));
+      return full ? full : { id: slim.event_id, name: slim.name, isSlim: true };
+    });
+  }, [visitorEvents, events, isOwner]);
+
   const handleSendRequest = async () => {
     try {
       if (profileData?.id || profileData?.user_id) {
@@ -168,8 +193,10 @@ const UserScreen = () => {
       <View style={styles.headerRow}>
         <Avatar uri={profileData?.profile_picture?.url || profileData?.avatarUrl || (typeof profileData?.profile_picture === "string" ? profileData?.profile_picture : undefined)} size={80} style={{ marginRight: THEME.spacing.m }} />
 
-        <View style={styles.headerInfo}>
-          <Text style={styles.userName}>{profileData?.username || profileData?.display_name || "Użytkownik"}</Text>
+        <View style={[styles.headerInfo, { flex: 1 }]}>
+          <Text style={[styles.userName, { flexWrap: 'wrap' }]} numberOfLines={2}>
+            {profileData?.username || profileData?.display_name || "Użytkownik"}
+          </Text>
           {isOwner && (
             <>
               <Text style={styles.statsText}>
@@ -189,11 +216,15 @@ const UserScreen = () => {
         )}
       </View>
 
-      <Text style={styles.facultyText}>{profileData?.academy || "Brak Uczelni"}</Text>
+      <View style={{ flexWrap: 'wrap', flexDirection: 'row' }}>
+        <Text style={[styles.facultyText, { flexShrink: 1 }]}>{profileData?.academy || "Brak Uczelni"}</Text>
+      </View>
       {profileData?.faculty && profileData?.course && (
-        <Text style={styles.majorText}>
-          {`${profileData.faculty} • ${profileData.course}${profileData.year ? ` • ${profileData.year} rok` : ""}`}
-        </Text>
+        <View style={{ flexWrap: 'wrap', flexDirection: 'row' }}>
+          <Text style={[styles.majorText, { flexShrink: 1 }]}>
+            {`${profileData.faculty} • ${profileData.course}${profileData.year ? ` • ${profileData.year} rok` : ""}`}
+          </Text>
+        </View>
       )}
 
       <Text style={styles.userBio}>{profileData?.description || (isOwner ? "Brak opisu" : "")}</Text>
@@ -293,6 +324,54 @@ const UserScreen = () => {
             )}
           </CollapsibleSection>
 
+        </>
+      )}
+
+      {!isOwner && (
+        <>
+          <CollapsibleSection title={`Wydarzenia ${profileData?.username || "użytkownika"}`}>
+            {publicCreatedEvents.length > 0 ? (
+              publicCreatedEvents.map((event: any) => (
+                <TouchableOpacity
+                  key={event.id}
+                  style={[styles.listItem, { borderColor: colors.border }]}
+                  activeOpacity={0.8}
+                  onPress={() => event.isSlim ? null : navigation.navigate("MyEventPreview", { event, screenTitle: "Wydarzenie z profilu", allowEdit: false })}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.listTitle}>{event.name}</Text>
+                    {!event.isSlim && (
+                      <Text style={styles.listSubtitle}>{event.date} o {event.time} • {event.location}</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <Text style={styles.infoText}>Użytkownik nie utworzył jeszcze żadnych wydarzeń</Text>
+            )}
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Zapisane wydarzenia">
+            {publicJoinedEvents.length > 0 ? (
+              publicJoinedEvents.map((event: any) => (
+                <TouchableOpacity
+                  key={event.id}
+                  style={[styles.listItem, { borderColor: colors.border }]}
+                  activeOpacity={0.8}
+                  onPress={() => event.isSlim ? null : navigation.navigate("MyEventPreview", { event, screenTitle: "Zapisane wydarzenie", allowEdit: false })}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.listTitle}>{event.name}</Text>
+                    {!event.isSlim && (
+                      <Text style={styles.listSubtitle}>{event.date} o {event.time} • {event.location}</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <Text style={styles.infoText}>Brak zapisanych wydarzeń</Text>
+            )}
+          </CollapsibleSection>
         </>
       )}
 

@@ -245,6 +245,21 @@ export const getParticipationStatus = async (eventId: string): Promise<Participa
     }
 };
 
+export interface UserEventsInfoResponse {
+    created: Array<{ event_id: string; name: string }>;
+    participating: Array<{ event_id: string; name: string }>;
+}
+
+export const getUserEventsInfo = async (userId: string): Promise<UserEventsInfoResponse> => {
+    try {
+        const response = await api.get<UserEventsInfoResponse>(`/api/events/${userId}/info`);
+        return response.data as UserEventsInfoResponse;
+    } catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || "Błąd pobierania wydarzeń użytkownika";
+        throw new Error(msg);
+    }
+};
+
 export const joinEvent = async (eventId: string): Promise<string> => {
     try {
         const response = await api.post<ApiMessage>(`/api/events/join/${eventId}`);
