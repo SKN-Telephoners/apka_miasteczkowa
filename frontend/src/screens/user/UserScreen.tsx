@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, Linking } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 import { useUser } from "../../contexts/UserContext";
 import { useFriends } from "../../contexts/FriendsContext";
@@ -20,7 +20,7 @@ import UserCard from "../../components/UserCard";
 const UserScreen = () => {
   const { userId } = useAuth();
   const { user: currentUser } = useUser();
-  const { friends, sendFriendRequest, removeFriend, fetchFriends } = useFriends();
+  const { friends, outgoingRequests, sendFriendRequest, removeFriend, fetchFriends } = useFriends();
   const { events } = useEvents();
   const { colors } = useTheme();
   const navigation = useNavigation<any>();
@@ -40,6 +40,31 @@ const UserScreen = () => {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isFriend, setIsFriend] = useState(false);
+
+  const hasSentRequest = useMemo(() => {
+    return !isOwner && outgoingRequests.some(req => String(req.receiverId || req.user?.id) === String(visitedUserId));
+  }, [outgoingRequests, isOwner, visitedUserId]);
+
+  const renderDescription = (text: string) => {
+    if (!text) return isOwner ? "Brak opisu" : "";
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+
+    return parts.map((part, index) => {
+      if (part.match(urlRegex)) {
+        return (
+          <Text
+            key={index}
+            style={{ color: colors.primary, textDecorationLine: "underline" }}
+            onPress={() => Linking.openURL(part).catch(() => Alert.alert("Błąd", "Nie można otworzyć tego linku."))}
+          >
+            {part}
+          </Text>
+        );
+      }
+      return <Text key={index}>{part}</Text>;
+    });
+  };
 
   const styles = useMemo(() => getStyles(colors), [colors]);
 
@@ -227,7 +252,7 @@ const UserScreen = () => {
         </View>
       )}
 
-      <Text style={styles.userBio}>{profileData?.description || (isOwner ? "Brak opisu" : "")}</Text>
+      <Text style={styles.userBio}>{renderDescription(profileData?.description)}</Text>
 
       {isOwner ? (
         <Button
@@ -243,9 +268,10 @@ const UserScreen = () => {
         />
       ) : (
         <Button
-          title="Wyślij zaproszenie"
-          onPress={handleSendRequest}
-          style={styles.editButton}
+          title={hasSentRequest ? "Wysłano zaproszenie" : "Wyślij zaproszenie"}
+          onPress={hasSentRequest ? undefined : handleSendRequest}
+          style={[styles.editButton, hasSentRequest && { backgroundColor: THEME.colors.lightGray }]}
+          disabled={hasSentRequest}
         />
       )}
 

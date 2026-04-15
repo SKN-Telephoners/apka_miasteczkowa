@@ -105,16 +105,25 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
     setIsLoading(true);
     try {
       await authService.register(username, email, password);
+      setIsLoading(false);
       Alert.alert(
-        "Rejestracja powiodła się!",
-        "Potwierdź swoje konto przez link, który dostaniesz na maila.",
-        [{ text: "OK", onPress: () => navigation.navigate("Login") }]
+        "Rejestracja przebiegła pomyślnie!",
+        "Konto zostało utworzone. Potwierdź swoje konto przez link, który dostaniesz na maila.",
+        [{
+          text: "Przejdź do logowania",
+          onPress: () => {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "Login" }],
+            });
+          }
+        }]
       );
     } catch (error: any) {
       if (error.response) {
         Alert.alert(
-          "Rejestracja się nie powiodła",
-          error.response.data.message
+          "Błąd rejestracji",
+          error.response.data.message || "Taki użytkownik lub email już istnieje."
         );
       } else {
         Alert.alert(

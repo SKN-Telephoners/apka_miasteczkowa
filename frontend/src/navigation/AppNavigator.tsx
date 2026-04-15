@@ -93,7 +93,7 @@ const MainTabs = () => {
                   onPress={() => navigation.navigate('Notifications')}
                 >
                   <View>
-                    <AppIcon name="Bell" size={28} />
+                    <AppIcon name="Bell" size={28} focused={hasNotifications} />
                     {hasNotifications && (
                       <View style={{ position: 'absolute', top: 0, right: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: colors.highlight, borderWidth: 1, borderColor: colors.background }} />
                     )}
@@ -125,7 +125,7 @@ const MainTabs = () => {
               </TouchableOpacity>
               <TouchableOpacity style={{ marginHorizontal: 20 }} onPress={() => navigation.navigate("Notifications")}>
                 <View>
-                  <AppIcon name="Bell" size={28} />
+                  <AppIcon name="Bell" size={28} focused={hasNotifications} />
                   {hasNotifications && (
                     <View style={{ position: 'absolute', top: 0, right: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: colors.highlight, borderWidth: 1, borderColor: colors.background }} />
                   )}
