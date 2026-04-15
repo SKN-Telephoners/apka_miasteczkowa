@@ -18,6 +18,7 @@ import AppIcon from "../components/AppIcon";
 import SvgSpriteIcon from "../components/SvgSpriteIcon";
 import { useTheme } from "../contexts/ThemeContext";
 import { useUser } from "../contexts/UserContext";
+import { useFriends } from "../contexts/FriendsContext";
 import Avatar from "../components/Avatar";
 
 const Stack = createStackNavigator();
@@ -49,6 +50,8 @@ const ROUTE_ICON_MAP: Record<string, string> = {
 const MainTabs = () => {
   const { colors } = useTheme();
   const { user } = useUser();
+  const { incomingRequests } = useFriends();
+  const hasNotifications = incomingRequests.length > 0;
 
   return (
     <Tab.Navigator
@@ -89,7 +92,12 @@ const MainTabs = () => {
                   style={{ marginHorizontal: 20 }}
                   onPress={() => navigation.navigate('Notifications')}
                 >
-                  <AppIcon name="Bell" size={28} />
+                  <View>
+                    <AppIcon name="Bell" size={28} />
+                    {hasNotifications && (
+                      <View style={{ position: 'absolute', top: 0, right: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: colors.highlight, borderWidth: 1, borderColor: colors.background }} />
+                    )}
+                  </View>
                 </TouchableOpacity>
               </View>
             );
@@ -116,7 +124,12 @@ const MainTabs = () => {
                 <AppIcon name="Search" size={28} />
               </TouchableOpacity>
               <TouchableOpacity style={{ marginHorizontal: 20 }} onPress={() => navigation.navigate("Notifications")}>
-                <AppIcon name="Bell" size={28} />
+                <View>
+                  <AppIcon name="Bell" size={28} />
+                  {hasNotifications && (
+                    <View style={{ position: 'absolute', top: 0, right: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: colors.highlight, borderWidth: 1, borderColor: colors.background }} />
+                  )}
+                </View>
               </TouchableOpacity>
             </View>
           );
@@ -126,10 +139,10 @@ const MainTabs = () => {
           if (route.name === 'Profil') {
             const uri = user?.profile_picture?.url || user?.avatarUrl || (typeof user?.profile_picture === "string" ? user?.profile_picture : undefined);
             return (
-              <View style={{ opacity: focused ? 1 : 0.5 }}>
+              <View style={{ opacity: focused ? 1 : 0.75 }}>
                 <Avatar 
                   uri={uri} 
-                  size={26} 
+                  size={32} 
                   style={{ 
                     borderWidth: 2, 
                     borderColor: focused ? colors.highlight : 'transparent' 

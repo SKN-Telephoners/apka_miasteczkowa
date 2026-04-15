@@ -58,7 +58,7 @@ const SettingsScreen = () => {
 
             {/* Logout Button directly under the cards */}
             <View style={styles.logoutContainer}>
-                <Button title="Wyloguj się" onPress={logout} style={{ backgroundColor: colors.icon }} />
+                <Button title="Wyloguj się" onPress={logout} style={{ backgroundColor: colors.highlight }} />
             </View>
 
         </ScrollView>
