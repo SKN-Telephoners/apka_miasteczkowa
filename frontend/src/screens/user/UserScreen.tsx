@@ -10,7 +10,7 @@ import { THEME } from "../../utils/constants";
 import Button from "../../components/Button";
 import CollapsibleSection from "../../components/CollapsibleSection";
 import Avatar from "../../components/Avatar";
-import { Ionicons } from "@expo/vector-icons";
+import AppIcon from "../../components/AppIcon";
 import { useEffect, useCallback } from "react";
 import { getPublicUserProfile } from "../../services/users";
 import InputField from "../../components/InputField";
@@ -175,7 +175,7 @@ const UserScreen = () => {
 
         {isOwner && (
           <TouchableOpacity onPress={gotoSettings} style={styles.settingsIcon}>
-            <Ionicons name="settings-outline" size={28} color={colors.text} />
+            <AppIcon name="Settings" size={28} color={colors.text} />
           </TouchableOpacity>
         )}
       </View>
@@ -222,7 +222,7 @@ const UserScreen = () => {
             />
             {filteredFriends.length > 0 ? (
               filteredFriends.map((friend) => (
-                <TouchableOpacity key={friend.id} onPress={() => goToFriendProfile(friend)} style={[styles.listItem, { borderColor: colors.border }]}> 
+                <TouchableOpacity key={friend.id} onPress={() => goToFriendProfile(friend)} style={[styles.listItem, { borderColor: colors.border }]}>
                   <UserCard
                     creatorDisplayName={friend.username}
                     avatarUri={friend?.profile_picture?.url || friend?.avatarUrl || (typeof friend?.profile_picture === "string" ? friend?.profile_picture : undefined)}

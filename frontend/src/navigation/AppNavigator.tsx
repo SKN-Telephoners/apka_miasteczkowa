@@ -37,6 +37,13 @@ const ICON_SIZE = 30;
 const SEARCH_ICON_OFFSET = { x: -ICON_SIZE * 2, y: 0 };
 const SearchScreen = require("../screens/user/SearchScreen").default;
 
+const ROUTE_ICON_MAP: Record<string, string> = {
+  'Przewodnik po miasteczku': 'Home',
+  'Mapa': 'Map',
+  'Wydarzenia': 'Events',
+  'Profil': 'Eye'
+};
+
 // for authenticated users
 const MainTabs = () => {
   const { colors } = useTheme();
@@ -74,13 +81,13 @@ const MainTabs = () => {
                   style={{ marginHorizontal: 20 }}
                   onPress={() => navigation.navigate('Search')}
                 >
-                  <Ionicons name={'search'} size={28} color={colors.icon} />
+                  <AppIcon name="Search" size={28} />
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={{ marginHorizontal: 20 }}
                   onPress={() => navigation.navigate('Notifications')}
                 >
-                  <Ionicons name={'notifications'} size={28} color={colors.icon} />
+                  <AppIcon name="Bell" size={28} />
                 </TouchableOpacity>
               </View>
             );
@@ -95,8 +102,8 @@ const MainTabs = () => {
             return null;
           }
 
-          return (
-            <View style={{ flexDirection: 'row' }}>
+            return (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <TouchableOpacity
                 style={{ marginHorizontal: 20 }}
                 onPress={() => navigation.navigate('Wydarzenia', { screen: 'AddEvent' })}
@@ -104,17 +111,17 @@ const MainTabs = () => {
                 <SvgSpriteIcon set={2} size={ICON_SIZE} offsetX={SEARCH_ICON_OFFSET.x} offsetY={SEARCH_ICON_OFFSET.y} />
               </TouchableOpacity>
               <TouchableOpacity style={{ marginHorizontal: 20 }} onPress={() => navigation.navigate('Search')}>
-                <Ionicons name={'search'} size={28} color={colors.icon} />
-            </TouchableOpacity>
-            <TouchableOpacity style={{ marginHorizontal: 20 }} onPress={() => navigation.navigate("Notifications")}>
-                <Ionicons name={'notifications'} size={28} color={colors.icon} />
-            </TouchableOpacity>
+                <AppIcon name="Search" size={28} />
+              </TouchableOpacity>
+              <TouchableOpacity style={{ marginHorizontal: 20 }} onPress={() => navigation.navigate("Notifications")}>
+                <AppIcon name="Bell" size={28} />
+              </TouchableOpacity>
             </View>
           );
         },
 
         tabBarIcon: ({ focused }) => {
-          return <AppIcon name={route.name} focused={focused} />;
+          return <AppIcon name={ROUTE_ICON_MAP[route.name] || 'Eye'} focused={focused} />;
         },
       })}
     >

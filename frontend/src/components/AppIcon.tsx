@@ -5,16 +5,27 @@ import Iconset1 from '../../assets/iconset1.svg';
 import Iconset2 from '../../assets/iconset2.svg';
 
 export const ICON_REGISTRY = {
-  // Prawy górny róg (kolumna 2, wiersz 0)
-  'Przewodnik po miasteczku': { Component: Iconset1, cols: 3, rows: 3, col: 2, row: 0 },
-  // Lewa strona środek (kolumna 0, wiersz 1)
-  'Mapa': { Component: Iconset1, cols: 3, rows: 3, col: 0, row: 1 },
-  // Samo centrum (kolumna 1, wiersz 1)
-  'Wydarzenia': { Component: Iconset1, cols: 3, rows: 3, col: 1, row: 1 },
-  // Prawa strona środek (kolumna 2, wiersz 1)
-  'Profil': { Component: Iconset1, cols: 3, rows: 3, col: 2, row: 1 },
-  // ArrowDown w centrum (kolumna 1, wiersz 1) zakladając grid 3x3
-  'ArrowDown': { Component: Iconset2, cols: 3, rows: 3, col: 1, row: 1 },
+  // --- ICONSET 1 ---
+  Search: { Component: Iconset1, cols: 3, rows: 3, col: 0, row: 0 },
+  Sliders: { Component: Iconset1, cols: 3, rows: 3, col: 1, row: 0 },
+  Home: { Component: Iconset1, cols: 3, rows: 3, col: 2, row: 0 },
+  Map: { Component: Iconset1, cols: 3, rows: 3, col: 0, row: 1 },
+  Events: { Component: Iconset1, cols: 3, rows: 3, col: 1, row: 1 },
+  Eye: { Component: Iconset1, cols: 3, rows: 3, col: 2, row: 1 },
+  Heart: { Component: Iconset1, cols: 3, rows: 3, col: 0, row: 2 },
+  Comment: { Component: Iconset1, cols: 3, rows: 3, col: 1, row: 2 },
+  Share: { Component: Iconset1, cols: 3, rows: 3, col: 2, row: 2 },
+
+  // --- ICONSET 2 ---
+  MoreVertical: { Component: Iconset2, cols: 3, rows: 3, col: 0, row: 0 },
+  Settings: { Component: Iconset2, cols: 3, rows: 3, col: 1, row: 0 },
+  Plus: { Component: Iconset2, cols: 3, rows: 3, col: 2, row: 0 },
+  ArrowLeft: { Component: Iconset2, cols: 3, rows: 3, col: 0, row: 1 },
+  ArrowDown: { Component: Iconset2, cols: 3, rows: 3, col: 1, row: 1 },
+  Edit: { Component: Iconset2, cols: 3, rows: 3, col: 2, row: 1 },
+  Preview: { Component: Iconset2, cols: 3, rows: 3, col: 0, row: 2 },
+  Camera: { Component: Iconset2, cols: 3, rows: 3, col: 1, row: 2 },
+  Bell: { Component: Iconset2, cols: 3, rows: 3, col: 2, row: 2 },
 } as const;
 
 export type IconName = keyof typeof ICON_REGISTRY;

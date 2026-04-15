@@ -11,6 +11,7 @@ import { editComment, deleteComment, replyToComment } from "../services/comments
 import UserCard from "./UserCard";
 import { THEME } from "../utils/constants";
 import SvgSpriteIcon from "./SvgSpriteIcon";
+import AppIcon from "./AppIcon";
 import { useTheme } from "../contexts/ThemeContext";
 import { useMemo } from "react";
 import { useNavigation } from "@react-navigation/native";
@@ -223,8 +224,8 @@ const CommentCard = ({
                                         requestAnimationFrame(() => setMenuVisible(true));
                                     }
                                     : canOpenAuthorProfile
-                                    ? handleOpenAuthorProfile
-                                    : undefined
+                                        ? handleOpenAuthorProfile
+                                        : undefined
                             }
                         />
                     </View>
@@ -262,8 +263,8 @@ const CommentCard = ({
                             <Text style={{ color: colors.transparentHighlight, fontSize: 14 }}>
                                 {isEditing ? "Zapisz" : "Edytuj"}
                             </Text>
-                            <Ionicons
-                                name={"pencil"}
+                            <AppIcon
+                                name="Edit"
                                 size={12}
                                 color={colors.transparentHighlight}
                                 style={{ marginLeft: 2 }}
