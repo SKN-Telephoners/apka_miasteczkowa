@@ -22,6 +22,7 @@ def test_get_user_info_success(client, logged_in_user):
     
     user.academy = "AGH"
     user.course = "Computer Science"
+    user.faculty = "Wydział Informatyki"
     user.year = 2
     db.session.commit()
 
@@ -33,6 +34,7 @@ def test_get_user_info_success(client, logged_in_user):
     assert data["email"] == user.email
     assert data["academy"] == "AGH"
     assert data["course"] == "Computer Science"
+    assert data["faculty"] == "Wydział Informatyki"
     assert data["year"] == 2
     
 def test_get_user_info_deleted_account(client, logged_in_user):
@@ -55,6 +57,7 @@ def mock_app_config(app):
     """Fixture to inject required config data for update_profile."""
     app.config['ACADEMY_DATA'] = {"AGH": {}, "UW": {}}
     app.config['COURSES_DATA'] = ["Computer Science", "Physics"]
+    app.config['FACULTIES_DATA'] = ["Faculty1", "Faculty2"]
     app.config['CLUBS_DATA'] = {"Bite": {}, "DataScience": {}}
     return app
 
@@ -133,6 +136,7 @@ def test_update_academic_details_success(client, logged_in_user, mock_app_config
         
     payload = {
         "course": "Computer Science",
+        "faculty": "Faculty1",
         "year": "3",
         "academic_clubs": "Bite, DataScience"
     }
@@ -143,6 +147,7 @@ def test_update_academic_details_success(client, logged_in_user, mock_app_config
     with app.app_context():
         u = User.query.filter_by(user_id=user.user_id).first()
         assert u.course == "Computer Science"
+        assert u.faculty == "Faculty1"
         assert u.year == 3
         assert "Bite" in u.academic_clubs
         assert "DataScience" in u.academic_clubs
@@ -156,7 +161,7 @@ def test_update_academic_details_fails_for_non_primary(client, logged_in_user, a
         user.academy = "UW" 
         db.session.commit()
         
-    payload = {"course": "Computer Science", "year": "2"}
+    payload = {"course": "Computer Science", "faculty": "Faculty1", "year": "2"}
     response = client.put("/api/users/update_academic_details", json=payload, headers=get_auth_header(token))
     
     assert response.status_code == 400
@@ -174,11 +179,11 @@ def test_update_academic_details_fails_missing_pair(client, logged_in_user, app)
     u = User.query.filter_by(user_id=user.user_id).first()
     assert u.academy == "AGH"
 
-    payload = {"course": "Computer Science"}
+    payload = {"course": "Computer Science", "faculty": "Faculty1"}
     response = client.put("/api/users/update_academic_details", json=payload, headers=get_auth_header(token))
     
     assert response.status_code == 400
-    assert response.get_json()["message"] == "Both course and year must be provided together"
+    assert response.get_json()["message"] == "Faculty, course and year must be provided together"
 
 
 def test_update_academic_details_invalid_year(client, logged_in_user, app):
@@ -192,6 +197,7 @@ def test_update_academic_details_invalid_year(client, logged_in_user, app):
     assert u.academy == "AGH"
 
     payload = {
+        "faculty": "Faculty1",
         "course": "Computer Science",
         "year": "7" 
     }
@@ -1497,23 +1503,101 @@ def test_delete_account_removes_picture(mock_destroy, client, logged_in_user, ap
         user = User.query.filter_by(user_id=user.user_id).first()
         assert user.profile_picture == None
 
+# =============================================================================
+# Tests for users list 
+# =============================================================================
 
-def test_get_user_info_friend_count(client, logged_in_user, registered_friend, app):
+
+def test_get_users_list_success(client, logged_in_user, registered_friend, app):
+    """Test podstawowy: pobieranie listy, wykluczenie siebie i usuniętych użytkowników."""
     with app.app_context():
         user, token = logged_in_user
-        friend = registered_friend[0]
+        friend, _ = registered_friend
 
-        if user.user_id < friend.user_id:
-            friendship = Friendship(user_id=user.user_id, friend_id=friend.user_id)
-        else:
-            friendship = Friendship(user_id=friend.user_id, friend_id=user.user_id)
-            
+        deleted_user = User(username="ghost_user", email="ghost@del.local", password="password123")
+        deleted_user.deleted = True
+        db.session.add(deleted_user)
+        db.session.commit()
+
+        response = client.get("/api/users/users_list", headers=get_auth_header(token))
+
+        assert response.status_code == 200
+        res_json = response.get_json()
+
+        users = res_json["users"]
+        user_ids = [u["user_id"] for u in users]
+
+        assert str(friend.user_id) in user_ids
+        assert str(user.user_id) not in user_ids
+        assert str(deleted_user.user_id) not in user_ids
+
+def test_get_users_list_search(client, logged_in_user, app):
+    """Test wyszukiwania po parametrze ?search=."""
+    with app.app_context():
+        _, token = logged_in_user
+        
+        u1 = User(username="Alexander", email="alex@test.com", password="password123", is_confirmed=True)
+        u2 = User(username="Barnaba", email="barney@test.com", password="password123", is_confirmed=True)
+        db.session.add_all([u1, u2])
+        db.session.commit()
+
+        response = client.get("/api/users/users_list?search=Alex", headers=get_auth_header(token))
+
+        assert response.status_code == 200
+        res_json = response.get_json()
+        users = res_json["users"]
+        
+        assert any(u["username"] == "Alexander" for u in users)
+        assert not any(u["username"] == "Barnaba" for u in users)
+
+def test_get_users_list_friend_priority(client, logged_in_user, app):
+    """Test czy znajomi pojawiają się na początku listy."""
+    with app.app_context():
+        user, token = logged_in_user
+        
+        u_stranger = User(username="A_stranger", email="stranger@test.com", password="password123", is_confirmed=True)
+        u_friend = User(username="Z_friend", email="friend@test.com", password="password123", is_confirmed=True)
+        db.session.add_all([u_stranger, u_friend])
+        db.session.commit()
+
+        uid1, uid2 = sorted([user.user_id, u_friend.user_id])
+        friendship = Friendship(user_id=uid1, friend_id=uid2)
         db.session.add(friendship)
         db.session.commit()
-        
-        response = client.get(f"/api/users/profile/{user.user_id}", headers=get_auth_header(token))
+
+        response = client.get("/api/users/users_list", headers=get_auth_header(token))
+
         assert response.status_code == 200
+        users = response.get_json()["users"]
+
+        idx_friend = next(i for i, u in enumerate(users) if u["username"] == "Z_friend")
+        idx_stranger = next(i for i, u in enumerate(users) if u["username"] == "A_stranger")
         
-        data = response.get_json()
-        assert "friend_count" in data
-        assert data["friend_count"] == 1
+        assert idx_friend < idx_stranger
+
+def test_get_users_list_pagination(client, logged_in_user, app):
+    """Test paginacji i limitów."""
+    with app.app_context():
+        _, token = logged_in_user
+        
+        for i in range(5):
+            db.session.add(User(username=f"PaginationUser_{i}", email=f"page{i}@test.com", password="password123", is_confirmed=True))
+        db.session.commit()
+
+        response = client.get("/api/users/users_list?page=1&limit=2", headers=get_auth_header(token))
+        
+        assert response.status_code == 200
+        res_json = response.get_json()
+        
+        assert len(res_json["users"]) == 2
+        assert res_json["pagination"]["current_page"] == 1
+        assert res_json["pagination"]["total"] >= 5
+
+def test_get_users_list_invalid_pagination(client, logged_in_user):
+    """Test obsługi błędnych danych paginacji (np. tekst zamiast liczb)."""
+    _, token = logged_in_user
+
+    response = client.get("/api/users/users_list?page=abc&limit=xyz", headers=get_auth_header(token))
+
+    assert response.status_code == 200
+    assert "Operation successful" in response.get_json()["message"]

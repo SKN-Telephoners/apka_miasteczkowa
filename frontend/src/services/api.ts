@@ -20,7 +20,7 @@ const api = axios.create({
 export async function handleSessionExpiry() {
   console.log("Token refresh failed, logging out");
   await tokenStorage.clearTokens();
-    //TO DO : redirect to login screen
+  //TO DO : redirect to login screen
 }
 
 async function refreshAccessToken(): Promise<string> {
@@ -87,7 +87,7 @@ api.interceptors.response.use(
     if (!originalRequest) {
       return Promise.reject(error);
     }
-    
+
     const requestUrl: string = String(originalRequest.url || "");
     const isAuthEndpoint =
       requestUrl.includes("/api/auth/login") ||
@@ -163,6 +163,11 @@ export const userService = {
 
   updateProfile: async (data: any) => {
     const response = await api.put("/api/users/update_profile", data);
+    return response.data;
+  },
+
+  updateAcademicDetails: async (data: { faculty?: string, course?: string, year?: number }) => {
+    const response = await api.put("/api/users/update_academic_details", data);
     return response.data;
   },
 
