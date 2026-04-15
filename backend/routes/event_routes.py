@@ -1,17 +1,17 @@
 from flask import Blueprint, request, current_app
-from backend.models.event import Event, Event_visibility, Event_participants, Invites, InviteRequestStatus, Pictures
+from backend.models.event import Event, Event_visibility, Event_participants, Invites, InviteRequestStatus, Pictures, Location
 from backend.models import User, Friendship
 from backend.extensions import db, limiter
 from backend.constants import Constants
 from backend.responses import ResponseTypes, make_api_response
 from flask_jwt_extended import jwt_required, get_current_user
 from backend.helpers import validate_uuid, sanitize_input
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from sqlalchemy.exc import SQLAlchemyError
 import cloudinary.uploader
 from cloudinary.utils import cloudinary_url
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, asc, desc
 
 events_bp = Blueprint("events", __name__, url_prefix="/api/events")
 local_tz = ZoneInfo("Europe/Warsaw")
@@ -145,7 +145,7 @@ def delete_event(event_id):
     if not e_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Event ID")
 
-    event = Event.query.filter_by(event_id=event_id).first()
+    event = Event.query.filter_by(event_id=e_uuid).first()
 
     if event is None:
         return make_api_response(ResponseTypes.NOT_FOUND, message="Event doesn't exist")
@@ -214,8 +214,39 @@ def edit_event(event_id):
 
     raw_is_private = event_data.get("is_private")
     if raw_is_private is not None:
-        event.is_private = str(raw_is_private).strip().lower() in ['true', '1', 't', 'y', 'yes']
+        new_is_private = str(raw_is_private).strip().lower() in ['true', '1', 't', 'y', 'yes']
+        if event.is_private and not new_is_private: # private -> public 
+            Event_visibility.query.filter_by(event_id=event.event_id).delete()
+        event.is_private = new_is_private
     
+    if event.is_private and "shared_list" in event_data:
+        raw_shared_list = event_data["shared_list"]
+        if not isinstance(raw_shared_list, list):
+            return make_api_response(ResponseTypes.BAD_REQUEST, message="shared_list must be an array")
+        incoming_user_uuids = set()
+        for uid in raw_shared_list:
+            u_uuid = validate_uuid(uid)
+            if u_uuid and u_uuid != user.user_id:
+                incoming_user_uuids.add(u_uuid)
+
+        current_visibility = Event_visibility.query.filter_by(event_id=event.event_id).all()
+        current_user_ids = {v.shared_with for v in current_visibility}
+        
+        #synchronization
+        to_remove = current_user_ids - incoming_user_uuids
+        to_add = incoming_user_uuids - current_user_ids
+
+        if to_remove:
+            Event_visibility.query.filter(
+                Event_visibility.event_id == event.event_id,
+                Event_visibility.shared_with.in_(list(to_remove))
+            ).delete(synchronize_session=False)
+
+        for new_uid in to_add:
+            if db.session.get(User, new_uid):
+                new_vis = Event_visibility(event_id=event.event_id, sharing=user.user_id, shared_with=new_uid)
+                db.session.add(new_vis)
+
     date_str = event_data.get("date")
     time_str = event_data.get("time")
     
@@ -238,21 +269,26 @@ def edit_event(event_id):
         except ValueError:
             return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid date format. Use DD.MM.YYYY and HH:MM")
 
-    raw_pictures = event_data.get("pictures")
+    raw_pictures = event_data.get("pictures", [])
     if raw_pictures is not None:
         if not isinstance(raw_pictures, list):
             return make_api_response(ResponseTypes.BAD_REQUEST, message="Pictures must be a list")
         
-        if len(raw_pictures) > Constants.MAX_PICTURES_COUNT: #TODO: impove!!
-            return make_api_response(ResponseTypes.BAD_REQUEST, message=f"Maximum of {Constants.MAX_PICTURES_COUNT} pictures allowed per event")
-
         existing_pictures_map = {pic.cloud_id: pic for pic in event.pictures}
         existing_ids = set(existing_pictures_map.keys())
         
         incoming_ids = {pic["cloud_id"] for pic in raw_pictures if pic.get("cloud_id")}
 
+        staying_ids = existing_ids.intersection(incoming_ids)
+
         ids_to_delete = existing_ids - incoming_ids
         ids_to_add = incoming_ids - existing_ids
+
+        count_staying = len(staying_ids)
+        count_to_add = len(ids_to_add)
+        total_after_edit = count_staying + count_to_add
+        if total_after_edit > Constants.MAX_PICTURES_COUNT:
+            return make_api_response(ResponseTypes.BAD_REQUEST, message=f"Limit of pictures exceeded, you can only add {Constants.MAX_PICTURES_COUNT} pictures at best")
 
         for pic_id in ids_to_delete:
             pic_to_remove = existing_pictures_map[pic_id]
@@ -264,7 +300,7 @@ def edit_event(event_id):
             event.pictures.remove(pic_to_remove)
 
         for new_id in ids_to_add:
-            new_picture = Pictures(cloud_id=new_id)
+            new_picture = Pictures(cloud_id=new_id, event_id=event.event_id)
             event.pictures.append(new_picture)
 
     try:
@@ -283,11 +319,18 @@ def edit_event(event_id):
 def feed():
     try:
         user = get_current_user()
+        user_id = user.user_id
+
         page = request.args.get("page", default=1, type=int)
         limit = request.args.get("limit", default=Constants.PAGINATION_DEFAULT_LIMIT, type=int)
-        sort=request.args.get("sort", default=1, type=int)
+        
+        q = request.args.get("q", default="", type=str).strip()
+        q = sanitize_input(q) if q else ""
 
-        user_id = user.user_id
+        visibility = request.args.get("visibility", default="all", type=str).lower()
+        participation = request.args.get("participation", default="all", type=str).lower()
+        created_window = request.args.get("created_window", default="all", type=str).lower()
+        sort_mode = request.args.get("sort_mode", default="default", type=str).lower()
 
         if page < 1:
             page = 1
@@ -296,32 +339,73 @@ def feed():
         if limit > Constants.MAX_PAGINATION_LIMIT:
             limit = Constants.MAX_PAGINATION_LIMIT
 
-        events = Event.query.outerjoin(
-            Event_visibility, Event.event_id == Event_visibility.event_id
-        ).filter(
+        visibility_subquery = db.session.query(Event_visibility.event_id).filter(
+            Event_visibility.event_id == Event.event_id,
+            Event_visibility.shared_with == user_id
+        )
+
+        query = Event.query.filter(
             or_(
-                Event.is_private == False,              
-                Event.creator_id == user_id,               
-                Event_visibility.shared_with == user_id
+                Event.is_private == False,
+                Event.creator_id == user_id,
+                visibility_subquery.exists()
             )
-        ).distinct() 
+        )
 
-        if sort==1:
-            events=events.order_by(Event.date_and_time.asc())
-        elif sort==2:
-            events=events.order_by(Event.date_and_time.desc())
+        if q:
+            search_filter = f"%{q}%"
+            query = query.filter(or_(
+                Event.event_name.ilike(search_filter),
+                Event.description.ilike(search_filter)
+            ))
+
+        if visibility == "public":
+            query = query.filter(Event.is_private == False)
+        elif visibility == "private":
+            query = query.filter(Event.is_private == True)
+
+        if participation != "all":
+            participation_exists = db.session.query(Event_participants.event_id).filter(
+                Event_participants.event_id == Event.event_id,
+                Event_participants.user_id == user_id
+            ).exists()
+
+            query = query.filter(participation_exists if participation == "joined" else ~participation_exists)
+
+        now = datetime.now(timezone.utc)
+        if created_window != "all":
+            if created_window == "today":
+                start_date = now - timedelta(days=1)
+            elif created_window == "week":
+                start_date = now - timedelta(weeks=1)
+            elif created_window == "month":
+                start_date = now - timedelta(days=30)
+            elif created_window == "year":
+                start_date = now - timedelta(days=365)
+            if created_window == "older":
+                query = query.filter(Event.created_at < (now - timedelta(days=365)))
+            else:
+                query = query.filter(Event.created_at >= start_date)
+
+        if sort_mode == "members_asc": 
+            query = query.order_by(Event.participant_count.asc())
+        elif sort_mode == "members_desc": 
+            query = query.order_by(Event.participant_count.desc())
+        elif sort_mode == "comments_asc": 
+            query = query.order_by(Event.comment_count.asc())
+        elif sort_mode == "comments_desc": 
+            query = query.order_by(Event.comment_count.desc())
         else:
-            events = events.order_by(Event.date_and_time.asc())
+            query = query.order_by(Event.date_and_time.asc())
+        
+        pagination = query.distinct().paginate(page=page, per_page=limit, error_out=False)
 
-        pagination = events.paginate(page=page, per_page=limit, error_out=False)
-
-        creator_ids = {event.creator_id for event in pagination.items if event.creator_id is not None}
-        creator_users = User.query.filter(User.user_id.in_(creator_ids)).all() if creator_ids else []
-        creator_usernames = {str(user.user_id): user.display_name for user in creator_users}
+        creator_ids = {e.creator_id for e in pagination.items if e.creator_id}
+        creators = {str(u.user_id): u.display_name for u in User.query.filter(User.user_id.in_(creator_ids)).all()}
 
         event_list=[
             {
-                "id": str(event.event_id),
+                "event_id": str(event.event_id),
                 "name": event.event_name,
                 "description": event.description,
                 "date": event.date_and_time.astimezone(local_tz).strftime("%d.%m.%Y"),
@@ -335,9 +419,13 @@ def feed():
                     } 
                     for pic in event.pictures
                 ],
-                "creator_username": creator_usernames.get(str(event.creator_id)),
+                "creator_username": creators.get(str(event.creator_id), "[deleted]"),
                 "comment_count": str(event.comment_count),
+                "participation_count": event.participant_count,
                 "is_private": event.is_private,
+                "is_joined": db.session.query(Event_participants).filter_by(
+                    event_id=event.event_id, user_id=user_id
+                ).first() is not None
             }
             for event in pagination.items
         ]
@@ -348,7 +436,8 @@ def feed():
                 "page": pagination.page,
                 "limit": limit,
                 "total": pagination.total,
-                "pages": pagination.pages
+                "pages": pagination.pages,
+                "has_next": pagination.has_next
             }
         })
     except Exception as e:
@@ -610,7 +699,6 @@ def change_invite_status(invite_id):
     
     return make_api_response(ResponseTypes.SUCCESS, message="Invite status changed successfully")
 
-
 @events_bp.route("/<user_id>/info", methods=["GET"])
 @jwt_required()
 def get_my_events(user_id):
@@ -629,3 +717,24 @@ def get_my_events(user_id):
         ResponseTypes.SUCCESS, 
         data={"created": created_data, "participating": participating_data}
     )
+
+@events_bp.route("/get_coordinates", methods=["GET"])
+@limiter.limit("1000 per second")
+@jwt_required()
+def get_coordinates():
+    location_name = request.args.get('location') # request for that endpoint ex: /api/events/get_coordinates?location=Krakow
+    location_name = str(sanitize_input(location_name))
+    if not location_name or location_name == "":
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Location name must not be empty")
+
+    if len(location_name) > Constants.MAX_LOCATION_LEN:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Location name too long")
+
+    query = db.session.query(Location).filter_by(location_name=location_name).first()    
+    
+    if not query:
+        return make_api_response(ResponseTypes.NOT_FOUND, message="Location of that name not found")
+    
+    coordinates = query.coordinates
+
+    return make_api_response(ResponseTypes.SUCCESS, data={"coordinates": str(coordinates)})
