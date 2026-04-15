@@ -699,6 +699,91 @@ def change_invite_status(invite_id):
     
     return make_api_response(ResponseTypes.SUCCESS, message="Invite status changed successfully")
 
+@events_bp.route("/<user_id>/creator", methods=["GET"])
+@jwt_required()
+def get_user_events_creator(user_id):
+    u_uuid = validate_uuid(user_id)
+
+    if not u_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid user ID")
+
+    user = db.session.get(User, u_uuid)
+    created_events = Event.query.filter_by(creator_id=user.user_id).all()
+    
+    created_data=[
+            {
+                "event_id": str(event.event_id),
+                "name": event.event_name,
+                "description": event.description,
+                "date": event.date_and_time.astimezone(local_tz).strftime("%d.%m.%Y"),
+                "time": event.date_and_time.astimezone(local_tz).strftime("%H:%M"),
+                "location": event.location,
+                "creator_id": str(event.creator_id),
+                "pictures": [
+                    {
+                        "cloud_id": pic.cloud_id,
+                        "url": cloudinary_url(pic.cloud_id, secure=True)[0]
+                    } 
+                    for pic in event.pictures
+                ],
+                "creator_username": user.username,
+                "comment_count": str(event.comment_count),
+                "participation_count": event.participant_count,
+                "is_private": event.is_private,
+            }
+            for event in created_events
+        ]
+    
+    return make_api_response(
+        ResponseTypes.SUCCESS, 
+        data={"data": created_data}
+    )
+
+
+@events_bp.route("/<user_id>/participant", methods=["GET"])
+@jwt_required()
+def get_user_events_participand(user_id):
+    u_uuid = validate_uuid(user_id)
+
+    if not u_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid user ID")
+
+    user = db.session.get(User, u_uuid)
+    
+    participating_events = db.session.query(Event).join(
+        Event_participants, Event.event_id == Event_participants.event_id
+    ).filter(Event_participants.user_id == user.user_id).all()
+
+    participating_data=[
+            {
+                "event_id": str(event.event_id),
+                "name": event.event_name,
+                "description": event.description,
+                "date": event.date_and_time.astimezone(local_tz).strftime("%d.%m.%Y"),
+                "time": event.date_and_time.astimezone(local_tz).strftime("%H:%M"),
+                "location": event.location,
+                "creator_id": str(event.creator_id),
+                "pictures": [
+                    {
+                        "cloud_id": pic.cloud_id,
+                        "url": cloudinary_url(pic.cloud_id, secure=True)[0]
+                    } 
+                    for pic in event.pictures
+                ],
+                "creator_username": User.query.filter_by(user_id=event.creator_id).first().username,
+                "comment_count": str(event.comment_count),
+                "participation_count": event.participant_count,
+                "is_private": event.is_private,
+            }
+            for event in participating_events
+        ]
+    
+    return make_api_response(
+        ResponseTypes.SUCCESS, 
+        data={"data": participating_data}
+    )
+
+
 @events_bp.route("/get_coordinates", methods=["GET"])
 @limiter.limit("1000 per second")
 @jwt_required()
