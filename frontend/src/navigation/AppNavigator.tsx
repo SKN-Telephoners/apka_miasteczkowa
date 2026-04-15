@@ -102,7 +102,7 @@ const MainTabs = () => {
             return null;
           }
 
-            return (
+          return (
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <TouchableOpacity
                 style={{ marginHorizontal: 20 }}
@@ -168,7 +168,7 @@ const AppNavigator = () => {
     <NavigationContainer theme={navigationTheme}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
 
-         {!isAuthenticated ? (
+        {!isAuthenticated ? (
           <Stack.Screen name="Auth" component={AuthStack} />
         ) : (
           <Stack.Group>
@@ -207,7 +207,7 @@ const AppNavigator = () => {
               }}
             />
           </Stack.Group>
-        )} 
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );
