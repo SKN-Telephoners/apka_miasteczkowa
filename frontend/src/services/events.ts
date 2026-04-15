@@ -2,6 +2,7 @@ import api from "./api";
 import { Event, EventPicture } from "../types";
 import { API_BASE_URL } from "../utils/constants";
 import { tokenStorage } from "../utils/storage";
+import { LocationCoordinates } from "../utils/locationCoordinates";
 
 type ApiMessage = { message?: string }; //type string insure for backend function response
 type CreateEventResponse = { message: string; event_id: string; creator_id: string };
@@ -116,11 +117,10 @@ export interface CreateEventData {
     description: string;
     date: string;
     time: string;
-    location: string;
+    location: LocationCoordinates;
     is_private: boolean;
     picture?: EventPictureInput;
     pictures?: EventPictureInput[] | EventPictureInput | null;
-    // key = "name", "description", "date", "time", "location"
 }
 
 export interface EditEventData {
@@ -128,7 +128,7 @@ export interface EditEventData {
     description?: string;
     date?: string;
     time?: string;
-    location?: string;
+    location?: LocationCoordinates;
     is_private?: boolean;
     picture?: EventPictureInput;
     pictures?: EventPictureInput[] | EventPictureInput | null;

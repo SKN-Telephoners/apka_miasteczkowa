@@ -10,7 +10,7 @@ import { TextInput } from "react-native";
 import ItemSeparator from "../../components/ItemSeparator";
 import Button from "../../components/Button";
 import CollapsibleSection from "../../components/CollapsibleSection";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
 import { EventPicture } from "../../types";
@@ -20,10 +20,16 @@ import { useTheme } from "../../contexts/ThemeContext";
 import { useUser } from "../../contexts/UserContext";
 import { useFriends } from "../../contexts/FriendsContext";
 import InputField from "../../components/InputField";
+import {
+  formatLocationCoordinates,
+  normalizeLocationCoordinates,
+  type LocationCoordinates,
+} from "../../utils/locationCoordinates";
 
 
 const AddEvent = () => {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const { colors } = useTheme();
   const { user: currentUser } = useUser();
   const PREVIEW_ICON_SIZE = 22;
@@ -32,7 +38,7 @@ const AddEvent = () => {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [location, setLocation] = useState("");
+  const [locationCoordinates, setLocationCoordinates] = useState<LocationCoordinates | null>(null);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
@@ -45,12 +51,37 @@ const AddEvent = () => {
   const DESCRIPTION_LINE_HEIGHT = 20;
   const DESCRIPTION_MIN_HEIGHT = DESCRIPTION_LINE_HEIGHT * 5 + 20;
   const [descriptionInputHeight, setDescriptionInputHeight] = useState(DESCRIPTION_MIN_HEIGHT);
+  const selectedLocationCoordinates = useMemo(
+    () => normalizeLocationCoordinates(route?.params?.locationCoordinates),
+    [route?.params?.locationCoordinates],
+  );
+
+  useEffect(() => {
+    if (selectedLocationCoordinates) {
+      setLocationCoordinates((prev) => {
+        if (
+          prev &&
+          prev[0] === selectedLocationCoordinates[0] &&
+          prev[1] === selectedLocationCoordinates[1]
+        ) {
+          return prev;
+        }
+
+        return selectedLocationCoordinates;
+      });
+    }
+  }, [selectedLocationCoordinates]);
+
+  const locationDisplay = useMemo(
+    () => formatLocationCoordinates(locationCoordinates),
+    [locationCoordinates],
+  );
 
   const previewEvent = useMemo(() => {
     return buildEventPreview({
       title,
       description,
-      location,
+      location: locationDisplay,
       date,
       time,
       isPrivate,
@@ -60,7 +91,7 @@ const AddEvent = () => {
       picture: eventPicture,
       pictureUri: eventPicturePreviewUri,
     });
-  }, [title, description, location, date, time, isPrivate, currentUser, eventPicture, eventPicturePreviewUri]);
+  }, [title, description, locationDisplay, date, time, isPrivate, currentUser, eventPicture, eventPicturePreviewUri]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -174,13 +205,9 @@ const AddEvent = () => {
     return null;
   };
 
-  const validateLocation = (text: string): string | null => {
-    if (!text) {
-      return "Pole lokalizacja jest wymagane";
-    }
-
-    if (text.length < 3 || text.length > 32) {
-      return "Lokalizacja może mieć maksymalnie 32 znaki";
+  const validateLocation = (): string | null => {
+    if (!locationCoordinates) {
+      return "Wybierz lokalizację na mapie";
     }
 
     return null;
@@ -218,7 +245,7 @@ const AddEvent = () => {
 
   const validateInputs = () => {
     const titleValidation = validateTitle(title);
-    const locationValidation = validateLocation(location);
+    const locationValidation = validateLocation();
     const descriptionValidation = validateDescription(description);
     const dateTimeValidation = validateDateTime(date, time);
 
@@ -258,7 +285,7 @@ const AddEvent = () => {
           description: description,
           date: date,
           time: time,
-          location: location,
+          location: locationCoordinates as LocationCoordinates,
           is_private: isPrivate,
           picture: eventPicture,
         }
@@ -281,7 +308,7 @@ const AddEvent = () => {
 
       setTitle("");
       setDescription("");
-      setLocation("");
+  setLocationCoordinates(null);
       setDate("");
       setTime("");
       setIsPrivate(false);
@@ -329,6 +356,14 @@ const AddEvent = () => {
       ...prev,
       [friendId]: !prev[friendId],
     }));
+  };
+
+  const openLocationPicker = () => {
+    navigation.navigate("EventLocationPicker", {
+      pickLocation: true,
+      returnTo: "AddEvent",
+      initialCoordinates: locationCoordinates ?? undefined,
+    });
   };
 
   const filteredFriends = useMemo(() => {
@@ -412,23 +447,18 @@ const AddEvent = () => {
           ></TextInput>
           <ItemSeparator></ItemSeparator>
           <CollapsibleSection title="Lokalizacja" initialExpanded={true} style={{ padding: 10 }}>
-            <View style={{ flexDirection: "row" }}>
-              <Image source={require("../../../assets/map_selection.jpg")} />
-              <View>
-                <Text style={styles.nameInput}>Nazwa</Text>
-                <TextInput
-                  placeholder="Wpisz nazwę..."
-                  placeholderTextColor={colors.searchWord}
-                  style={styles.textInput}
-                  value={location}
-                  onChangeText={setLocation}
-                  autoComplete="off"
-                  importantForAutofill="no"
-                  autoCorrect={false}
-                />
-                {locationError ? <Text style={styles.errorText}>{locationError}</Text> : null}
+            <TouchableOpacity
+              style={styles.locationPickerButton}
+              onPress={openLocationPicker}
+              activeOpacity={0.85}
+            >
+              <Image source={require("../../../assets/map_selection.jpg")} style={styles.locationPickerImage} />
+              <View style={styles.locationPickerOverlay}>
+                <Text style={styles.locationPickerTitle}>Kliknij mapę, aby wybrać punkt</Text>
+                <Text style={styles.locationPickerSubtitle}>{locationDisplay}</Text>
               </View>
-            </View>
+            </TouchableOpacity>
+            {locationError ? <Text style={styles.errorText}>{locationError}</Text> : null}
           </CollapsibleSection>
 
           <ItemSeparator></ItemSeparator>
@@ -538,15 +568,6 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     color: colors.text,
   },
 
-  nameInput: {
-    paddingBottom: 10,
-    paddingTop: 25,
-    padding: 10,
-    ...THEME.typography.title,
-    fontWeight: "700",
-    color: colors.text,
-  },
-
   infoText: {
     ...THEME.typography.text,
     color: colors.icon,
@@ -639,7 +660,40 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     marginTop: 10,
     fontWeight: "700",
     color: colors.text,
-  }
+  },
+  locationPickerButton: {
+    position: "relative",
+    borderRadius: 16,
+    overflow: "hidden",
+    marginHorizontal: 10,
+    marginVertical: 10,
+  },
+  locationPickerImage: {
+    height: 180,
+    width: "100%",
+  },
+  locationPickerOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.32)",
+    paddingHorizontal: 20,
+  },
+  locationPickerTitle: {
+    ...THEME.typography.eventTitle,
+    color: "#fff",
+    textAlign: "center",
+  },
+  locationPickerSubtitle: {
+    ...THEME.typography.text,
+    color: "#fff",
+    marginTop: 6,
+    textAlign: "center",
+  },
 });
 
 export default AddEvent;

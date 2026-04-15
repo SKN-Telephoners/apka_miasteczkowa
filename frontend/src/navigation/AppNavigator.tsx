@@ -1,4 +1,4 @@
-import { NavigationContainer, getFocusedRouteNameFromRoute } from "@react-navigation/native";
+import { CommonActions, NavigationContainer, getFocusedRouteNameFromRoute } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import WelcomeScreen from "../screens/auth/WelcomeScreen";
@@ -9,11 +9,12 @@ import HomeScreen from "../screens/home/HomeScreen";
 import MapScreen from "../screens/home/MapScreen";
 import ProfileStack from "./ProfileStack";
 import EventStack from "./EventStack";
+import EventPreviewScreen from "../screens/event/EventPreviewScreen";
 import NotificationsScreen from "../screens/home/NotificationsScreen";
 import UserScreen from "../screens/user/UserScreen";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../contexts/AuthContext";
-import { ActivityIndicator, View, TouchableOpacity } from "react-native";
+import { ActivityIndicator, View, TouchableOpacity, Text } from "react-native";
 import AppIcon from "../components/AppIcon";
 import SvgSpriteIcon from "../components/SvgSpriteIcon";
 import { useTheme } from "../contexts/ThemeContext";
@@ -120,7 +121,15 @@ const MainTabs = () => {
     >
       <Tab.Screen name="Przewodnik po miasteczku" component={HomeScreen} />
       <Tab.Screen name="Mapa" component={MapScreen} />
-      <Tab.Screen name="Wydarzenia" component={EventStack} />
+      <Tab.Screen
+        name="Wydarzenia"
+        component={EventStack}
+        listeners={({ navigation }) => ({
+          tabPress: () => {
+            navigation.navigate("Wydarzenia", { screen: "EventScreen" });
+          },
+        })}
+      />
       <Tab.Screen name="Profil" component={ProfileStack} />
     </Tab.Navigator>
   );
@@ -194,6 +203,18 @@ const AppNavigator = () => {
               options={{
                 headerShown: true,
                 headerTitle: 'Profil użytkownika',
+                headerStyle: { backgroundColor: colors.background },
+                headerTintColor: colors.text,
+                headerTitleStyle: { color: colors.text },
+              }}
+            />
+            <Stack.Screen
+              name="SingleEventPreview"
+              component={EventPreviewScreen}
+              options={{
+                headerShown: true,
+                headerTitle: 'Podgląd wydarzenia',
+                headerBackTitle: '',
                 headerStyle: { backgroundColor: colors.background },
                 headerTintColor: colors.text,
                 headerTitleStyle: { color: colors.text },

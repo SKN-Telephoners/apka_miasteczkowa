@@ -10,6 +10,7 @@ import UserCard from "./UserCard";
 import SvgSpriteIcon from "./SvgSpriteIcon";
 import { useTheme } from "../contexts/ThemeContext";
 import { useFriends } from "../contexts/FriendsContext";
+import { normalizeLocationCoordinates } from "../utils/locationCoordinates";
 
 const parseEventDateTime = (event: Event): Date | null => {
     if (!event?.date || !event?.time) return null;
@@ -109,6 +110,31 @@ const EventCard = ({ item, showActions = true }: { item: Event; showActions?: bo
     const canOpenCreatorProfile = Boolean(item.creator_id) && item.creator_id !== userID;
     const canInviteFromCard = !isPastEvent && (!isPrivateEvent || isOwner);
     const hideInviteAction = isPrivateEvent && !isOwner;
+    const locationCoordinates = useMemo(
+        () => normalizeLocationCoordinates(item.location),
+        [item.location],
+    );
+
+    const handleOpenEventOnMap = () => {
+        if (!locationCoordinates) {
+            Alert.alert("Brak lokalizacji", "To wydarzenie nie ma poprawnych współrzędnych lokalizacji.");
+            return;
+        }
+
+        const parentNavigation = navigation.getParent?.();
+        if (parentNavigation) {
+            parentNavigation.navigate("Main", {
+                screen: "Mapa",
+                params: { initialCoordinates: locationCoordinates },
+            });
+            return;
+        }
+
+        navigation.navigate("Main", {
+            screen: "Mapa",
+            params: { initialCoordinates: locationCoordinates },
+        });
+    };
 
     // Check if creator is a friend
     useEffect(() => {
@@ -248,15 +274,16 @@ const EventCard = ({ item, showActions = true }: { item: Event; showActions?: bo
                 ) : null}
 
                 <Text style={[styles.textMuted, isPastEvent && styles.pastMetaText]}>• {item.date} • {item.time} </Text>
-                <View style={{ flexDirection: "row" }}>
-                    <Text style={[styles.textMuted, isPastEvent && styles.pastMetaText]}>• {item.location}</Text>
-                    <View style={styles.mapLabelRow}>
-                        <Text style={[styles.textHighlight, isPastEvent && styles.pastMetaText]}>• MAPA</Text>
-                        <View style={styles.mapInlineIconContainer}>
-                            <SvgSpriteIcon set={1} size={MAP_INLINE_ICON_SIZE} offsetX={MAP_INLINE_ICON_OFFSET.x} offsetY={MAP_INLINE_ICON_OFFSET.y} />
-                        </View>
+                <TouchableOpacity
+                    style={styles.mapLabelRow}
+                    onPress={handleOpenEventOnMap}
+                    activeOpacity={0.8}
+                >
+                    <Text style={[styles.textHighlight, isPastEvent && styles.pastMetaText]}>• MAPA</Text>
+                    <View style={styles.mapInlineIconContainer}>
+                        <SvgSpriteIcon set={1} size={MAP_INLINE_ICON_SIZE} offsetX={MAP_INLINE_ICON_OFFSET.x} offsetY={MAP_INLINE_ICON_OFFSET.y} />
                     </View>
-                </View>
+                </TouchableOpacity>
 
                 <View style={{ paddingBottom: 10, paddingTop: 20 }}>
                     <UserCard
@@ -398,17 +425,6 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
         color: colors.icon,
     },
 
-    location: {
-        fontSize: 18,
-        bottom: 2,
-        fontWeight: "bold",
-        color: colors.transparentHighlight,
-    },
-
-    pastLocation: {
-        color: colors.text,
-    },
-
     joinButtonContainer: {
         paddingTop: 10,
         paddingHorizontal: 60,
@@ -455,6 +471,8 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     mapLabelRow: {
         flexDirection: "row",
         alignItems: "center",
+        alignSelf: "flex-start",
+        marginTop: 2,
     },
 
     mapInlineIconContainer: {
