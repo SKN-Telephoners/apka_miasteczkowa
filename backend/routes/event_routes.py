@@ -11,7 +11,8 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.exc import SQLAlchemyError
 import cloudinary.uploader
 from cloudinary.utils import cloudinary_url
-from sqlalchemy import or_, and_, asc, desc
+from sqlalchemy import or_, and_
+import backend.notifications as notifications
 
 events_bp = Blueprint("events", __name__, url_prefix="/api/events")
 local_tz = ZoneInfo("Europe/Warsaw")
@@ -609,6 +610,16 @@ def invite_to_event(event_id):
         )
         db.session.add(new_invite)
         db.session.commit()
+        
+        notifications.event_invite_sent.send(
+            current_app._get_current_object(),
+            from_user=u_uuid, 
+            to_user=i_uuid, 
+            invite_id=new_invite.invite_id,
+            event_id=e_uuid,
+            event_name=event.event_name
+        )
+        
     except SQLAlchemyError as e:
         db.session.rollback()
         current_app.logger.error(f"Database error in invite_to_event: {e}")

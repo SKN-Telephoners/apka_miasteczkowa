@@ -49,7 +49,7 @@ def create_friend_request(friend_id):
     try:
         new_request = FriendRequest(sender_id=user.user_id, receiver_id=friend_id)
         db.session.add(new_request)
-        db.session.flush()
+        db.session.commit()
         
         notifications.friend_request_created.send(
             current_app._get_current_object(),
