@@ -421,6 +421,8 @@ def get_users_list():
         return make_api_response(ResponseTypes.INVALID_DATA, message="Pagination must be a positive integer")
 
     search_val = request.args.get("search", default="", type=str).strip()
+    clean_search = ""
+    escaped_search = ""
 
     query = db.session.query(User, Friendship.friend_id).outerjoin(
         Friendship, 
@@ -428,21 +430,28 @@ def get_users_list():
             and_(Friendship.user_id == current_user_id, Friendship.friend_id == User.user_id),
             and_(Friendship.friend_id == current_user_id, Friendship.user_id == User.user_id)
         )
-    ).filter(User.deleted == False, User.user_id != current_user_id)
+    ).filter(User.deleted.isnot(True), User.user_id != current_user_id)
 
     if search_val:
         clean_search = sanitize_input(search_val).strip()[:Constants.MAX_USERNAME_LEN]
         if clean_search:
             escaped_search = clean_search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-            query = query.filter(User.username.startswith(f"{escaped_search}"))
+            query = query.filter(User.username.ilike(f"%{escaped_search}%", escape="\\"))
 
 
     friend_priority = case(
         (Friendship.friendship_id.isnot(None), 1), 
         else_=0
     )
-
-    query = query.order_by(friend_priority.desc(), User.username.asc())
+    if search_val and clean_search:
+        search_priority = case(
+            (User.username.ilike(clean_search), 3),
+            (User.username.ilike(f"{clean_search}%", escape="\\"), 2),
+            else_=1,
+        )
+        query = query.order_by(search_priority.desc(), friend_priority.desc(), User.username.asc())
+    else:
+        query = query.order_by(friend_priority.desc(), User.username.asc())
 
     pagination = query.paginate(page=page, per_page=limit, error_out=False)
 
@@ -465,7 +474,8 @@ def get_users_list():
             "course": user.course,
             "year": user.year,
             "profile_picture": profile_pic_data,
-            "is_friend": is_friend
+            "is_friend": is_friend,
+            "is_self": False,
         }
         users_list.append(user_info)
 

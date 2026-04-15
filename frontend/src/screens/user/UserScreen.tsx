@@ -17,7 +17,7 @@ import InputField from "../../components/InputField";
 import UserCard from "../../components/UserCard";
 
 const UserScreen = () => {
-  const { logout } = useAuth();
+  const { userId } = useAuth();
   const { user: currentUser } = useUser();
   const { friends, sendFriendRequest, removeFriend, fetchFriends } = useFriends();
   const { events } = useEvents();
@@ -27,7 +27,12 @@ const UserScreen = () => {
 
   // Przechwytywanie trybu
   const visitedUser = route.params?.visitedUser;
-  const isOwner = !visitedUser || visitedUser.id === currentUser?.user_id || visitedUser.user_id === currentUser?.user_id;
+  const visitedUserId = visitedUser?.user_id || visitedUser?.id;
+  const hasVisitedUser = Boolean(visitedUserId);
+  const isOwnerRoute = route.name === "UserProfile";
+  const isOwner = hasVisitedUser
+    ? String(visitedUserId) === String(userId)
+    : isOwnerRoute;
   const [visitedProfileData, setVisitedProfileData] = useState<any | null>(null);
   const profileData = isOwner ? currentUser : (visitedProfileData || visitedUser);
 
@@ -39,9 +44,7 @@ const UserScreen = () => {
   // Refresh friends list when this screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      if (!isOwner) {
-        fetchFriends();
-      }
+      fetchFriends();
     }, [isOwner, fetchFriends])
   );
 
@@ -178,8 +181,10 @@ const UserScreen = () => {
       </View>
 
       <Text style={styles.facultyText}>{profileData?.academy || "Brak Uczelni"}</Text>
-      {isOwner && (
-        <Text style={styles.majorText}>{profileData?.course ? `${profileData.course} ${profileData.year || ""} rok` : "Brak przypisanego kierunku"}</Text>
+      {profileData?.faculty && profileData?.course && (
+        <Text style={styles.majorText}>
+          {`${profileData.faculty} • ${profileData.course}${profileData.year ? ` • ${profileData.year} rok` : ""}`}
+        </Text>
       )}
 
       <Text style={styles.userBio}>{profileData?.description || (isOwner ? "Brak opisu" : "")}</Text>

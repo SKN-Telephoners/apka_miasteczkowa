@@ -4,7 +4,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useFriends } from "../../contexts/FriendsContext";
-import { useUser } from "../../contexts/UserContext";
+import { useAuth } from "../../contexts/AuthContext";
 import { searchUsersByUsername } from "../../services/users";
 import { User } from "../../types/friends";
 import UserCard from "../../components/UserCard";
@@ -14,7 +14,7 @@ import InputField from "../../components/InputField";
 const SearchScreen = () => {
   const navigation = useNavigation<any>();
   const { colors } = useTheme();
-  const { user: currentUser } = useUser();
+  const { userId } = useAuth();
   const { sendFriendRequest } = useFriends();
   const queryClient = useQueryClient();
 
@@ -34,19 +34,19 @@ const SearchScreen = () => {
   const shouldSearch = debouncedQuery.length > 0;
 
   const { data, isFetching, error } = useQuery({
-    queryKey: ["user-search", currentUser?.user_id, debouncedQuery],
-    queryFn: () => searchUsersByUsername(debouncedQuery, 1),
-    enabled: shouldSearch && Boolean(currentUser?.user_id),
+    queryKey: ["user-search", userId, debouncedQuery],
+    queryFn: () => searchUsersByUsername(debouncedQuery, 1, 50),
+    enabled: shouldSearch && Boolean(userId),
     staleTime: 0,
     refetchOnMount: "always",
   });
 
   const users = data?.users ?? [];
 
-  const handleSendRequest = async (userId: string) => {
+  const handleSendRequest = async (targetUserId: string) => {
     try {
-      await sendFriendRequest(userId);
-      await queryClient.invalidateQueries({ queryKey: ["user-search", currentUser?.user_id] });
+      await sendFriendRequest(targetUserId);
+      await queryClient.invalidateQueries({ queryKey: ["user-search", userId] });
     } catch (err: any) {
       Alert.alert("Błąd", err?.message || "Nie udało się wysłać zaproszenia");
     }
@@ -56,7 +56,7 @@ const SearchScreen = () => {
     const academy = item.academy || undefined;
     const course = item.course || undefined;
     const isFriend = Boolean(item.is_friend);
-    const isSelf = item.id === currentUser?.user_id || item.id === currentUser?.id || Boolean((item as any).is_self);
+    const isSelf = item.id === userId || Boolean((item as any).is_self);
 
     return (
       <View style={styles.cardWrap}>
@@ -70,11 +70,17 @@ const SearchScreen = () => {
           showUsernameIcon={!isFriend && !isSelf}
           onUsernameIconPress={!isFriend && !isSelf ? () => handleSendRequest(item.id) : undefined}
           onMetaIconPress={() =>
-            navigation.navigate("UserScreen", {
-              visitedUser: {
-                ...item,
-                id: item.id,
-                user_id: item.id,
+            navigation.navigate("Main", {
+              screen: "Profil",
+              params: {
+                screen: "UserProfile",
+                params: {
+                  visitedUser: {
+                    ...item,
+                    id: item.id,
+                    user_id: item.id,
+                  },
+                },
               },
             })
           }

@@ -57,11 +57,11 @@ const UserCard = ({
     if (majorName) {
         firstLineSegments.push(majorName);
     }
-    if (yearOfStudy !== undefined && yearOfStudy !== null) {
-        firstLineSegments.push(`${yearOfStudy} rok`);
-    }
 
     const secondLineSegments: string[] = [];
+    if (yearOfStudy !== undefined && yearOfStudy !== null) {
+        secondLineSegments.push(`${yearOfStudy} rok`);
+    }
     
     if (showCreatedAt && createdAtDisplay) {
         secondLineSegments.push(createdAtDisplay);
