@@ -41,7 +41,7 @@ const ProfileStack = () => {
             <Stack.Screen
                 name="SettingsScreen"
                 component={SettingsScreen}
-                options={{ headerShown: true, title: "Ustawienia Konfiguracyjne" }}
+                options={{ headerShown: true, title: "Ustawienia" }}
             />
             <Stack.Screen
                 name="MyEventPreview"

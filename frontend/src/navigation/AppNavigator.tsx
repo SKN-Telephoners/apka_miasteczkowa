@@ -118,7 +118,7 @@ const MainTabs = () => {
         },
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Przewodnik po miasteczku" component={HomeScreen} />
       <Tab.Screen name="Mapa" component={MapScreen} />
       <Tab.Screen name="Wydarzenia" component={EventStack} />
       <Tab.Screen name="Profil" component={ProfileStack} />

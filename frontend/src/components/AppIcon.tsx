@@ -6,7 +6,7 @@ import Iconset2 from '../../assets/iconset2.svg';
 
 export const ICON_REGISTRY = {
   // Prawy górny róg (kolumna 2, wiersz 0)
-  'Home': { Component: Iconset1, cols: 3, rows: 3, col: 2, row: 0 },
+  'Przewodnik po miasteczku': { Component: Iconset1, cols: 3, rows: 3, col: 2, row: 0 },
   // Lewa strona środek (kolumna 0, wiersz 1)
   'Mapa': { Component: Iconset1, cols: 3, rows: 3, col: 0, row: 1 },
   // Samo centrum (kolumna 1, wiersz 1)
