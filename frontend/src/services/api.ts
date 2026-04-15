@@ -93,6 +93,10 @@ api.interceptors.response.use(
       requestUrl.includes("/api/auth/login") ||
       requestUrl.includes("/api/auth/register") ||
       requestUrl.includes("/api/auth/refresh");
+    const isAuthMutationEndpoint =
+      requestUrl.includes("/api/auth/login") ||
+      requestUrl.includes("/api/auth/register") ||
+      requestUrl.includes("/api/email/reset_password_request");
 
     if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
@@ -107,7 +111,7 @@ api.interceptors.response.use(
       }
     }
     const isRetryableError = !error.response || (error.response.status >= 500 && error.response.status < 600);
-    if (isRetryableError) {
+    if (isRetryableError && !isAuthMutationEndpoint) {
       originalRequest._retryCount = originalRequest._retryCount || 0;
       if (originalRequest._retryCount < MAX_RETRY_ATTEMPTS) {
         originalRequest._retryCount += 1;

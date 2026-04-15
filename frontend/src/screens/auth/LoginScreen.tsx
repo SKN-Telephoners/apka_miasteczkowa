@@ -13,6 +13,8 @@ import {
 import { useAuth } from "../../contexts/AuthContext";
 import { authService } from "../../services/api";
 import InputField from "../../components/InputField";
+import Button from "../../components/Button";
+import { useTheme } from "../../contexts/ThemeContext";
 import { MESSAGES, THEME } from "../../utils/constants";
 
 const LoginScreen = ({ navigation }: { navigation: any }) => {
@@ -25,6 +27,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
   const [passwordError, setPasswordError] = useState("");
 
   const { login } = useAuth();
+  const { colors } = useTheme();
 
   const validateUsername = (text: string): string | null => {
     if (!text) {
@@ -75,7 +78,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>{MESSAGES.APP.LOGIN_TITLE}</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{MESSAGES.APP.LOGIN_TITLE}</Text>
 
         <View style={styles.inputContainer}>
           <InputField
@@ -86,8 +89,8 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
             autoComplete="username"
             textContentType="username"
             importantForAutofill="yes"
-            floatingLabelColor={THEME.colors.lm_srch_wrd}
-            floatingLabelBackgroundColor="transparent"
+            floatingLabelColor={colors.text}
+            floatingLabelBackgroundColor={colors.background}
             errorMessage={usernameError}
             validate={validateUsername}
           />
@@ -100,8 +103,8 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
             autoComplete="current-password"
             textContentType="password"
             importantForAutofill="yes"
-            floatingLabelColor={THEME.colors.lm_srch_wrd}
-            floatingLabelBackgroundColor="transparent"
+            floatingLabelColor={colors.text}
+            floatingLabelBackgroundColor={colors.background}
             toggleSecure={() => setSecureText(!secureText)}
             errorMessage={passwordError}
             validate={validatePassword}
@@ -109,32 +112,28 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
 
           <TouchableOpacity
             onPress={() => navigation.navigate("ResetPassword")}
+            style={styles.forgotPasswordButton}
+            activeOpacity={0.8}
           >
-            <Text style={styles.forgotPassword}>
+            <Text style={[styles.forgotPassword, { color: colors.highlight }]}>
               {MESSAGES.BUTTONS.FORGOT_PASSWORD}
             </Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={[styles.loginButton, isLoading && styles.buttonDisabled]}
+          <Button
+            title={MESSAGES.BUTTONS.LOGIN}
             onPress={handleLogin}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>{MESSAGES.BUTTONS.LOGIN}</Text>
-            )}
-          </TouchableOpacity>
+            loading={isLoading}
+            type="primary"
+          />
 
-          <TouchableOpacity
-            style={styles.signUpButton}
+          <Button
+            title={MESSAGES.BUTTONS.REGISTER}
             onPress={() => navigation.navigate("Register")}
-          >
-            <Text style={styles.buttonText}>{MESSAGES.BUTTONS.REGISTER}</Text>
-          </TouchableOpacity>
+            type="outline"
+          />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -147,8 +146,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   title: {
-    fontSize: 48,
-    fontWeight: "bold",
+    ...THEME.typography.title,
     marginVertical: 30,
     textAlign: "center",
   },
@@ -162,30 +160,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 15,
   },
-  loginButton: {
-    backgroundColor: "#4a90e2",
-    paddingVertical: 12,
-    width: "80%",
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  signUpButton: {
-    backgroundColor: "#ff914d",
-    paddingVertical: 12,
-    width: "80%",
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 18,
+  forgotPasswordButton: {
+    alignSelf: "flex-start",
+    marginTop: 6,
+    marginBottom: 8,
   },
   forgotPassword: {
-    marginTop: 10,
-    color: "#4a90e2",
+    ...THEME.typography.text,
+    fontSize: 13,
   },
 });
 

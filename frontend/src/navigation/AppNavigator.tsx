@@ -67,7 +67,7 @@ const MainTabs = () => {
         tabBarInactiveTintColor: colors.icon,
 
         headerRight: () => {
-          if (route.name === 'Mapa') {
+          if (route.name === 'Mapa' || route.name === 'Przewodnik po miasteczku') {
             return (
               <View style={{ flexDirection: 'row' }}>
                 <TouchableOpacity

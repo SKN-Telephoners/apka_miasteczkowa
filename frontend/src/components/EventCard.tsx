@@ -102,7 +102,6 @@ const EventCard = ({ item, showActions = true }: { item: Event; showActions?: bo
         String(item?.is_private).toLowerCase() === "true";
     const creatorDisplayName = item.creator_username?.trim() || "nieznany użytkownik";
     const createdAtDisplay = formatCreatedAt(item.created_at);
-    const visibilityLabel = isPrivateEvent ? "wydarzenie prywatne" : "wydarzenie publiczne";
     const creatorFaculty = (item as any)?.creator_faculty as string | undefined;
     const creatorCourse = (item as any)?.creator_course as string | undefined;
     const creatorYear = (item as any)?.creator_year as number | string | undefined;
@@ -388,7 +387,7 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
 
     textHighlight: {
         ...THEME.typography.text,
-        color: colors.transparentHighlight
+        color: colors.highlight
     },
 
     pastTextColor: {
