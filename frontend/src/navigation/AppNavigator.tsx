@@ -67,7 +67,7 @@ const MainTabs = () => {
         tabBarInactiveTintColor: colors.icon,
 
         headerRight: () => {
-          if (route.name === 'Mapa') {
+          if (route.name === 'Mapa' || route.name === 'Przewodnik po miasteczku') {
             return (
               <View style={{ flexDirection: 'row' }}>
                 <TouchableOpacity
@@ -118,7 +118,7 @@ const MainTabs = () => {
         },
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Przewodnik po miasteczku" component={HomeScreen} />
       <Tab.Screen name="Mapa" component={MapScreen} />
       <Tab.Screen name="Wydarzenia" component={EventStack} />
       <Tab.Screen name="Profil" component={ProfileStack} />

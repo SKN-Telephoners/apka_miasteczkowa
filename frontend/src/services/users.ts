@@ -31,6 +31,7 @@ export const searchUsersByUsername = async (
       username: user.username,
       email: "",
       academy: user.academy,
+      faculty: user.faculty,
       course: user.course,
       year: user.year,
       avatarUrl: user.profile_picture?.url || undefined,
@@ -64,6 +65,7 @@ interface GetUserResponse {
     description: string | null;
     profile_picture: { cloud_id: string; url: string } | null;
     academy: string | null;
+    faculty: string | null;
     course: string | null;
     year: number | null;
     academic_clubs: string[] | null;
@@ -84,7 +86,7 @@ export const getUserProfile = async (userId: string) => {
 
 export const getPublicUserProfile = async (userId: string) => {
   try {
-    const response = await api.get(`/api/users/profile/${userId}`);
+    const response = await api.get(`/api/users/public_profile/${userId}`);
     return response.data;
   } catch (err: any) {
     const msg = err?.response?.data?.message || err?.message || "Błąd pobierania profilu użytkownika";

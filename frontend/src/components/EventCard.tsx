@@ -102,6 +102,10 @@ const EventCard = ({ item, showActions = true }: { item: Event; showActions?: bo
         String(item?.is_private).toLowerCase() === "true";
     const creatorDisplayName = item.creator_username?.trim() || "nieznany użytkownik";
     const createdAtDisplay = formatCreatedAt(item.created_at);
+    const creatorFaculty = (item as any)?.creator_faculty as string | undefined;
+    const creatorCourse = (item as any)?.creator_course as string | undefined;
+    const creatorYear = (item as any)?.creator_year as number | string | undefined;
+    const creatorAcademy = (item as any)?.creator_academy as string | undefined;
     const canOpenCreatorProfile = Boolean(item.creator_id) && item.creator_id !== userID;
     const canInviteFromCard = !isPastEvent && (!isPrivateEvent || isOwner);
     const hideInviteAction = isPrivateEvent && !isOwner;
@@ -253,13 +257,15 @@ const EventCard = ({ item, showActions = true }: { item: Event; showActions?: bo
                         </View>
                     </View>
                 </View>
-                <Text style={[styles.textMuted, isPastEvent && styles.pastMetaText]}>• placeholder_kierunek </Text>
 
                 <View style={{ paddingBottom: 10, paddingTop: 20 }}>
                     <UserCard
                         creatorDisplayName={creatorDisplayName}
                         createdAtDisplay={createdAtDisplay}
                         avatarUri={item.creator_profile_picture_url || undefined}
+                        uniName={creatorAcademy || creatorFaculty || undefined}
+                        majorName={creatorCourse || undefined}
+                        yearOfStudy={creatorYear !== undefined && creatorYear !== null ? Number(creatorYear) : undefined}
                         showUsernameIcon={canOpenCreatorProfile && !isCreatorFriend}
                         onUsernameIconPress={canOpenCreatorProfile && !isCreatorFriend ? handleSendFriendRequest : undefined}
                         showMetaIcon={canOpenCreatorProfile}
@@ -381,7 +387,7 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
 
     textHighlight: {
         ...THEME.typography.text,
-        color: colors.transparentHighlight
+        color: colors.highlight
     },
 
     pastTextColor: {

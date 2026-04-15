@@ -222,6 +222,7 @@ def get_friends_list():
                     "email": friend.email,
                     "academy": friend.academy,
                     "course": friend.course,
+                    "year": friend.year,
                     "profile_picture": profile_pic_data,
                 })
 
@@ -238,6 +239,7 @@ def get_friends_list():
                 "email": r.sender.email,
                 "academy": r.sender.academy,
                 "course": r.sender.course,
+                "year": r.sender.year,
                 "profile_picture": {
                     "cloud_id": r.sender.profile_picture,
                     "url": cloudinary_url(r.sender.profile_picture, secure=True)[0],

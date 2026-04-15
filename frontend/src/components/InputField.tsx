@@ -31,6 +31,7 @@ interface InputFieldProps {
   showFloatingLabel?: boolean;
   floatingLabelColor?: TextStyle["color"];
   floatingLabelBackgroundColor?: TextStyle["backgroundColor"];
+  leadingElement?: React.ReactNode;
 }
 
 const BASE_TILE_SIZE = 30;
@@ -53,6 +54,7 @@ const InputField: React.FC<InputFieldProps> = ({
   showFloatingLabel = true,
   floatingLabelColor = THEME.colors.light.text,
   floatingLabelBackgroundColor = THEME.colors.light.background,
+  leadingElement,
 }) => {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
@@ -104,6 +106,7 @@ const InputField: React.FC<InputFieldProps> = ({
           displayErrorMessage ? styles.inputBoxError : null,
         ]}
       >
+        {leadingElement ? <View style={styles.leadingElementContainer}>{leadingElement}</View> : null}
         {!isEmpty && showFloatingLabel && (
           <Text
             style={[
@@ -179,6 +182,12 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     flex: 1,
     marginLeft: 10,
     color: colors.text,
+  },
+  leadingElementContainer: {
+    marginLeft: 2,
+    marginRight: 2,
+    alignItems: "center",
+    justifyContent: "center",
   },
   searchIconContainer: {
     width: ICON_SIZE,

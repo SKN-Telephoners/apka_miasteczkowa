@@ -38,8 +38,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const login = async (accessToken: string, refreshToken: string) => {
+    await tokenStorage.clearTokens();
     await tokenStorage.saveTokens(accessToken, refreshToken);
-    const id = await tokenStorage.getUserId();
+    const id = await tokenStorage.getUserIdFromAccessToken(accessToken);
     setUserId(id);
     setIsAuthenticated(true);
     setIsLoading(false);
