@@ -117,6 +117,15 @@ const UserScreen = () => {
     );
   }, [friends, searchQuery]);
 
+  const myCreatedEvents = useMemo(() => {
+    return events.filter(e => String(e.creator_id) === String(profileData?.id || profileData?.user_id));
+  }, [events, profileData]);
+
+  const myJoinedEvents = useMemo(() => {
+    // "is_participating" obejmuje też twórcę, więc odrzucamy własne:
+    return events.filter(e => e.is_participating && String(e.creator_id) !== String(profileData?.id || profileData?.user_id));
+  }, [events, profileData]);
+
   const handleSendRequest = async () => {
     try {
       if (profileData?.id || profileData?.user_id) {
@@ -245,8 +254,8 @@ const UserScreen = () => {
           </CollapsibleSection>
 
           <CollapsibleSection title="Moje wydarzenia">
-            {events.length > 0 ? (
-              events.map((event) => (
+            {myCreatedEvents.length > 0 ? (
+              myCreatedEvents.map((event) => (
                 <TouchableOpacity
                   key={event.id}
                   style={[styles.listItem, { borderColor: colors.border }]}
@@ -265,7 +274,23 @@ const UserScreen = () => {
           </CollapsibleSection>
 
           <CollapsibleSection title="Zapisane wydarzenia">
-            <Text style={styles.infoText}>Brak zapisanych wydarzeń (Oczekuje na endpoint w backendzie)</Text>
+            {myJoinedEvents.length > 0 ? (
+              myJoinedEvents.map((event) => (
+                <TouchableOpacity
+                  key={event.id}
+                  style={[styles.listItem, { borderColor: colors.border }]}
+                  activeOpacity={0.8}
+                  onPress={() => navigation.navigate("MyEventPreview", { event, screenTitle: "Zapisane wydarzenie", allowEdit: false })}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.listTitle}>{event.name}</Text>
+                    <Text style={styles.listSubtitle}>{event.date} o {event.time} • {event.location}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <Text style={styles.infoText}>Brak zapisanych wydarzeń</Text>
+            )}
           </CollapsibleSection>
 
         </>
