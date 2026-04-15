@@ -261,19 +261,6 @@ const UserScreen = () => {
             <Text style={styles.infoText}>Brak zapisanych wydarzeń (Oczekuje na endpoint w backendzie)</Text>
           </CollapsibleSection>
 
-          <CollapsibleSection
-            title="Zdjęcia"
-            rightActionIcon="add"
-            onRightActionPress={handleAddPhoto}
-            initialExpanded={true}
-          >
-            <View style={styles.placeholderBox}>
-              <Image
-                source={{ uri: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" }}
-                style={styles.mockPhoto}
-              />
-            </View>
-          </CollapsibleSection>
         </>
       )}
 

@@ -103,6 +103,8 @@ const EventCard = ({ item, showActions = true }: { item: Event; showActions?: bo
     const creatorDisplayName = item.creator_username?.trim() || "nieznany użytkownik";
     const createdAtDisplay = formatCreatedAt(item.created_at);
     const canOpenCreatorProfile = Boolean(item.creator_id) && item.creator_id !== userID;
+    const canInviteFromCard = !isPastEvent && (!isPrivateEvent || isOwner);
+    const hideInviteAction = isPrivateEvent && !isOwner;
 
     // Check if creator is a friend
     useEffect(() => {
@@ -293,12 +295,23 @@ const EventCard = ({ item, showActions = true }: { item: Event; showActions?: bo
                             </View>
                             <Text style={styles.trailingCountText}>{Number(item.comment_count ?? 0)}</Text>
                         </TouchableOpacity>
-                        <View style={styles.trailingActionItem}>
-                            <View style={styles.trailingIconContainer}>
-                                <SvgSpriteIcon set={1} size={TRAILING_ICON_SIZE} offsetX={SHARE_ICON_OFFSET.x} offsetY={SHARE_ICON_OFFSET.y} />
+                        {!hideInviteAction && (
+                            <View style={styles.trailingActionItem}>
+                                <TouchableOpacity
+                                    style={styles.trailingIconContainer}
+                                    onPress={() => {
+                                        if (!canInviteFromCard) {
+                                            return;
+                                        }
+                                        navigation.navigate("EventInviteUsers", { event: item });
+                                    }}
+                                    disabled={!canInviteFromCard}
+                                    activeOpacity={0.8}
+                                >
+                                    <SvgSpriteIcon set={1} size={TRAILING_ICON_SIZE} offsetX={SHARE_ICON_OFFSET.x} offsetY={SHARE_ICON_OFFSET.y} />
+                                </TouchableOpacity>
                             </View>
-                            <Text style={styles.trailingCountText}>0</Text>
-                        </View>
+                        )}
                     </View>
                     )}
                 </View>
@@ -468,6 +481,10 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
         ...THEME.typography.text,
         color: colors.icon,
         marginLeft: 6,
+    },
+
+    trailingCountDisabled: {
+        opacity: 0.5,
     },
 
 });

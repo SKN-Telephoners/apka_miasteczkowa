@@ -1,12 +1,12 @@
 import React from "react";
 import { View, Text, Alert, TextInput, SafeAreaView, ScrollView, Image, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useFriends } from "../../contexts/FriendsContext";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { editEvent, uploadEventPicture } from "../../services/events";
+import { deleteInviteToEvent, editEvent, getSentInvitesForEvent, inviteToEvent, uploadEventPicture } from "../../services/events";
 import DatePicker from "../../components/DateTimePicker";
 import Checkbox from 'expo-checkbox';
 import UserCard from "../../components/UserCard";
-import api from "../../services/api";
 import ItemSeparator from "../../components/ItemSeparator";
 import Button from "../../components/Button";
 import CollapsibleSection from "../../components/CollapsibleSection";
@@ -17,12 +17,15 @@ import { EventPicture } from "../../types";
 import { buildEventPreview } from "../../utils/eventPreview";
 import SvgSpriteIcon from "../../components/SvgSpriteIcon";
 import { useTheme } from "../../contexts/ThemeContext";
+import { useUser } from "../../contexts/UserContext";
+import InputField from "../../components/InputField";
 
 const EditEvent = () => {
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
     const { event } = route.params;
     const { colors } = useTheme();
+    const { user: currentUser } = useUser();
     const PREVIEW_ICON_SIZE = 22;
     const PREVIEW_ICON_OFFSET = { x: 0, y: -60 };
 
@@ -43,16 +46,16 @@ const EditEvent = () => {
             if (event.date && event.time) {
                 const [day, month, year] = event.date.split('.').map(Number);
                 const [hours, minutes] = event.time.split(':').map(Number);
-                
+
                 const dateObj = new Date(year, month - 1, day);
                 const timeObj = new Date(year, month - 1, day, hours, minutes);
-                
+
                 return { date: dateObj, time: timeObj };
             }
         } catch (error) {
             console.error("Error parsing event date/time:", error);
         }
-        
+
         const now = new Date();
         return { date: now, time: now };
     };
@@ -62,11 +65,9 @@ const EditEvent = () => {
     const [title, setTitle] = useState(event.name || "");
     const [description, setDescription] = useState(event.description || "");
     const [location, setLocation] = useState(event.location || "");
-    const [date, setDate] = useState(event.date || ""); 
+    const [date, setDate] = useState(event.date || "");
     const [time, setTime] = useState(event.time || "");
     const [isPrivate, setIsPrivate] = useState<boolean>(initialIsPrivate);
-    const [currentUsername, setCurrentUsername] = useState("użytkownik");
-    const [currentUserAvatarUri, setCurrentUserAvatarUri] = useState<string | null>(null);
     const [eventPicture, setEventPicture] = useState<EventPicture | null>(event?.pictures?.[0] ?? null);
     const [eventPicturePreviewUri, setEventPicturePreviewUri] = useState<string | null>(event?.pictures?.[0]?.url ?? null);
     const [isPictureUploading, setIsPictureUploading] = useState(false);
@@ -74,8 +75,12 @@ const EditEvent = () => {
     const DESCRIPTION_MIN_HEIGHT = DESCRIPTION_LINE_HEIGHT * 5 + 20;
     const [descriptionInputHeight, setDescriptionInputHeight] = useState(DESCRIPTION_MIN_HEIGHT);
 
-    const [dateObj, setDateObj] = useState<Date>(initialValues.date); 
-    const [timeObj, setTimeObj] = useState<Date>(initialValues.time); 
+    const [dateObj, setDateObj] = useState<Date>(initialValues.date);
+    const [timeObj, setTimeObj] = useState<Date>(initialValues.time);
+
+    const { friends } = useFriends();
+    const [searchQuery, setSearchQuery] = useState("");
+    const [invitedFriendIds, setInvitedFriendIds] = useState<Record<string, boolean>>({});
 
     const [titleError, setTitleError] = useState("");
     const [locationError, setLocationError] = useState("");
@@ -90,13 +95,13 @@ const EditEvent = () => {
             time,
             isPrivate,
             creatorId: String(event?.creator_id ?? "preview-user"),
-            creatorUsername: currentUsername,
-            creatorProfilePictureUrl: currentUserAvatarUri,
+            creatorUsername: currentUser?.username || "użytkownik",
+            creatorProfilePictureUrl: currentUser?.profile_picture?.url || null,
             picture: eventPicture,
             pictureUri: eventPicturePreviewUri,
             id: String(event?.id ?? event?.event_id ?? "preview-event"),
         });
-    }, [title, description, location, date, time, isPrivate, currentUsername, currentUserAvatarUri, eventPicture, eventPicturePreviewUri, event?.creator_id, event?.id, event?.event_id]);
+    }, [title, description, location, date, time, isPrivate, currentUser, eventPicture, eventPicturePreviewUri, event?.creator_id, event?.id, event?.event_id]);
 
     useLayoutEffect(() => {
         navigation.setOptions({
@@ -193,27 +198,7 @@ const EditEvent = () => {
         ].filter(Boolean) as any);
     };
 
-    useEffect(() => {
-        const loadCurrentUser = async () => {
-            try {
-                const response = await api.get("/api/users/profile");
-                const username = response?.data?.username;
-                const avatarUrl =
-                    response?.data?.profile_picture?.url ||
-                    response?.data?.profile_picture_url ||
-                    (typeof response?.data?.profile_picture === "string" ? response.data.profile_picture : null);
-                if (typeof username === "string" && username.trim()) {
-                    setCurrentUsername(username.trim());
-                }
-                setCurrentUserAvatarUri(typeof avatarUrl === "string" && avatarUrl.trim() ? avatarUrl : null);
-            } catch {
-                setCurrentUsername("użytkownik");
-                setCurrentUserAvatarUri(null);
-            }
-        };
 
-        loadCurrentUser();
-    }, []);
 
     const validateTitle = (text: string): string | null => {
         if (!text) return "Pole tytuł jest wymagane";
@@ -324,17 +309,87 @@ const EditEvent = () => {
     const handleDateTimeSelected = (selectedDate: string, selectedTime: string) => {
         setDate(selectedDate);
         setTime(selectedTime);
-        
+
         try {
             const [day, month, year] = selectedDate.split('.').map(Number);
             const [hours, minutes] = selectedTime.split(':').map(Number);
-            
+
             setDateObj(new Date(year, month - 1, day));
             setTimeObj(new Date(year, month - 1, day, hours, minutes));
         } catch (error) {
             console.error("Error updating date objects:", error);
         }
     };
+
+    const handleSearch = (text: string) => {
+        setSearchQuery(text);
+    };
+
+    const handleInviteFriend = async (friend: any) => {
+        const eventId = String(event?.id || event?.event_id || "");
+        const invitedId = String(friend?.id || "");
+        const isInvited = Boolean(invitedFriendIds[invitedId]);
+
+        if (!eventId || !invitedId) {
+            Alert.alert("Błąd", "Brak danych do wysłania zaproszenia.");
+            return;
+        }
+
+        setInvitedFriendIds((prev) => ({ ...prev, [invitedId]: !isInvited }));
+        try {
+            if (isInvited) {
+                await deleteInviteToEvent(eventId, invitedId);
+            } else {
+                await inviteToEvent(eventId, invitedId);
+            }
+        } catch (error: any) {
+            setInvitedFriendIds((prev) => ({ ...prev, [invitedId]: isInvited }));
+            Alert.alert("Błąd zaproszenia", error?.message || "Nie udało się zaktualizować zaproszenia.");
+        }
+    };
+
+    const filteredFriends = useMemo(() => {
+        const normalizedQuery = searchQuery.trim().toLowerCase();
+        if (!normalizedQuery) {
+            return friends;
+        }
+
+        return friends.filter((friend) =>
+            (friend.username || "").toLowerCase().includes(normalizedQuery)
+        );
+    }, [friends, searchQuery]);
+
+    useEffect(() => {
+        let mounted = true;
+
+        const loadSentInvites = async () => {
+            const eventId = String(event?.id || event?.event_id || "");
+            if (!eventId) {
+                return;
+            }
+
+            try {
+                const invitedIds = await getSentInvitesForEvent(eventId);
+                if (!mounted) {
+                    return;
+                }
+
+                const nextState: Record<string, boolean> = {};
+                invitedIds.forEach((id) => {
+                    nextState[String(id)] = true;
+                });
+                setInvitedFriendIds(nextState);
+            } catch (error) {
+                console.error("Failed to load sent invites:", error);
+            }
+        };
+
+        loadSentInvites();
+
+        return () => {
+            mounted = false;
+        };
+    }, [event?.id, event?.event_id]);
 
     return (
         <SafeAreaView style={styles.screen}>
@@ -346,8 +401,8 @@ const EditEvent = () => {
             >
                 <View style={styles.container}>
                     <UserCard
-                        creatorDisplayName={currentUsername}
-                        avatarUri={currentUserAvatarUri ?? undefined}
+                        creatorDisplayName={currentUser?.username || "użytkownik"}
+                        avatarUri={currentUser?.profile_picture?.url ?? undefined}
                         showCreatedAt={false}
                         showMetaIcon={false}
                         showUsernameIcon={false}
@@ -427,6 +482,51 @@ const EditEvent = () => {
                     </CollapsibleSection>
 
                     <ItemSeparator></ItemSeparator>
+                    <CollapsibleSection title="Zaproś znajomych" initialExpanded={true} style={{ padding: 10 }}>
+                        <InputField
+                            placeholder="Szukaj znajomych..."
+                            value={searchQuery}
+                            onChangeText={handleSearch}
+                            showSearchSpriteIcon
+                            showFloatingLabel={false}
+                            reserveErrorSpace={false}
+                        />
+
+                        {filteredFriends.length > 0 ? (
+                            filteredFriends.map((friend) => {
+                                const invitedId = String(friend?.id || "");
+                                const isInvited = Boolean(invitedFriendIds[invitedId]);
+
+                                return (
+                                    <View key={friend.id} style={[styles.listItem, styles.friendRow, { borderColor: colors.border }]}> 
+                                        <View style={styles.friendInfo}>
+                                            <UserCard
+                                                creatorDisplayName={friend.username}
+                                                avatarUri={friend?.profile_picture?.url || friend?.avatarUrl || (typeof friend?.profile_picture === "string" ? friend?.profile_picture : undefined)}
+                                                createdAtDisplay=""
+                                                showCreatedAt={false}
+                                                showMetaIcon={false}
+                                                showUsernameIcon={false}
+                                                metaPrefix={`${friend?.academy || "wydział"} • ${friend?.course || "kierunek"}`}
+                                                avatarSize={40}
+                                            />
+                                        </View>
+                                        <Button
+                                            title={isInvited ? "Wysłano" : "Zaproś"}
+                                            onPress={() => handleInviteFriend(friend)}
+                                            style={styles.inviteButton}
+                                            textStyle={styles.inviteButtonText}
+                                        />
+                                    </View>
+                                );
+                            })
+                        ) : searchQuery.trim().length > 0 ? (
+                            <Text style={styles.infoText}>Brak znajomych pasujących do wyszukiwania</Text>
+                        ) : (
+                            <Text style={styles.infoText}>Brak znajomych na liście</Text>
+                        )}
+                    </CollapsibleSection>
+                    <ItemSeparator></ItemSeparator>
 
                     <CollapsibleSection title="Data i czas" initialExpanded={true} style={{ padding: 10 }}>
                         <DatePicker
@@ -489,6 +589,37 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
         ...THEME.typography.title,
         fontWeight: "700",
         color: colors.text,
+    },
+    infoText: {
+        ...THEME.typography.text,
+        color: colors.icon,
+        fontStyle: "italic",
+        textAlign: "center",
+        padding: THEME.spacing.m,
+    },
+    listItem: {
+        width: "100%",
+        paddingVertical: THEME.spacing.s,
+        borderBottomWidth: 1,
+    },
+    friendRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 10,
+    },
+    friendInfo: {
+        flex: 1,
+    },
+    inviteButton: {
+        width: "auto",
+        marginVertical: 0,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        minHeight: 40,
+    },
+    inviteButtonText: {
+        fontWeight: "700",
     },
     textInput: {
         padding: 10,
