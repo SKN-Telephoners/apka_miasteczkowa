@@ -1,5 +1,5 @@
 from flask import Blueprint, request, current_app
-from backend.models.event import Event, Event_visibility, Event_participants, Invites, InviteRequestStatus, Pictures
+from backend.models.event import Event, Event_visibility, Event_participants, Invites, InviteRequestStatus, Pictures, Location
 from backend.models import User, Friendship
 from backend.extensions import db, limiter
 from backend.constants import Constants
@@ -698,3 +698,24 @@ def change_invite_status(invite_id):
         return make_api_response(ResponseTypes.SERVER_ERROR)
     
     return make_api_response(ResponseTypes.SUCCESS, message="Invite status changed successfully")
+
+@events_bp.route("/get_coordinates", methods=["GET"])
+@limiter.limit("1000 per second")
+@jwt_required()
+def get_coordinates():
+    location_name = request.args.get('location') # request for that endpoint ex: /api/events/get_coordinates?location=Krakow
+    location_name = str(sanitize_input(location_name))
+    if not location_name or location_name == "":
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Location name must not be empty")
+
+    if len(location_name) > Constants.MAX_LOCATION_LEN:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Location name too long")
+
+    query = db.session.query(Location).filter_by(location_name=location_name).first()    
+    
+    if not query:
+        return make_api_response(ResponseTypes.NOT_FOUND, message="Location of that name not found")
+    
+    coordinates = query.coordinates
+
+    return make_api_response(ResponseTypes.SUCCESS, data={"coordinates": str(coordinates)})
