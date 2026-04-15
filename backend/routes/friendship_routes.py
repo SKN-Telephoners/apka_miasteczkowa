@@ -8,6 +8,7 @@ from backend.helpers import validate_uuid
 import uuid
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy import or_, and_
+import backend.notifications as notifications
 
 friends_bp = Blueprint("friends", __name__, url_prefix="/api/friends")
 
@@ -48,7 +49,15 @@ def create_friend_request(friend_id):
     try:
         new_request = FriendRequest(sender_id=user.user_id, receiver_id=friend_id)
         db.session.add(new_request)
-        db.session.commit()
+        db.session.flush()
+        
+        notifications.friend_request_created.send(
+            current_app._get_current_object(),
+            from_user = user.user_id, 
+            to_user = friend_id, 
+            request_id=new_request.request_id
+        )
+
     except IntegrityError:
         db.session.rollback()
         return make_api_response(ResponseTypes.CONFLICT, message="Request already exists")
