@@ -491,6 +491,10 @@ def feed():
             str(u.user_id): cloudinary_url(u.profile_picture, secure=True)[0] if u.profile_picture else None
             for u in creator_users
         }
+        creator_academies = {str(u.user_id): u.academy for u in creator_users}
+        creator_faculties = {str(u.user_id): u.faculty for u in creator_users}
+        creator_courses = {str(u.user_id): u.course for u in creator_users}
+        creator_years = {str(u.user_id): u.year for u in creator_users}
 
         event_list = []
         for event in pagination.items:
@@ -513,6 +517,10 @@ def feed():
                 ],
                 "creator_username": creator_usernames.get(str(event.creator_id)),
                 "creator_profile_picture_url": creator_profile_pictures.get(str(event.creator_id)),
+                "creator_academy": creator_academies.get(str(event.creator_id)),
+                "creator_faculty": creator_faculties.get(str(event.creator_id)),
+                "creator_course": creator_courses.get(str(event.creator_id)),
+                "creator_year": creator_years.get(str(event.creator_id)),
                 "created_at": event.created_at.isoformat() if event.created_at else None,
                 "comment_count": int(event.comment_count or 0),
                 "participant_count": int(event.participant_count or 0),

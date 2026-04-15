@@ -156,8 +156,12 @@ const EditProfileScreen = () => {
     };
 
     return (
-        <View style={styles.container}>
-            {/* Sekcja Avatara */}
+        <ScrollView
+            style={styles.container}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+        >
             <View style={styles.avatarSection}>
                 <Image
                     source={
@@ -174,7 +178,6 @@ const EditProfileScreen = () => {
                 </TouchableOpacity>
             </View>
 
-            {/* Sekcja Formularza */}
             <View style={styles.formSection}>
                 <Text style={styles.label}>Nazwa użytkownika</Text>
                 <TextInput
@@ -193,7 +196,7 @@ const EditProfileScreen = () => {
                 />
                 {isEmailChanged && (
                     <TouchableOpacity onPress={handleEmailRequest} style={{ marginTop: THEME.spacing.xs, alignSelf: 'flex-start' }}>
-                        <Text style={{ color: colors.primary, fontWeight: 'bold' }}>
+                        <Text style={{ color: colors.highlight, fontWeight: 'bold' }}>
                             Zatwierdź zmianę e-maila
                         </Text>
                     </TouchableOpacity>
@@ -225,6 +228,14 @@ const EditProfileScreen = () => {
                             searchable
                         />
 
+                        <Text style={[styles.label, { marginTop: THEME.spacing.m }]}>Rok studiów</Text>
+                        <CustomDropdown
+                            data={YEARS}
+                            selectedValue={year}
+                            onSelect={(val) => setYear(Number(val))}
+                            placeholder="Wybierz rok studiów"
+                        />
+
                         <Text style={[styles.label, { marginTop: THEME.spacing.m }]}>Kierunek</Text>
                         <CustomDropdown
                             data={COURSES}
@@ -232,14 +243,6 @@ const EditProfileScreen = () => {
                             onSelect={(val) => setCourse(String(val))}
                             placeholder="Wybierz kierunek"
                             searchable
-                        />
-
-                        <Text style={[styles.label, { marginTop: THEME.spacing.m }]}>Rok studiów</Text>
-                        <CustomDropdown
-                            data={YEARS}
-                            selectedValue={year}
-                            onSelect={(val) => setYear(Number(val))}
-                            placeholder="Wybierz rok studiów"
                         />
                     </>
                 )}
@@ -257,7 +260,7 @@ const EditProfileScreen = () => {
 
             {/* Przycisk zapisu */}
             <Button title={isSaving ? "Zapisywanie..." : "Zapisz zmiany"} onPress={handleSave} disabled={isSaving} />
-        </View>
+        </ScrollView>
     );
 };
 
@@ -265,7 +268,10 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background,
+    },
+    scrollContent: {
         padding: THEME.spacing.m,
+        paddingBottom: THEME.spacing.xl,
     },
     avatarSection: {
         alignItems: 'center',
@@ -286,7 +292,7 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
         fontWeight: 'bold',
     },
     formSection: {
-        flex: 1, // Pozwala przyciskowi odsunąć się na dół, jeśli jest mało miejsca
+        marginBottom: THEME.spacing.l,
     },
     label: {
         ...THEME.typography.text,

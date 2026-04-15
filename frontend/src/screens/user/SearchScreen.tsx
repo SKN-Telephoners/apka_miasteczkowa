@@ -53,8 +53,8 @@ const SearchScreen = () => {
   };
 
   const renderItem = ({ item }: { item: User }) => {
-    const academy = item.academy || "Brak wydziału";
-    const course = item.course || "Brak kierunku";
+    const academy = item.academy || undefined;
+    const course = item.course || undefined;
     const isFriend = Boolean(item.is_friend);
     const isSelf = item.id === currentUser?.user_id || item.id === currentUser?.id || Boolean((item as any).is_self);
 
@@ -62,9 +62,10 @@ const SearchScreen = () => {
       <View style={styles.cardWrap}>
         <UserCard
           creatorDisplayName={item.username}
-          createdAtDisplay={course}
-          metaPrefix={academy}
-          showCreatedAt={true}
+          uniName={academy}
+          majorName={course}
+          yearOfStudy={item.year ?? undefined}
+          showCreatedAt={false}
           showMetaIcon={true}
           showUsernameIcon={!isFriend && !isSelf}
           onUsernameIconPress={!isFriend && !isSelf ? () => handleSendRequest(item.id) : undefined}

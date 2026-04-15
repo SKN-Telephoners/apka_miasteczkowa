@@ -37,6 +37,7 @@ export const searchUsers = async (query: string): Promise<User[]> => {
       username: u.username,
       email: "", // publiczna szukajka raczej tego nie zdradzi
       academy: u.academy,
+      faculty: u.faculty,
       course: u.course,
       year: u.year,
       avatarUrl: u.profile_picture?.url || u.profile_picture || undefined,

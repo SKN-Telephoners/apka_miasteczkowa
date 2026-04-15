@@ -63,7 +63,7 @@ def get_user_info(user_id):
     return make_api_response(ResponseTypes.SUCCESS, data=user_data)
 
 
-@users_bp.route("/profile/<user_id>", methods=["GET"])
+@users_bp.route("/public_profile/<user_id>", methods=["GET"])
 @jwt_required()
 def get_public_user_info(user_id):
     target_user_id = validate_uuid(user_id)
@@ -87,6 +87,7 @@ def get_public_user_info(user_id):
         "id": str(user.user_id),
         "username": user.display_name,
         "academy": user.academy,
+        "faculty": user.faculty,
         "course": user.course,
         "year": user.year,
         "description": user.description,
@@ -448,11 +449,22 @@ def get_users_list():
     users_list = []
     for user, f_id in pagination.items:
         is_friend = f_id is not None
+        profile_pic_data = None
+        if user.profile_picture:
+            url, _ = cloudinary_url(user.profile_picture, secure=True)
+            profile_pic_data = {
+                "cloud_id": user.profile_picture,
+                "url": url
+            }
+
         user_info = {
             "user_id": str(user.user_id),
             "username": user.display_name,
             "academy": user.academy,
-            "profile_picture": user.profile_picture,
+            "faculty": user.faculty,
+            "course": user.course,
+            "year": user.year,
+            "profile_picture": profile_pic_data,
             "is_friend": is_friend
         }
         users_list.append(user_info)
