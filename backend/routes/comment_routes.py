@@ -203,6 +203,9 @@ def get_comments_list(event_id):
             str(user.user_id): cloudinary_url(user.profile_picture, secure=True)[0] if user.profile_picture else None
             for user in users
         }
+        academy_by_id = {str(user.user_id): user.academy for user in users}
+        course_by_id = {str(user.user_id): user.course for user in users}
+        year_by_id = {str(user.user_id): user.year for user in users}
 
         top_level_comments = [c for c in comments if c.parent_comment_id is None]
         comments_tree = [c.to_dict() for c in top_level_comments]
@@ -211,6 +214,9 @@ def get_comments_list(event_id):
             comment_user_id = comment_node.get("user_id")
             comment_node["username"] = usernames_by_id.get(comment_user_id) if comment_user_id else None
             comment_node["profile_picture_url"] = profile_pictures_by_id.get(comment_user_id) if comment_user_id else None
+            comment_node["academy"] = academy_by_id.get(comment_user_id) if comment_user_id else None
+            comment_node["course"] = course_by_id.get(comment_user_id) if comment_user_id else None
+            comment_node["year"] = year_by_id.get(comment_user_id) if comment_user_id else None
             for reply in comment_node.get("replies", []):
                 attach_usernames(reply)
 

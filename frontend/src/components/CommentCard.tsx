@@ -207,6 +207,9 @@ const CommentCard = ({
                             showMetaIcon={item.user_id === userID || canOpenAuthorProfile}
                             showCreatedAt={true}
                             showUsernameIcon={canOpenAuthorProfile && !isCommentAuthorFriend}
+                            uniName={item.academy || undefined}
+                            majorName={item.course || undefined}
+                            yearOfStudy={item.year ?? undefined}
                             avatarSize={42}
                             onUsernameIconPress={canOpenAuthorProfile && !isCommentAuthorFriend ? handleSendFriendRequest : undefined}
                             onMetaIconPress={
