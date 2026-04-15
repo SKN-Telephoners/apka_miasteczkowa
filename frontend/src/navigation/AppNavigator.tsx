@@ -17,6 +17,8 @@ import { ActivityIndicator, View, TouchableOpacity } from "react-native";
 import AppIcon from "../components/AppIcon";
 import SvgSpriteIcon from "../components/SvgSpriteIcon";
 import { useTheme } from "../contexts/ThemeContext";
+import { useUser } from "../contexts/UserContext";
+import Avatar from "../components/Avatar";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -40,13 +42,13 @@ const SearchScreen = require("../screens/user/SearchScreen").default;
 const ROUTE_ICON_MAP: Record<string, string> = {
   'Przewodnik po miasteczku': 'Home',
   'Mapa': 'Map',
-  'Wydarzenia': 'Events',
-  'Profil': 'Eye'
+  'Wydarzenia': 'Events'
 };
 
 // for authenticated users
 const MainTabs = () => {
   const { colors } = useTheme();
+  const { user } = useUser();
 
   return (
     <Tab.Navigator
@@ -121,7 +123,22 @@ const MainTabs = () => {
         },
 
         tabBarIcon: ({ focused }) => {
-          return <AppIcon name={ROUTE_ICON_MAP[route.name] || 'Eye'} focused={focused} />;
+          if (route.name === 'Profil') {
+            const uri = user?.profile_picture?.url || user?.avatarUrl || (typeof user?.profile_picture === "string" ? user?.profile_picture : undefined);
+            return (
+              <View style={{ opacity: focused ? 1 : 0.5 }}>
+                <Avatar 
+                  uri={uri} 
+                  size={26} 
+                  style={{ 
+                    borderWidth: 2, 
+                    borderColor: focused ? colors.highlight : 'transparent' 
+                  }} 
+                />
+              </View>
+            );
+          }
+          return <AppIcon name={ROUTE_ICON_MAP[route.name] || 'Home'} focused={focused} />;
         },
       })}
     >
