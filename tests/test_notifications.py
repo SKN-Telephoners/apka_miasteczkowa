@@ -29,7 +29,7 @@ def test_create_friend_request_emits_signal(mock_signal, client, logged_in_user,
         assert kwargs['request_id'] == request_in_db.request_id
 
 
-@patch('backend.notifications.event_invite_sent.send')
+@patch('backend.notifications.invite_created.send')
 def test_invite_to_event_success(mock_signal, client, logged_in_user, registered_friend, app):
     with app.app_context():
         user, token = logged_in_user

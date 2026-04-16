@@ -611,7 +611,7 @@ def invite_to_event(event_id):
         db.session.add(new_invite)
         db.session.commit()
         
-        notifications.event_invite_sent.send(
+        notifications.invite_created.send(
             current_app._get_current_object(),
             from_user=u_uuid, 
             to_user=i_uuid, 

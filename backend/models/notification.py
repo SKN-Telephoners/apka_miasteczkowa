@@ -5,15 +5,23 @@ from datetime import datetime, timezone
 import enum
 
 class NotificationTag(enum.Enum):
-    friend_request_incoming = "friend_request_incoming"
-    friend_request_accepted = "friend_request_accepted"
-    event_invite = "event_invite"
-    event_shared = "event_shared"
-    event_joined = "event_joined"
-    event_comment = "event_comment"
-    event_invitation_by_other = "event_invitation_by_other"
-    event_deleted = "event_deleted"
-    other = "other"
+    event_new_invite = 'event-new-invite'
+    event_new_participant = 'event-new-participant'
+    event_new_comment = "event-new-comment"
+
+    invite_created = 'invite-created'
+    invite_status_update = 'invite-status-update'
+
+    joined_event_changed = 'joined-event-changed'
+
+    friend_request_created = 'friend-request-created'
+    friend_request_accepted = 'friend-request-accepted'
+    friend_new_public_event= 'friend-new-public-event'
+    friend_new_private_event = 'friend-new-private-event'
+
+    comment_reply_created = 'comment-reply-created'
+    other = 'other'
+
 
 class Notification(db.Model):
     __tablename__ = 'Notifications'
