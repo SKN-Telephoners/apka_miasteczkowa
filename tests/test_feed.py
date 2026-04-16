@@ -4,6 +4,9 @@ from backend.models.event import Event_participants, Event_visibility
 from backend.models import Event
 from backend.extensions import db
 
+from backend.helpers import add_token_to_db
+from flask_jwt_extended import create_access_token
+
 # =============================================================================
 # Tests for feed
 # =============================================================================

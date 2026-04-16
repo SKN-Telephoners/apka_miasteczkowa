@@ -1,90 +1,415 @@
-import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
+import React, { useMemo, useState } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, Linking } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
+import { useUser } from "../../contexts/UserContext";
 import { useFriends } from "../../contexts/FriendsContext";
-import { useNavigation } from "@react-navigation/native";
-import { THEME, MOCKS } from "../../utils/constants";
+import { useEvents } from "../../contexts/EventContext";
+import { useTheme } from "../../contexts/ThemeContext";
+import { useNavigation, useRoute, useFocusEffect } from "@react-navigation/native";
+import { THEME } from "../../utils/constants";
 import Button from "../../components/Button";
 import CollapsibleSection from "../../components/CollapsibleSection";
 import Avatar from "../../components/Avatar";
-
-// Mock do zmiany na wczoraj, jeśli backend obsłuży te pola
-const MOCK_EXTRAS = {
-  bio: "Status: Zew Miasteczka za 3,50!", // Domyślne bio
-  faculty: "WIEiT",
-  majorAndYear: "Teleinformatyka 1 rok"
-};
+import AppIcon from "../../components/AppIcon";
+import { useEffect, useCallback } from "react";
+import { getPublicUserProfile } from "../../services/users";
+import { getUserEventsInfo, UserEventsInfoResponse } from "../../services/events";
+import InputField from "../../components/InputField";
+import UserCard from "../../components/UserCard";
 
 const UserScreen = () => {
-  const { user, logout } = useAuth();
-  const { friends } = useFriends();
+  const { userId } = useAuth();
+  const { user: currentUser } = useUser();
+  const { friends, outgoingRequests, sendFriendRequest, removeFriend, fetchFriends } = useFriends();
+  const { events } = useEvents();
+  const { colors } = useTheme();
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
 
-  const handleEditProfile = () => {
+  // Przechwytywanie trybu
+  const visitedUser = route.params?.visitedUser;
+  const visitedUserId = visitedUser?.user_id || visitedUser?.id;
+  const hasVisitedUser = Boolean(visitedUserId);
+  const isOwnerRoute = route.name === "UserProfile";
+  const isOwner = hasVisitedUser
+    ? String(visitedUserId) === String(userId)
+    : isOwnerRoute;
+  const [visitedProfileData, setVisitedProfileData] = useState<any | null>(null);
+  const [visitorEvents, setVisitorEvents] = useState<UserEventsInfoResponse | null>(null);
+  const profileData = isOwner ? currentUser : (visitedProfileData || visitedUser);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isFriend, setIsFriend] = useState(false);
+
+  const hasSentRequest = useMemo(() => {
+    return !isOwner && outgoingRequests.some(req => String(req.receiverId || req.user?.id) === String(visitedUserId));
+  }, [outgoingRequests, isOwner, visitedUserId]);
+
+  const renderDescription = (text: string) => {
+    if (!text) return isOwner ? "Brak opisu" : "";
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+
+    return parts.map((part, index) => {
+      if (part.match(urlRegex)) {
+        return (
+          <Text
+            key={index}
+            style={{ color: colors.primary, textDecorationLine: "underline" }}
+            onPress={() => Linking.openURL(part).catch(() => Alert.alert("Błąd", "Nie można otworzyć tego linku."))}
+          >
+            {part}
+          </Text>
+        );
+      }
+      return <Text key={index}>{part}</Text>;
+    });
+  };
+
+  const styles = useMemo(() => getStyles(colors), [colors]);
+
+  // Refresh friends list when this screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchFriends();
+    }, [isOwner, fetchFriends])
+  );
+
+  useEffect(() => {
+    const loadVisitedUser = async () => {
+      if (isOwner || !visitedUser) {
+        setVisitedProfileData(null);
+        setVisitorEvents(null);
+        return;
+      }
+
+      const targetId = visitedUser.user_id || visitedUser.id;
+      if (!targetId) {
+        setVisitedProfileData(visitedUser);
+        setVisitorEvents(null);
+        return;
+      }
+
+      try {
+        const [fullData, eventsData] = await Promise.all([
+          getPublicUserProfile(targetId),
+          getUserEventsInfo(targetId)
+        ]);
+        setVisitedProfileData(fullData);
+        setVisitorEvents(eventsData);
+      } catch {
+        setVisitedProfileData(visitedUser);
+        setVisitorEvents(null);
+      }
+    };
+
+    loadVisitedUser();
+  }, [isOwner, visitedUser?.id, visitedUser?.user_id]);
+
+  // Check if visitedUser is already a friend (runs whenever friends list updates)
+  useEffect(() => {
+    if (!isOwner && visitedUser) {
+      const userIsFriend = friends.some(
+        (friend) =>
+          friend.id === visitedUser.id ||
+          friend.id === visitedUser.user_id
+      );
+      setIsFriend(userIsFriend);
+    } else {
+      setIsFriend(false);
+    }
+  }, [visitedUser, friends, isOwner]);
+
+  const gotoEditProfile = () => {
     navigation.navigate("EditProfile");
   };
+
+  const gotoSettings = () => {
+    navigation.navigate("SettingsScreen");
+  }
 
   const handleAddPhoto = () => {
     console.log("Dodawanie zdjęcia...");
   };
 
-  const goToFriendProfile = (friendName: string) => {
-    console.log(`Przejście do profilu: ${friendName}`);
+  const goToFriendProfile = (friendData: any) => {
+    navigation.push("UserProfile", { visitedUser: friendData });
   };
 
-  return (
-    <View style={styles.container}>
-      {/* 1. Nagłówek: Avatar + Nazwa + Statystyki */}
-      <View style={styles.headerRow}>
-        <Avatar uri={MOCKS.AVATAR} size={80} style={{ marginRight: THEME.spacing.m }} />
+  const handleSearch = (text: string) => {
+    setSearchQuery(text);
+  };
 
-        <View style={styles.headerInfo}>
-          <Text style={styles.userName}>{user?.username || "Użytkownik"}</Text>
+  const filteredFriends = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return friends;
+    }
+
+    return friends.filter((friend) =>
+      (friend.username || "").toLowerCase().includes(normalizedQuery)
+    );
+  }, [friends, searchQuery]);
+
+  const myCreatedEvents = useMemo(() => {
+    return events.filter(e => String(e.creator_id) === String(profileData?.id || profileData?.user_id));
+  }, [events, profileData]);
+
+  const myJoinedEvents = useMemo(() => {
+    // "is_participating" obejmuje też twórcę, więc odrzucamy własne:
+    return events.filter(e => e.is_participating && String(e.creator_id) !== String(profileData?.id || profileData?.user_id));
+  }, [events, profileData]);
+
+  const publicCreatedEvents = useMemo(() => {
+    if (isOwner || !visitorEvents) return [];
+    return visitorEvents.created.map(slim => {
+      const full = events.find(e => String(e.id) === String(slim.event_id) || String((e as any).event_id) === String(slim.event_id));
+      return full ? full : { id: slim.event_id, name: slim.name, isSlim: true };
+    });
+  }, [visitorEvents, events, isOwner]);
+
+  const publicJoinedEvents = useMemo(() => {
+    if (isOwner || !visitorEvents) return [];
+    return visitorEvents.participating.map(slim => {
+      const full = events.find(e => String(e.id) === String(slim.event_id) || String((e as any).event_id) === String(slim.event_id));
+      return full ? full : { id: slim.event_id, name: slim.name, isSlim: true };
+    });
+  }, [visitorEvents, events, isOwner]);
+
+  const handleSendRequest = async () => {
+    try {
+      if (profileData?.id || profileData?.user_id) {
+        await sendFriendRequest(profileData.id || profileData.user_id);
+      }
+    } catch (err: any) {
+      const errorMsg = err?.message || "Nie udało się wysłać zaproszenia";
+      Alert.alert("Błąd", errorMsg);
+    }
+  }
+
+  const handleRemoveFriend = () => {
+    Alert.alert(
+      "Usunąć ze znajomych",
+      "Czy chcesz usunąć tego użytkownika ze znajomych?",
+      [
+        {
+          text: "Anuluj",
+          style: "cancel",
+        },
+        {
+          text: "Usuń",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              if (visitedUser?.id || visitedUser?.user_id) {
+                await removeFriend(visitedUser.id || visitedUser.user_id);
+              }
+            } catch (err: any) {
+              Alert.alert("Błąd", err?.message || "Nie udało się usunąć użytkownika ze znajomych");
+            }
+          },
+        },
+      ]
+    );
+  }
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
+      <View style={styles.headerRow}>
+        <Avatar uri={profileData?.profile_picture?.url || profileData?.avatarUrl || (typeof profileData?.profile_picture === "string" ? profileData?.profile_picture : undefined)} size={80} style={{ marginRight: THEME.spacing.m }} />
+
+        <View style={[styles.headerInfo, { flex: 1 }]}>
+          <Text style={[styles.userName, { flexWrap: 'wrap' }]} numberOfLines={2}>
+            {profileData?.username || profileData?.display_name || "Użytkownik"}
+          </Text>
+          {isOwner && (
+            <>
+              <Text style={styles.statsText}>
+                Znajomi: <Text style={styles.statsNumber}>{friends.length}</Text>
+              </Text>
+              <Text style={styles.statsText}>
+                Dołączył: <Text style={styles.statsNumber}>{profileData?.joinedDate || "Nieznana"}</Text>
+              </Text>
+            </>
+          )}
         </View>
+
+        {isOwner && (
+          <TouchableOpacity onPress={gotoSettings} style={styles.settingsIcon}>
+            <AppIcon name="Settings" size={28} color={colors.text} />
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* 2. Wydział i kierunek */}
-      <Text style={styles.facultyText}>{MOCK_EXTRAS.faculty}</Text>
-      <Text style={styles.majorText}>{MOCK_EXTRAS.majorAndYear}</Text>
-
-      {/* 3. Biografia / Opis */}
-      <Text style={styles.userBio}>{MOCK_EXTRAS.bio}</Text>
-
-      {/* 4. Przycisk Edycji */}
-      <Button
-        title="Edytuj profil"
-        onPress={handleEditProfile}
-        style={styles.editButton}
-      />
-
-      {/* 5. Zwijane Sekcje */}
-      <CollapsibleSection
-        title="Zdjęcia"
-        rightActionIcon="add"
-        onRightActionPress={handleAddPhoto}
-        initialExpanded={true}
-      >
-        <View style={styles.placeholderBox}>
-          <Image
-            source={{ uri: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" }}
-            style={styles.mockPhoto}
-          />
+      <View style={{ flexWrap: 'wrap', flexDirection: 'row' }}>
+        <Text style={[styles.facultyText, { flexShrink: 1 }]}>{profileData?.academy || "Brak Uczelni"}</Text>
+      </View>
+      {profileData?.faculty && profileData?.course && (
+        <View style={{ flexWrap: 'wrap', flexDirection: 'row' }}>
+          <Text style={[styles.majorText, { flexShrink: 1 }]}>
+            {`${profileData.faculty} • ${profileData.course}${profileData.year ? ` • ${profileData.year} rok` : ""}`}
+          </Text>
         </View>
-      </CollapsibleSection>
+      )}
 
-      <CollapsibleSection title="Wpisy">
-        <Text style={styles.infoText}>Historia wpisów (w budowie)</Text>
-      </CollapsibleSection>
+      <Text style={styles.userBio}>{renderDescription(profileData?.description)}</Text>
 
-    </View>
+      {isOwner ? (
+        <Button
+          title="Edytuj profil"
+          onPress={gotoEditProfile}
+          style={styles.editButton}
+        />
+      ) : isFriend ? (
+        <Button
+          title="Usuń ze znajomych"
+          onPress={handleRemoveFriend}
+          style={[styles.editButton, { backgroundColor: colors.icon }]}
+        />
+      ) : (
+        <Button
+          title={hasSentRequest ? "Wysłano zaproszenie" : "Wyślij zaproszenie"}
+          onPress={hasSentRequest ? undefined : handleSendRequest}
+          style={[styles.editButton, hasSentRequest && { backgroundColor: THEME.colors.lightGray }]}
+          disabled={hasSentRequest}
+        />
+      )}
+
+      {isOwner && (
+        <>
+          <CollapsibleSection title="Znajomi">
+            <InputField
+              placeholder="Szukaj znajomych..."
+              value={searchQuery}
+              onChangeText={handleSearch}
+              showSearchSpriteIcon
+              showFloatingLabel={false}
+              reserveErrorSpace={false}
+            />
+            {filteredFriends.length > 0 ? (
+              filteredFriends.map((friend) => (
+                <TouchableOpacity key={friend.id} onPress={() => goToFriendProfile(friend)} style={[styles.listItem, { borderColor: colors.border }]}>
+                  <UserCard
+                    creatorDisplayName={friend.username}
+                    avatarUri={friend?.profile_picture?.url || friend?.avatarUrl || (typeof friend?.profile_picture === "string" ? friend?.profile_picture : undefined)}
+                    createdAtDisplay=""
+                    showCreatedAt={false}
+                    showMetaIcon={false}
+                    showUsernameIcon={false}
+                    uniName={friend?.academy || undefined}
+                    majorName={friend?.course || undefined}
+                    yearOfStudy={friend?.year ?? undefined}
+                    avatarSize={40}
+                  />
+                </TouchableOpacity>
+              ))
+            ) : searchQuery.trim().length > 0 ? (
+              <Text style={styles.infoText}>Brak znajomych pasujących do wyszukiwania</Text>
+            ) : (
+              <Text style={styles.infoText}>Brak znajomych na liście</Text>
+            )}
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Moje wydarzenia">
+            {myCreatedEvents.length > 0 ? (
+              myCreatedEvents.map((event) => (
+                <TouchableOpacity
+                  key={event.id}
+                  style={[styles.listItem, { borderColor: colors.border }]}
+                  activeOpacity={0.8}
+                  onPress={() => navigation.navigate("MyEventPreview", { event, screenTitle: "Moje wydarzenie", allowEdit: true })}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.listTitle}>{event.name}</Text>
+                    <Text style={styles.listSubtitle}>{event.date} o {event.time} • {event.location}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <Text style={styles.infoText}>Nie utworzyłeś jeszcze żadnych wydarzeń</Text>
+            )}
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Zapisane wydarzenia">
+            {myJoinedEvents.length > 0 ? (
+              myJoinedEvents.map((event) => (
+                <TouchableOpacity
+                  key={event.id}
+                  style={[styles.listItem, { borderColor: colors.border }]}
+                  activeOpacity={0.8}
+                  onPress={() => navigation.navigate("MyEventPreview", { event, screenTitle: "Zapisane wydarzenie", allowEdit: false })}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.listTitle}>{event.name}</Text>
+                    <Text style={styles.listSubtitle}>{event.date} o {event.time} • {event.location}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <Text style={styles.infoText}>Brak zapisanych wydarzeń</Text>
+            )}
+          </CollapsibleSection>
+
+        </>
+      )}
+
+      {!isOwner && (
+        <>
+          <CollapsibleSection title={`Wydarzenia ${profileData?.username || "użytkownika"}`}>
+            {publicCreatedEvents.length > 0 ? (
+              publicCreatedEvents.map((event: any) => (
+                <TouchableOpacity
+                  key={event.id}
+                  style={[styles.listItem, { borderColor: colors.border }]}
+                  activeOpacity={0.8}
+                  onPress={() => event.isSlim ? null : navigation.navigate("MyEventPreview", { event, screenTitle: "Wydarzenie z profilu", allowEdit: false })}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.listTitle}>{event.name}</Text>
+                    {!event.isSlim && (
+                      <Text style={styles.listSubtitle}>{event.date} o {event.time} • {event.location}</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <Text style={styles.infoText}>Użytkownik nie utworzył jeszcze żadnych wydarzeń</Text>
+            )}
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Zapisane wydarzenia">
+            {publicJoinedEvents.length > 0 ? (
+              publicJoinedEvents.map((event: any) => (
+                <TouchableOpacity
+                  key={event.id}
+                  style={[styles.listItem, { borderColor: colors.border }]}
+                  activeOpacity={0.8}
+                  onPress={() => event.isSlim ? null : navigation.navigate("MyEventPreview", { event, screenTitle: "Zapisane wydarzenie", allowEdit: false })}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.listTitle}>{event.name}</Text>
+                    {!event.isSlim && (
+                      <Text style={styles.listSubtitle}>{event.date} o {event.time} • {event.location}</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <Text style={styles.infoText}>Brak zapisanych wydarzeń</Text>
+            )}
+          </CollapsibleSection>
+        </>
+      )}
+
+    </ScrollView>
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
   container: {
     flex: 1,
     padding: THEME.spacing.m,
-    backgroundColor: THEME.colors.lm_bg,
+    backgroundColor: colors.background,
   },
   headerRow: {
     flexDirection: "row",
@@ -96,30 +421,38 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   userName: {
-    fontFamily: "Roboto", //Musimy mieć duże name i małe name
+    fontFamily: "Roboto",
     fontWeight: "700" as const,
     lineHeight: 20,
     fontSize: 20,
+    color: colors.text,
   },
   statsText: {
     ...THEME.typography.text,
-    color: THEME.colors.lm_txt,
+    color: colors.text,
   },
   statsNumber: {
     fontWeight: "bold",
+  },
+  settingsIcon: {
+    position: "absolute",
+    right: 0,
+    padding: 8,
   },
   facultyText: {
     ...THEME.typography.faculty,
     fontSize: 18,
     lineHeight: 20.5,
+    color: colors.text,
   },
   majorText: {
     ...THEME.typography.text,
     marginBottom: THEME.spacing.s,
+    color: colors.text,
   },
   userBio: {
     ...THEME.typography.text,
-    color: THEME.colors.lm_txt,
+    color: colors.text,
     marginBottom: THEME.spacing.m,
   },
   editButton: {
@@ -127,7 +460,7 @@ const styles = StyleSheet.create({
   },
   infoText: {
     ...THEME.typography.text,
-    color: THEME.colors.lm_ico,
+    color: colors.icon,
     fontStyle: "italic",
     textAlign: "center",
     padding: THEME.spacing.m,
@@ -142,6 +475,23 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
+  },
+  listItem: {
+    width: "100%",
+    paddingVertical: THEME.spacing.s,
+    borderBottomWidth: 1,
+  },
+  listTitle: {
+    ...THEME.typography.text,
+    fontWeight: "bold",
+    fontSize: 16,
+    color: colors.text,
+  },
+  listSubtitle: {
+    ...THEME.typography.text,
+    fontSize: 14,
+    color: colors.text,
+    marginTop: 2,
   }
 });
 
