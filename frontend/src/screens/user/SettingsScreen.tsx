@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Switch, ScrollView, TouchableOpacity, Alert } f
 import { useTheme } from "../../contexts/ThemeContext";
 import { THEME } from "../../utils/constants";
 import { useAuth } from "../../contexts/AuthContext";
+import { deleteAccount } from "../../services/users";
 import Button from "../../components/Button"
 
 const SettingsScreen = () => {
@@ -10,18 +11,22 @@ const SettingsScreen = () => {
       const { logout } = useAuth();
       const { isDark, toggleTheme, colors } = useTheme();
 
-    const handleSoftDelete = () => {
+    const handleDeleteAccount = () => {
         Alert.alert(
-            "Zawieszenie konta",
-            "Czy na pewno chcesz zawiesić konto? Twój profil i dane zostaną ukryte do momentu ponownej aktywacji przez administratora.",
+            "Usunięcie konta",
+            "Czy na pewno chcesz bezpowrotnie usunąć swoje konto? Wszystkie twoje dane znikną bezpowrotnie.",
             [
                 { text: "Anuluj", style: "cancel" },
                 { 
-                    text: "Dezaktywuj", 
+                    text: "Usuń konto", 
                     style: "destructive",
-                    onPress: () => {
-                        // Tutaj w przyszłości dodamy call do backendu "softDeleteAccount()"
-                        Alert.alert("Informacja", "Funkcja tymczasowo niedostępna (wymaga podłączenia backendu).");
+                    onPress: async () => {
+                        try {
+                            await deleteAccount();
+                            logout();
+                        } catch (err: any) {
+                            Alert.alert("Błąd", err?.message || "Nie udało się usunąć konta.");
+                        }
                     }
                 }
             ]
@@ -51,8 +56,8 @@ const SettingsScreen = () => {
                 <Text style={styles.sectionTitle}>ZARZĄDZANIE KONTEM</Text>
             </View>
             <View style={[styles.card, { backgroundColor: colors.border, borderColor: colors.border }]}>
-                <TouchableOpacity style={[styles.row, { borderBottomWidth: 0 }]} onPress={handleSoftDelete}>
-                    <Text style={[styles.text, { color: colors.aghRed, fontSize: 16, fontWeight: "500" }]}>Zawieś konto</Text>
+                <TouchableOpacity style={[styles.row, { borderBottomWidth: 0 }]} onPress={handleDeleteAccount}>
+                    <Text style={[styles.text, { color: colors.aghRed, fontSize: 16, fontWeight: "500" }]}>Usuń konto</Text>
                 </TouchableOpacity>
             </View>
 

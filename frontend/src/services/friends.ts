@@ -109,3 +109,29 @@ export const removeFriend = async (friendId: string): Promise<string> => {
   }
 }
 
+// Function to fetch pending requests
+export const getPendingRequests = async (): Promise<{incomingRequests: Request[], outgoingRequests: Request[]}> => {
+    try {
+        const response = await api.get<{ data: { incoming_pending_requests: any[], outgoing_pending_requests: any[]} }>('/api/friends/request/pending');
+        
+        const mapToRequest = (req: any, isOutgoing: boolean): Request => ({
+            id: req.request_id,
+            senderId: isOutgoing ? "" : req.sender_id,
+            receiverId: isOutgoing ? req.receiver_id : "",
+            createdAt: req.requested_at,
+            user: {
+                id: isOutgoing ? req.receiver_id : req.sender_id,
+                username: isOutgoing ? req.receiver_username : req.sender_username,
+                email: "",
+            } as User
+        });
+
+        return {
+            incomingRequests: (response.data.data?.incoming_pending_requests || []).map((req: any) => mapToRequest(req, false)),
+            outgoingRequests: (response.data.data?.outgoing_pending_requests || []).map((req: any) => mapToRequest(req, true))
+        };
+    } catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || "Network error"
+        throw new Error(msg)
+    }
+}
