@@ -221,6 +221,27 @@ const EventCard = ({
         }
     };
 
+    const handleOpenOnMap = () => {
+        if (!item?.location) {
+            return;
+        }
+
+        try {
+            const parsed = JSON.parse(item.location) as [number, number];
+            if (!Array.isArray(parsed) || parsed.length !== 2) {
+                return;
+            }
+            navigation.navigate("Mapa", {
+                focusEvent: {
+                    id: item.id,
+                    location: item.location,
+                },
+            });
+        } catch {
+            // Ignore non-coordinate locations.
+        }
+    };
+
     return (
         <View key={item.id} style={[styles.container, isPastEvent && styles.pastContainer]}>
             <View>
@@ -258,12 +279,12 @@ const EventCard = ({
                 <Text style={[styles.textMuted, isPastEvent && styles.pastMetaText]}>• {item.date} • {item.time} </Text>
                 {showMapLabel && (
                     <View style={{ flexDirection: "row" }}>
-                        <View style={styles.mapLabelRow}>
+                        <TouchableOpacity style={styles.mapLabelRow} onPress={handleOpenOnMap} activeOpacity={0.8}>
                             <Text style={[styles.textHighlight, isPastEvent && styles.pastMetaText]}>• MAPA</Text>
                             <View style={styles.mapInlineIconContainer}>
                                 <SvgSpriteIcon set={1} size={MAP_INLINE_ICON_SIZE} offsetX={MAP_INLINE_ICON_OFFSET.x} offsetY={MAP_INLINE_ICON_OFFSET.y} />
                             </View>
-                        </View>
+                        </TouchableOpacity>
                     </View>
                 )}
 

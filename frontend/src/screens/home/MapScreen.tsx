@@ -15,7 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { getMapEvents } from "../../services/events";
 import { Event } from "../../types";
 import { useCallback, useRef } from "react";
@@ -30,6 +30,7 @@ const MAP_REFRESH_COOLDOWN_MS = 30_000;
 
 export default function MapScreen() {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const cameraRef = useRef<any>(null);
   const [cameraPosition, setCameraPosition] = useState(DEFAULT_CAMERA);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
@@ -90,7 +91,6 @@ export default function MapScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Silent refresh on focus with a cooldown to avoid unnecessary network calls.
       fetchMapEvents();
     }, [fetchMapEvents]),
   );
@@ -112,18 +112,44 @@ export default function MapScreen() {
     setCameraPosition(DEFAULT_CAMERA);
   };
 
-  const handleEventSelect = (event: Event) => {
-    setSelectedEventId(event.id);
+  const focusEventOnMap = useCallback((eventId: string, location: string) => {
     try {
-      const coords = JSON.parse(event.location) as [number, number];
+      const coords = JSON.parse(location) as [number, number];
+      if (!Array.isArray(coords) || coords.length !== 2) {
+        return;
+      }
+
+      setSelectedEventId(eventId);
+      cameraRef.current?.setCamera?.({
+        centerCoordinate: coords,
+        zoomLevel: 20,
+        heading: cameraPosition.heading,
+        animationDuration: 1200,
+        animationMode: "flyTo",
+      });
+
       setCameraPosition((prev) => ({
         ...prev,
         centerCoordinate: coords,
         zoomLevel: 20,
       }));
-    } catch (error) {
-      console.error("Error parsing event location:", error);
+    } catch {
+      // Ignore invalid location payload.
     }
+  }, [cameraPosition.heading]);
+
+  useEffect(() => {
+    const focusEvent = route.params?.focusEvent as { id?: string; location?: string } | undefined;
+    if (!focusEvent?.id || !focusEvent?.location) {
+      return;
+    }
+
+    focusEventOnMap(focusEvent.id, focusEvent.location);
+    navigation.setParams?.({ focusEvent: undefined });
+  }, [route.params?.focusEvent, navigation, focusEventOnMap]);
+
+  const handleEventSelect = (event: Event) => {
+    focusEventOnMap(event.id, event.location);
   };
 
   const openEventDetails = (event: Event) => {
@@ -205,7 +231,7 @@ export default function MapScreen() {
         {showEventsList && (
           <View style={styles.eventsPanel}>
             <View style={styles.eventsPanelHeader}>
-              <Text style={styles.eventsPanelTitle}>Events</Text>
+              <Text style={styles.eventsPanelTitle}>Wydarzenia</Text>
               <TouchableOpacity onPress={() => setShowEventsList(false)}>
                 <Text style={styles.closePanelButton}>✕</Text>
               </TouchableOpacity>
@@ -273,7 +299,7 @@ export default function MapScreen() {
         )}
 
         <TouchableOpacity style={styles.resetButton} onPress={resetCamera}>
-          <Text style={styles.resetButtonText}>Reset Location</Text>
+          <Text style={styles.resetButtonText}>Zresetuj lokalizację</Text>
         </TouchableOpacity>
       </View>
     </View>

@@ -131,14 +131,14 @@ export default function EventMap() {
                 setSelectedLocation(null);
               }}
             >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={styles.cancelButtonText}>Anuluj</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.button, styles.confirmButton]}
               onPress={handleUseLocation}
               activeOpacity={0.7}
             >
-              <Text style={styles.confirmButtonText}>Use Location</Text>
+              <Text style={styles.confirmButtonText}>Użyj lokalizacji</Text>
             </TouchableOpacity>
           </View>
         )}
