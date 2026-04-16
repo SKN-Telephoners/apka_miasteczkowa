@@ -1,7 +1,5 @@
 import api from "./api";
 import { Event, EventPicture } from "../types";
-import { API_BASE_URL } from "../utils/constants";
-import { tokenStorage } from "../utils/storage";
 
 type ApiMessage = { message?: string }; //type string insure for backend function response
 type CreateEventResponse = { message: string; event_id: string; creator_id: string };
@@ -50,11 +48,6 @@ export const uploadEventPicture = async (uri: string, fileName = "event-picture.
         const derivedName = fileName || uri.split("/").pop() || "event-picture.jpg";
         const ext = derivedName.split(".").pop()?.toLowerCase();
         const mimeType = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
-        const accessToken = await tokenStorage.getAccessToken();
-
-        if (!accessToken) {
-            throw new Error("Brak tokenu dostępu. Zaloguj się ponownie.");
-        }
 
         const formData = new FormData();
         const filePayload = {
@@ -65,24 +58,9 @@ export const uploadEventPicture = async (uri: string, fileName = "event-picture.
         formData.append("file", filePayload);
         formData.append("tags", "event-picture");
 
-        const response = await fetch(`${API_BASE_URL}/api/pictures/upload`, {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-            },
-            body: formData,
-        });
+        const response = await api.post<UploadPictureResponse>("/api/pictures/upload", formData);
+        const responseData: UploadPictureResponse = response.data || {};
 
-        let responseData: UploadPictureResponse = {};
-        try {
-            responseData = (await response.json()) as UploadPictureResponse;
-        } catch {
-            responseData = {};
-        }
-
-        if (!response.ok) {
-            throw new Error((responseData as any)?.message || `Upload failed (${response.status})`);
-        }
         const uploadedPicture =
             responseData.pictures?.[0]
             ?? responseData.data?.pictures?.[0]

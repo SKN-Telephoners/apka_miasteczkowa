@@ -32,6 +32,7 @@ interface SelectedLocationParam {
 const AddEvent = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
+  const selectedLocation = route.params?.selectedLocation as SelectedLocationParam | undefined;
   const { colors } = useTheme();
   const { user: currentUser } = useUser();
   const PREVIEW_ICON_SIZE = 22;
@@ -55,19 +56,19 @@ const AddEvent = () => {
   const [descriptionInputHeight, setDescriptionInputHeight] = useState(DESCRIPTION_MIN_HEIGHT);
 
   useEffect(() => {
-    const selectedLocation = route.params?.selectedLocation as SelectedLocationParam | undefined;
     if (selectedLocation?.coordinates?.length === 2) {
       setLocation(JSON.stringify(selectedLocation.coordinates));
       setLocationError("");
       navigation.setParams?.({ selectedLocation: undefined });
     }
-  }, [route.params?.selectedLocation, navigation]);
+  }, [selectedLocation, navigation]);
 
   const previewEvent = useMemo(() => {
+    const resolvedLocation = location || (selectedLocation?.coordinates ? JSON.stringify(selectedLocation.coordinates) : "");
     return buildEventPreview({
       title,
       description,
-      location,
+      location: resolvedLocation,
       date,
       time,
       isPrivate,
@@ -77,7 +78,7 @@ const AddEvent = () => {
       picture: eventPicture,
       pictureUri: eventPicturePreviewUri,
     });
-  }, [title, description, location, date, time, isPrivate, currentUser, eventPicture, eventPicturePreviewUri]);
+  }, [title, description, location, selectedLocation, date, time, isPrivate, currentUser, eventPicture, eventPicturePreviewUri]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -245,7 +246,8 @@ const AddEvent = () => {
 
   const validateInputs = () => {
     const titleValidation = validateTitle(title);
-    const locationValidation = validateLocation(location);
+    const resolvedLocation = location || (selectedLocation?.coordinates ? JSON.stringify(selectedLocation.coordinates) : "");
+    const locationValidation = validateLocation(resolvedLocation);
     const descriptionValidation = validateDescription(description);
     const dateTimeValidation = validateDateTime(date, time);
 
@@ -279,13 +281,14 @@ const AddEvent = () => {
       return;
     }
     try {
+      const resolvedLocation = location || (selectedLocation?.coordinates ? JSON.stringify(selectedLocation.coordinates) : "");
       const createdEvent = await createEvent(
         {
           name: title,
           description: description,
           date: date,
           time: time,
-          location: location,
+          location: resolvedLocation,
           is_private: isPrivate,
           picture: eventPicture,
         }
