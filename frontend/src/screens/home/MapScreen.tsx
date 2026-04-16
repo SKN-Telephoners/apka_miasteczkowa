@@ -8,14 +8,17 @@ import Constants from "expo-constants";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import { useEvents } from "../../contexts/EventContext";
+import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
+import { getMapEvents } from "../../services/events";
 import { Event } from "../../types";
+import { useCallback, useRef } from "react";
 
 const DEFAULT_CAMERA = {
   centerCoordinate: [19.9061, 50.0686] as [number, number],
@@ -23,18 +26,74 @@ const DEFAULT_CAMERA = {
   heading: 13,
 };
 
+const MAP_REFRESH_COOLDOWN_MS = 30_000;
+
 export default function MapScreen() {
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const cameraRef = useRef<any>(null);
   const [cameraPosition, setCameraPosition] = useState(DEFAULT_CAMERA);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [showEventsList, setShowEventsList] = useState(false);
-  const { events, isLoading, fetchEvents } = useEvents();
+  const [events, setEvents] = useState<Event[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const MAPTILER_KEY = Constants.expoConfig?.extra?.MAPTILER_KEY || "";
+  const hasLoadedOnceRef = useRef(false);
+  const lastFetchedAtRef = useRef(0);
+  const inFlightRef = useRef<Promise<void> | null>(null);
+
+  const fetchMapEvents = useCallback(
+    async ({ force = false, userInitiated = false }: { force?: boolean; userInitiated?: boolean } = {}) => {
+      if (inFlightRef.current) {
+        return inFlightRef.current;
+      }
+
+      const now = Date.now();
+      const isFresh = now - lastFetchedAtRef.current < MAP_REFRESH_COOLDOWN_MS;
+      if (!force && isFresh) {
+        return;
+      }
+
+      const request = (async () => {
+        if (userInitiated) {
+          setIsRefreshing(true);
+        } else if (!hasLoadedOnceRef.current) {
+          setIsLoading(true);
+        }
+
+        try {
+          const upcomingEvents = await getMapEvents();
+          setEvents(upcomingEvents);
+          hasLoadedOnceRef.current = true;
+          lastFetchedAtRef.current = Date.now();
+        } catch (error) {
+          console.error("Error fetching map events:", error);
+        } finally {
+          setIsLoading(false);
+          setIsRefreshing(false);
+        }
+      })();
+
+      inFlightRef.current = request;
+      try {
+        await request;
+      } finally {
+        inFlightRef.current = null;
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
-    if (events.length === 0) {
-      fetchEvents();
-    }
-  }, []);
+    fetchMapEvents({ force: true });
+  }, [fetchMapEvents]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchMapEvents();
+    }, [fetchMapEvents]),
+  );
 
   const mapStyle = useMemo(
     () =>
@@ -43,38 +102,101 @@ export default function MapScreen() {
   );
 
   const resetCamera = () => {
+    cameraRef.current?.setCamera?.({
+      centerCoordinate: DEFAULT_CAMERA.centerCoordinate,
+      zoomLevel: DEFAULT_CAMERA.zoomLevel,
+      heading: DEFAULT_CAMERA.heading,
+      animationDuration: 1200,
+      animationMode: "flyTo",
+    });
     setCameraPosition(DEFAULT_CAMERA);
   };
 
+  const focusEventOnMap = useCallback((eventId: string, location: string) => {
+    try {
+      const coords = JSON.parse(location) as [number, number];
+      if (!Array.isArray(coords) || coords.length !== 2) {
+        return;
+      }
+
+      setSelectedEventId(eventId);
+      cameraRef.current?.setCamera?.({
+        centerCoordinate: coords,
+        zoomLevel: 20,
+        heading: cameraPosition.heading,
+        animationDuration: 1200,
+        animationMode: "flyTo",
+      });
+
+      setCameraPosition((prev) => ({
+        ...prev,
+        centerCoordinate: coords,
+        zoomLevel: 20,
+      }));
+    } catch {
+      // Ignore invalid location payload.
+    }
+  }, [cameraPosition.heading]);
+
+  useEffect(() => {
+    const focusEvent = route.params?.focusEvent as { id?: string; location?: string } | undefined;
+    if (!focusEvent?.id || !focusEvent?.location) {
+      return;
+    }
+
+    focusEventOnMap(focusEvent.id, focusEvent.location);
+    navigation.setParams?.({ focusEvent: undefined });
+  }, [route.params?.focusEvent, navigation, focusEventOnMap]);
+
   const handleEventSelect = (event: Event) => {
+    focusEventOnMap(event.id, event.location);
+  };
+
+  const openEventDetails = (event: Event) => {
     setSelectedEventId(event.id);
-    const coords = JSON.parse(event.location) as [number, number];
-    setCameraPosition({
-      ...cameraPosition,
-      centerCoordinate: coords,
-      zoomLevel: 20,
-    });
+    navigation.navigate("EventDetails", { event });
   };
 
   const eventsGeoJSON = useMemo(
     () => ({
       type: "FeatureCollection" as const,
       features: events
-        .filter((event) => event.location)
-        .map((event) => ({
-          type: "Feature" as const,
-          geometry: {
-            type: "Point" as const,
-            coordinates: JSON.parse(event.location) as [number, number],
-          },
-          properties: {
-            id: event.id,
-            name: event.name,
-          },
-        })),
+        .map((event) => {
+          try {
+            const coordinates = JSON.parse(event.location) as [number, number];
+            return {
+              type: "Feature" as const,
+              geometry: {
+                type: "Point" as const,
+                coordinates,
+              },
+              properties: {
+                id: event.id,
+                name: event.name,
+              },
+            };
+          } catch {
+            return null;
+          }
+        })
+        .filter((feature): feature is NonNullable<typeof feature> => Boolean(feature)),
     }),
     [events],
   );
+
+  const handleShapePress = (event: any) => {
+    const feature = event?.features?.[0] ?? event?.nativeEvent?.payload?.features?.[0];
+    const eventId = feature?.properties?.id;
+
+    if (!eventId) {
+      return;
+    }
+
+    const clickedEvent = events.find((item) => item.id === eventId);
+    if (clickedEvent) {
+      openEventDetails(clickedEvent);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -86,6 +208,7 @@ export default function MapScreen() {
           attributionPosition={{ bottom: 8, right: 8 }}
         >
           <Camera
+            ref={cameraRef}
             zoomLevel={cameraPosition.zoomLevel}
             centerCoordinate={cameraPosition.centerCoordinate}
             animationMode="flyTo"
@@ -93,7 +216,7 @@ export default function MapScreen() {
             heading={cameraPosition.heading}
             minZoomLevel={16.5}
           />
-          <ShapeSource id="events" shape={eventsGeoJSON}>
+          <ShapeSource id="events" shape={eventsGeoJSON} onPress={handleShapePress}>
             <CircleLayer
               id="event-circles"
               style={{
@@ -108,7 +231,7 @@ export default function MapScreen() {
         {showEventsList && (
           <View style={styles.eventsPanel}>
             <View style={styles.eventsPanelHeader}>
-              <Text style={styles.eventsPanelTitle}>Events</Text>
+              <Text style={styles.eventsPanelTitle}>Wydarzenia</Text>
               <TouchableOpacity onPress={() => setShowEventsList(false)}>
                 <Text style={styles.closePanelButton}>✕</Text>
               </TouchableOpacity>
@@ -118,7 +241,16 @@ export default function MapScreen() {
                 <ActivityIndicator size="large" color="#007AFF" />
               </View>
             ) : (
-              <ScrollView style={styles.eventsListContent}>
+              <ScrollView
+                style={styles.eventsListContent}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={isRefreshing}
+                    onRefresh={() => fetchMapEvents({ force: true, userInitiated: true })}
+                    tintColor="#007AFF"
+                  />
+                }
+              >
                 {events.length === 0 ? (
                   <View style={styles.emptyState}>
                     <Text style={styles.emptyStateText}>
@@ -167,7 +299,7 @@ export default function MapScreen() {
         )}
 
         <TouchableOpacity style={styles.resetButton} onPress={resetCamera}>
-          <Text style={styles.resetButtonText}>Reset Location</Text>
+          <Text style={styles.resetButtonText}>Zresetuj lokalizację</Text>
         </TouchableOpacity>
       </View>
     </View>
