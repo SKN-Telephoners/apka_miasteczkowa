@@ -10,7 +10,6 @@ from backend.helpers import validate_uuid, sanitize_input
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from sqlalchemy.exc import SQLAlchemyError
-import json
 import cloudinary.uploader
 from cloudinary.utils import cloudinary_url
 from sqlalchemy import or_, and_, func, case, exists
@@ -18,121 +17,6 @@ from sqlalchemy.orm import joinedload
 
 events_bp = Blueprint("events", __name__, url_prefix="/api/events")
 local_tz = ZoneInfo("Europe/Warsaw")
-
-
-def normalize_location_input(raw_location):
-    # Accept coordinate pairs and legacy location labels.
-    if raw_location is None:
-        return None, "Location is required"
-
-    parsed_coords = None
-
-    if isinstance(raw_location, (list, tuple)) and len(raw_location) == 2:
-        parsed_coords = raw_location
-    else:
-        location_text = sanitize_input(str(raw_location)).strip()
-        if not location_text:
-            return None, "Location is required"
-
-        try:
-            parsed_json = json.loads(location_text)
-            if isinstance(parsed_json, (list, tuple)) and len(parsed_json) == 2:
-                parsed_coords = parsed_json
-        except (TypeError, ValueError, json.JSONDecodeError):
-            parsed_json = None
-
-        if parsed_coords is None and "," in location_text and not location_text.startswith("["):
-            parts = [p.strip() for p in location_text.split(",")]
-            if len(parts) == 2:
-                parsed_coords = parts
-
-        if parsed_coords is None:
-            if len(location_text) > Constants.MAX_LOCATION_LEN:
-                return None, "Location name is too long"
-            return location_text, None
-
-    try:
-        lng = float(parsed_coords[0])
-        lat = float(parsed_coords[1])
-    except (TypeError, ValueError):
-        return None, "Invalid location coordinates format"
-
-    if not (-180.0 <= lng <= 180.0 and -90.0 <= lat <= 90.0):
-        return None, "Location coordinates are out of range"
-
-    normalized = f"[{lng:.6f},{lat:.6f}]"
-    if len(normalized) > Constants.MAX_LOCATION_LEN:
-        return None, "Location name is too long"
-
-    return normalized, None
-
-
-def parse_location_coordinates(raw_location):
-    if raw_location is None:
-        return None
-
-    if isinstance(raw_location, (list, tuple)) and len(raw_location) == 2:
-        candidate = raw_location
-    else:
-        location_text = str(raw_location).strip()
-        if not location_text:
-            return None
-
-        try:
-            candidate = json.loads(location_text)
-        except (TypeError, ValueError, json.JSONDecodeError):
-            return None
-
-    if not isinstance(candidate, (list, tuple)) or len(candidate) != 2:
-        return None
-
-    try:
-        lng = float(candidate[0])
-        lat = float(candidate[1])
-    except (TypeError, ValueError):
-        return None
-
-    if not (-180.0 <= lng <= 180.0 and -90.0 <= lat <= 90.0):
-        return None
-
-    return [lng, lat]
-
-
-def serialize_event_payload(event, user_id, creator_lookup, participating_event_ids):
-    local_dt = event.date_and_time.astimezone(local_tz) if event.date_and_time else None
-    creator = creator_lookup.get(str(event.creator_id))
-
-    return {
-        "id": str(event.event_id),
-        "event_id": str(event.event_id),
-        "name": event.event_name,
-        "description": event.description,
-        "date": local_dt.strftime("%d.%m.%Y") if local_dt else None,
-        "time": local_dt.strftime("%H:%M") if local_dt else None,
-        "location": event.location,
-        "creator_id": str(event.creator_id),
-        "pictures": [
-            {
-                "cloud_id": pic.cloud_id,
-                "url": cloudinary_url(pic.cloud_id, secure=True)[0],
-            }
-            for pic in event.pictures
-        ],
-        "creator_username": creator.display_name if creator else None,
-        "creator_profile_picture_url": cloudinary_url(creator.profile_picture, secure=True)[0] if creator and creator.profile_picture else None,
-        "creator_academy": creator.academy if creator else None,
-        "creator_faculty": creator.faculty if creator else None,
-        "creator_course": creator.course if creator else None,
-        "creator_year": creator.year if creator else None,
-        "created_at": event.created_at.isoformat() if event.created_at else None,
-        "comment_count": int(event.comment_count or 0),
-        "participant_count": int(event.participant_count or 0),
-        "participation_count": int(event.participant_count or 0),
-        "is_participating": event.creator_id == user_id or event.event_id in participating_event_ids,
-        "is_joined": event.creator_id == user_id or event.event_id in participating_event_ids,
-        "is_private": event.is_private,
-        "location_coordinates": parse_location_coordinates(event.location),
-    }
 
 @events_bp.route("/create", methods=["POST"])
 @limiter.limit("100 per minute")
@@ -154,9 +38,7 @@ def create_event():
     description = sanitize_input(str(event_data.get("description", ""))).strip()
     date_str = str(event_data.get("date", "")).strip()
     time_str = str(event_data.get("time", "")).strip()
-    location, location_error = normalize_location_input(event_data.get("location"))
-    if location_error:
-        return make_api_response(ResponseTypes.INVALID_DATA, message=location_error)
+    location = sanitize_input(str(event_data.get("location", ""))).strip()
     is_private_raw = event_data.get("is_private", False)
     is_private = str(is_private_raw).strip().lower() in ['true', '1', 't', 'y', 'yes']
 
@@ -327,9 +209,9 @@ def edit_event(event_id):
 
     raw_loc = event_data.get("location")
     if raw_loc is not None:
-        location, location_error = normalize_location_input(raw_loc)
-        if location_error:
-            return make_api_response(ResponseTypes.INVALID_DATA, message=location_error)
+        location = sanitize_input(str(raw_loc)).strip()
+        if len(location) > Constants.MAX_LOCATION_LEN:
+            return make_api_response(ResponseTypes.INVALID_DATA, message="Location name is too long")
         event.location = location
 
     raw_is_private = event_data.get("is_private")
@@ -661,70 +543,6 @@ def feed():
         })
     except Exception as e:
         current_app.logger.error(f"Error in feed: {e}")
-        return make_api_response(ResponseTypes.SERVER_ERROR)
-
-
-@events_bp.route("/map", methods=["GET"])
-@limiter.limit("600 per minute")
-@jwt_required()
-def map_events():
-    try:
-        user = get_current_user()
-        user_id = user.user_id
-        now_utc = datetime.now(timezone.utc)
-
-        participant_exists = exists().where(
-            and_(
-                Event_participants.event_id == Event.event_id,
-                Event_participants.user_id == user_id,
-            )
-        )
-
-        visibility_exists = exists().where(
-            and_(
-                Event_visibility.event_id == Event.event_id,
-                Event_visibility.shared_with == user_id,
-            )
-        )
-
-        events = Event.query.options(joinedload(Event.pictures)).filter(
-            Event.date_and_time >= now_utc,
-            or_(
-                Event.is_private.is_(False),
-                Event.creator_id == user_id,
-                participant_exists,
-                visibility_exists,
-            )
-        ).order_by(Event.date_and_time.asc(), Event.event_id.asc()).all()
-
-        events = [event for event in events if parse_location_coordinates(event.location) is not None]
-
-        creator_ids = {event.creator_id for event in events if event.creator_id is not None}
-        creator_users = User.query.filter(User.user_id.in_(creator_ids)).all() if creator_ids else []
-        creator_lookup = {str(user.user_id): user for user in creator_users}
-
-        event_ids = [event.event_id for event in events]
-        participant_rows = (
-            db.session.query(Event_participants.event_id)
-            .filter(
-                Event_participants.user_id == user_id,
-                Event_participants.event_id.in_(event_ids),
-            )
-            .all()
-        ) if event_ids else []
-        participating_event_ids = {event_id for (event_id,) in participant_rows}
-
-        return make_api_response(
-            ResponseTypes.SUCCESS,
-            data={
-                "data": [
-                    serialize_event_payload(event, user_id, creator_lookup, participating_event_ids)
-                    for event in events
-                ]
-            },
-        )
-    except Exception as e:
-        current_app.logger.error(f"Error in map_events: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
 @events_bp.route("/participation/<event_id>", methods=["GET"])
