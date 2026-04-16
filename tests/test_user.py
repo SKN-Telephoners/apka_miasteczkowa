@@ -1503,6 +1503,26 @@ def test_delete_account_removes_picture(mock_destroy, client, logged_in_user, ap
         user = User.query.filter_by(user_id=user.user_id).first()
         assert user.profile_picture == None
 
+
+def test_get_user_info_friend_count(client, logged_in_user, registered_friend, app):
+    with app.app_context():
+        user, token = logged_in_user
+        friend = registered_friend[0]
+
+        if user.user_id < friend.user_id:
+            friendship = Friendship(user_id=user.user_id, friend_id=friend.user_id)
+        else:
+            friendship = Friendship(user_id=friend.user_id, friend_id=user.user_id)
+            
+        db.session.add(friendship)
+        db.session.commit()
+        
+        response = client.get(f"/api/users/profile/{user.user_id}", headers=get_auth_header(token))
+        assert response.status_code == 200
+        
+        data = response.get_json()
+        assert "friend_count" in data
+        assert data["friend_count"] == 1
 # =============================================================================
 # Tests for users list 
 # =============================================================================

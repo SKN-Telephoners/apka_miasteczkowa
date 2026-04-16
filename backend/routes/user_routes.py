@@ -2,6 +2,7 @@ from flask import Blueprint, request, current_app, url_for
 from flask_jwt_extended import jwt_required, get_current_user, create_access_token, get_jwt_identity
 from backend.extensions import db, limiter
 from backend.models import User, Friendship
+from sqlalchemy import or_
 from backend.responses import ResponseTypes, make_api_response
 from backend.tasks import send_email_async
 from backend.helpers import (

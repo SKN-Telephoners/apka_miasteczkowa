@@ -5,9 +5,9 @@ from backend.extensions import db,limiter
 from backend.responses import ResponseTypes, make_api_response
 from flask_jwt_extended import jwt_required, get_current_user
 from backend.helpers import validate_uuid
-import uuid
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy import or_, and_
+import backend.notifications as notifications
 from cloudinary.utils import cloudinary_url
 
 friends_bp = Blueprint("friends", __name__, url_prefix="/api/friends")
@@ -50,6 +50,14 @@ def create_friend_request(friend_id):
         new_request = FriendRequest(sender_id=user.user_id, receiver_id=friend_id)
         db.session.add(new_request)
         db.session.commit()
+        
+        notifications.friend_request_created.send(
+            current_app._get_current_object(),
+            from_user = user.user_id, 
+            to_user = friend_id, 
+            request_id=new_request.request_id
+        )
+
     except IntegrityError:
         db.session.rollback()
         return make_api_response(ResponseTypes.CONFLICT, message="Request already exists")

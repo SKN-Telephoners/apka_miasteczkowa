@@ -3,7 +3,6 @@ from backend.extensions import db
 from backend.models import Friendship, Event
 from backend.models.event import Event_participants, InviteRequestStatus, Invites
 from datetime import datetime, timezone
-import uuid
 
 def test_participation_status(client, logged_in_user, event, app):
     with app.app_context():
@@ -252,10 +251,9 @@ def test_change_invite_status_not_authorized(client, logged_in_user, registered_
         assert response.status_code == 403
         assert "only change status of the invites meant to you" in response.get_json()["message"]
 
-def test_get_my_events(client, logged_in_user, registered_friend, app):
+def test_get_user_events_creator(client, logged_in_user, app):
     with app.app_context():
         user, token = logged_in_user
-        friend = registered_friend[0]
 
         event_created = Event(
             event_name="My Event",
@@ -264,6 +262,23 @@ def test_get_my_events(client, logged_in_user, registered_friend, app):
             location="Krakow"
         )
         db.session.add(event_created)
+        db.session.commit()
+
+        response = client.get(f"/api/events/{user.user_id}/creator", headers={
+            "Authorization": f"Bearer {token}"
+        })
+        
+        assert response.status_code == 200
+        data = response.get_json()["data"]
+        
+        assert len(data) == 1
+        assert data[0]["name"] == "My Event"
+
+
+def test_get_user_events_participant(client, logged_in_user, registered_friend, app):
+    with app.app_context():
+        user, token = logged_in_user
+        friend = registered_friend[0]
 
         event_participating = Event(
             event_name="Event I am Attending",
@@ -278,30 +293,35 @@ def test_get_my_events(client, logged_in_user, registered_friend, app):
         assert response.status_code == 200
         assert response.get_json()["participant_count"] == 1
         
-        response = client.get(f"/api/events/{user.user_id}/info", headers={
+        response = client.get(f"/api/events/{user.user_id}/participant", headers={
             "Authorization": f"Bearer {token}"
         })
         
         assert response.status_code == 200
-        data = response.get_json()
+        data = response.get_json()["data"]
         
-        assert "created" in data
-        assert "participating" in data
-        
-        assert len(data["created"]) == 1
-        assert data["created"][0]["name"] == "My Event"
-        
-        assert len(data["participating"]) == 1
-        assert data["participating"][0]["name"] == "Event I am Attending"
+        assert len(data) == 1
+        assert data[0]["name"] == "Event I am Attending"
 
-def test_get_my_events_empty(client, logged_in_user, app):
+
+def test_get_user_events_creator_empty(client, logged_in_user, app):
     user, token = logged_in_user
     
-    response = client.get(f"/api/events/{user.user_id}/info", headers={
+    response = client.get(f"/api/events/{user.user_id}/creator", headers={
         "Authorization": f"Bearer {token}"
     })
     
     assert response.status_code == 200
-    data = response.get_json()
-    assert len(data["created"]) == 0
-    assert len(data["participating"]) == 0
+    data = response.get_json()["data"]
+    assert len(data) == 0
+
+def test_get_user_events_participant_empty(client, logged_in_user, app):
+    user, token = logged_in_user
+    
+    response = client.get(f"/api/events/{user.user_id}/participant", headers={
+        "Authorization": f"Bearer {token}"
+    })
+    
+    assert response.status_code == 200
+    data = response.get_json()["data"]
+    assert len(data) == 0

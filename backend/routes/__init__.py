@@ -5,6 +5,7 @@ from .event_routes import events_bp
 from .comment_routes import comments_bp
 from .email_routes import email_bp
 from .picture_routes import pictures_bp
+from .notification_routes import notifications_bp
 from . import tokens
 
 __all__ = [
@@ -15,7 +16,8 @@ __all__ = [
     "events_bp",
     "comments_bp",
     "email_bp",
-    "pictures_bp"
+    "pictures_bp",
+    "notifications_bp"
 ]
 
 def register_blueprints(app):
@@ -26,3 +28,4 @@ def register_blueprints(app):
     app.register_blueprint(comments_bp)
     app.register_blueprint(email_bp)
     app.register_blueprint(pictures_bp)
+    app.register_blueprint(notifications_bp)
