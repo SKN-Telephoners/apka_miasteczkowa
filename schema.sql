@@ -2,11 +2,7 @@
 -- PostgreSQL database dump
 --
 
-<<<<<<< HEAD
-\restrict BydDvjq5ybPFJdEQG5sbmUsKW50RfI71JpxL2MaMDiGEbLSb7KC0pFqtfq6TPDP
-=======
-\restrict h5jfLWAQOXwGPIHTxpFtbR9AZr1tgB7DFD14ruHAQGqtFSkkwTtsN7kfg58tFeP
->>>>>>> 72dedd9b85e375076fa1c23a5dbf856961e3fe52
+\restrict QypDRZESPVocLzShGHyj8nT6qiPMtboUPDe1qcGoNmEOku0lvvkGUfHNhYsssZj
 
 -- Dumped from database version 16.13 (Ubuntu 16.13-0ubuntu0.24.04.1)
 -- Dumped by pg_dump version 16.13 (Ubuntu 16.13-0ubuntu0.24.04.1)
@@ -789,5 +785,5 @@ ALTER TABLE ONLY public."Token_blocklist"
 -- PostgreSQL database dump complete
 --
 
-\unrestrict h5jfLWAQOXwGPIHTxpFtbR9AZr1tgB7DFD14ruHAQGqtFSkkwTtsN7kfg58tFeP
+\unrestrict QypDRZESPVocLzShGHyj8nT6qiPMtboUPDe1qcGoNmEOku0lvvkGUfHNhYsssZj
 
