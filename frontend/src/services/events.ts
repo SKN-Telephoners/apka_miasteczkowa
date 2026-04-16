@@ -259,17 +259,30 @@ export const getParticipationStatus = async (eventId: string): Promise<Participa
     }
 };
 
-export interface UserEventsInfoResponse {
-    created: Array<{ event_id: string; name: string }>;
-    participating: Array<{ event_id: string; name: string }>;
-}
-
-export const getUserEventsInfo = async (userId: string): Promise<UserEventsInfoResponse> => {
+export const getUserCreatedEvents = async (userId: string): Promise<Event[]> => {
     try {
-        const response = await api.get<UserEventsInfoResponse>(`/api/events/${userId}/info`);
-        return response.data as UserEventsInfoResponse;
+        const response = await api.get<{ data: any[] }>(`/api/events/${userId}/creator`);
+        return (response.data.data || []).map(event => ({
+            ...event,
+            id: event.id || event.event_id,
+            participant_count: event.participant_count ?? event.participation_count
+        })) as Event[];
     } catch (err: any) {
-        const msg = err?.response?.data?.message || err?.message || "Błąd pobierania wydarzeń użytkownika";
+        const msg = err?.response?.data?.message || err?.message || "Błąd pobierania utworzonych wydarzeń użytkownika";
+        throw new Error(msg);
+    }
+};
+
+export const getUserParticipatingEvents = async (userId: string): Promise<Event[]> => {
+    try {
+        const response = await api.get<{ data: any[] }>(`/api/events/${userId}/participant`);
+        return (response.data.data || []).map(event => ({
+            ...event,
+            id: event.id || event.event_id,
+            participant_count: event.participant_count ?? event.participation_count
+        })) as Event[];
+    } catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || "Błąd pobierania wydarzeń, w których użytkownik bierze udział";
         throw new Error(msg);
     }
 };
