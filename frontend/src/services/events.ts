@@ -144,6 +144,10 @@ export interface PaginatedEvents {
     };
 }
 
+export interface MapEventsResponse {
+    data: Event[];
+}
+
 export interface FeedQueryParams {
     q?: string;
     visibility?: "all" | "public" | "private";
@@ -227,6 +231,16 @@ export const getEvents = async (
     }
     // error handling 
     catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || "Network error";
+        throw new Error(msg);
+    }
+};
+
+export const getMapEvents = async (): Promise<Event[]> => {
+    try {
+        const response = await api.get<MapEventsResponse>("/api/events/map");
+        return response.data.data || [];
+    } catch (err: any) {
         const msg = err?.response?.data?.message || err?.message || "Network error";
         throw new Error(msg);
     }

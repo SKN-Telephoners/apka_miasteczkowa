@@ -10,7 +10,7 @@ import { TextInput } from "react-native";
 import ItemSeparator from "../../components/ItemSeparator";
 import Button from "../../components/Button";
 import CollapsibleSection from "../../components/CollapsibleSection";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
 import { EventPicture } from "../../types";
@@ -21,9 +21,17 @@ import { useUser } from "../../contexts/UserContext";
 import { useFriends } from "../../contexts/FriendsContext";
 import InputField from "../../components/InputField";
 
+interface SelectedLocationParam {
+  coordinates: [number, number];
+  lat: number;
+  lng: number;
+  timestamp: number;
+}
+
 
 const AddEvent = () => {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const { colors } = useTheme();
   const { user: currentUser } = useUser();
   const PREVIEW_ICON_SIZE = 22;
@@ -45,6 +53,15 @@ const AddEvent = () => {
   const DESCRIPTION_LINE_HEIGHT = 20;
   const DESCRIPTION_MIN_HEIGHT = DESCRIPTION_LINE_HEIGHT * 5 + 20;
   const [descriptionInputHeight, setDescriptionInputHeight] = useState(DESCRIPTION_MIN_HEIGHT);
+
+  useEffect(() => {
+    const selectedLocation = route.params?.selectedLocation as SelectedLocationParam | undefined;
+    if (selectedLocation?.coordinates?.length === 2) {
+      setLocation(JSON.stringify(selectedLocation.coordinates));
+      setLocationError("");
+      navigation.setParams?.({ selectedLocation: undefined });
+    }
+  }, [route.params?.selectedLocation, navigation]);
 
   const previewEvent = useMemo(() => {
     return buildEventPreview({
@@ -179,8 +196,18 @@ const AddEvent = () => {
       return "Pole lokalizacja jest wymagane";
     }
 
-    if (text.length < 3 || text.length > 32) {
-      return "Lokalizacja może mieć maksymalnie 32 znaki";
+    try {
+      const parsed = JSON.parse(text);
+      const isValid =
+        Array.isArray(parsed) &&
+        parsed.length === 2 &&
+        typeof parsed[0] === "number" &&
+        typeof parsed[1] === "number";
+      if (!isValid) {
+        return "Wybierz lokalizację na mapie";
+      }
+    } catch {
+      return "Wybierz lokalizację na mapie";
     }
 
     return null;
@@ -412,23 +439,20 @@ const AddEvent = () => {
           ></TextInput>
           <ItemSeparator></ItemSeparator>
           <CollapsibleSection title="Lokalizacja" initialExpanded={true} style={{ padding: 10 }}>
-            <View style={{ flexDirection: "row" }}>
-              <Image source={require("../../../assets/map_selection.jpg")} />
-              <View>
-                <Text style={styles.nameInput}>Nazwa</Text>
-                <TextInput
-                  placeholder="Wpisz nazwę..."
-                  placeholderTextColor={colors.searchWord}
-                  style={styles.textInput}
-                  value={location}
-                  onChangeText={setLocation}
-                  autoComplete="off"
-                  importantForAutofill="no"
-                  autoCorrect={false}
-                />
-                {locationError ? <Text style={styles.errorText}>{locationError}</Text> : null}
+            <TouchableOpacity
+              style={styles.mapPlaceholderButton}
+              onPress={() => navigation.navigate("EventMap", { returnTo: "AddEvent", sourceRouteKey: route.key })}
+              activeOpacity={0.85}
+            >
+              <Image source={require("../../../assets/map_selection.jpg")} style={styles.mapPlaceholderImage} />
+              <View style={styles.mapPlaceholderOverlay}>
+                <Text style={styles.mapPlaceholderTitle}>Wybierz lokalizację na mapie</Text>
+                <Text style={styles.mapPlaceholderSubtitle}>
+                  {location ? "Lokalizacja wybrana" : "Dotknij, aby wskazać miejsce"}
+                </Text>
               </View>
-            </View>
+            </TouchableOpacity>
+            {locationError ? <Text style={styles.errorText}>{locationError}</Text> : null}
           </CollapsibleSection>
 
           <ItemSeparator></ItemSeparator>
@@ -538,15 +562,6 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     color: colors.text,
   },
 
-  nameInput: {
-    paddingBottom: 10,
-    paddingTop: 25,
-    padding: 10,
-    ...THEME.typography.title,
-    fontWeight: "700",
-    color: colors.text,
-  },
-
   infoText: {
     ...THEME.typography.text,
     color: colors.icon,
@@ -639,6 +654,37 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     marginTop: 10,
     fontWeight: "700",
     color: colors.text,
+  },
+  mapPlaceholderButton: {
+    borderRadius: 16,
+    overflow: "hidden",
+    marginHorizontal: 10,
+  },
+  mapPlaceholderImage: {
+    width: "100%",
+    height: 160,
+  },
+  mapPlaceholderOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.30)",
+    paddingHorizontal: 18,
+  },
+  mapPlaceholderTitle: {
+    ...THEME.typography.eventTitle,
+    color: "#fff",
+    textAlign: "center",
+  },
+  mapPlaceholderSubtitle: {
+    ...THEME.typography.text,
+    color: "#fff",
+    marginTop: 6,
+    textAlign: "center",
   }
 });
 
