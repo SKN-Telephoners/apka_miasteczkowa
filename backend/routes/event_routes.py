@@ -1,5 +1,5 @@
 from flask import Blueprint, request, current_app
-from backend.models.event import Event, Event_visibility, Event_participants, Invites, InviteRequestStatus, Pictures
+from backend.models.event import Event, Event_visibility, Event_participants, Invites, InviteRequestStatus, Pictures, Location
 from backend.models import User, Friendship
 from backend.extensions import db, limiter
 from backend.constants import Constants
@@ -11,7 +11,8 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.exc import SQLAlchemyError
 import cloudinary.uploader
 from cloudinary.utils import cloudinary_url
-from sqlalchemy import or_, and_, asc, desc
+from sqlalchemy import or_, and_
+import backend.notifications as notifications
 
 events_bp = Blueprint("events", __name__, url_prefix="/api/events")
 local_tz = ZoneInfo("Europe/Warsaw")
@@ -609,6 +610,16 @@ def invite_to_event(event_id):
         )
         db.session.add(new_invite)
         db.session.commit()
+        
+        notifications.event_invite_sent.send(
+            current_app._get_current_object(),
+            from_user=u_uuid, 
+            to_user=i_uuid, 
+            invite_id=new_invite.invite_id,
+            event_id=e_uuid,
+            event_name=event.event_name
+        )
+        
     except SQLAlchemyError as e:
         db.session.rollback()
         current_app.logger.error(f"Database error in invite_to_event: {e}")
@@ -698,3 +709,109 @@ def change_invite_status(invite_id):
         return make_api_response(ResponseTypes.SERVER_ERROR)
     
     return make_api_response(ResponseTypes.SUCCESS, message="Invite status changed successfully")
+
+@events_bp.route("/<user_id>/creator", methods=["GET"])
+@jwt_required()
+def get_user_events_creator(user_id):
+    u_uuid = validate_uuid(user_id)
+
+    if not u_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid user ID")
+
+    user = db.session.get(User, u_uuid)
+    created_events = Event.query.filter_by(creator_id=user.user_id).all()
+    
+    created_data=[
+            {
+                "event_id": str(event.event_id),
+                "name": event.event_name,
+                "description": event.description,
+                "date": event.date_and_time.astimezone(local_tz).strftime("%d.%m.%Y"),
+                "time": event.date_and_time.astimezone(local_tz).strftime("%H:%M"),
+                "location": event.location,
+                "creator_id": str(event.creator_id),
+                "pictures": [
+                    {
+                        "cloud_id": pic.cloud_id,
+                        "url": cloudinary_url(pic.cloud_id, secure=True)[0]
+                    } 
+                    for pic in event.pictures
+                ],
+                "creator_username": user.username,
+                "comment_count": str(event.comment_count),
+                "participation_count": event.participant_count,
+                "is_private": event.is_private,
+            }
+            for event in created_events
+        ]
+    
+    return make_api_response(
+        ResponseTypes.SUCCESS, 
+        data={"data": created_data}
+    )
+
+
+@events_bp.route("/<user_id>/participant", methods=["GET"])
+@jwt_required()
+def get_user_events_participand(user_id):
+    u_uuid = validate_uuid(user_id)
+
+    if not u_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid user ID")
+
+    user = db.session.get(User, u_uuid)
+    
+    participating_events = db.session.query(Event).join(
+        Event_participants, Event.event_id == Event_participants.event_id
+    ).filter(Event_participants.user_id == user.user_id).all()
+
+    participating_data=[
+            {
+                "event_id": str(event.event_id),
+                "name": event.event_name,
+                "description": event.description,
+                "date": event.date_and_time.astimezone(local_tz).strftime("%d.%m.%Y"),
+                "time": event.date_and_time.astimezone(local_tz).strftime("%H:%M"),
+                "location": event.location,
+                "creator_id": str(event.creator_id),
+                "pictures": [
+                    {
+                        "cloud_id": pic.cloud_id,
+                        "url": cloudinary_url(pic.cloud_id, secure=True)[0]
+                    } 
+                    for pic in event.pictures
+                ],
+                "creator_username": User.query.filter_by(user_id=event.creator_id).first().username,
+                "comment_count": str(event.comment_count),
+                "participation_count": event.participant_count,
+                "is_private": event.is_private,
+            }
+            for event in participating_events
+        ]
+    
+    return make_api_response(
+        ResponseTypes.SUCCESS, 
+        data={"data": participating_data}
+    )
+
+
+@events_bp.route("/get_coordinates", methods=["GET"])
+@limiter.limit("1000 per second")
+@jwt_required()
+def get_coordinates():
+    location_name = request.args.get('location') # request for that endpoint ex: /api/events/get_coordinates?location=Krakow
+    location_name = str(sanitize_input(location_name))
+    if not location_name or location_name == "":
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Location name must not be empty")
+
+    if len(location_name) > Constants.MAX_LOCATION_LEN:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Location name too long")
+
+    query = db.session.query(Location).filter_by(location_name=location_name).first()    
+    
+    if not query:
+        return make_api_response(ResponseTypes.NOT_FOUND, message="Location of that name not found")
+    
+    coordinates = query.coordinates
+
+    return make_api_response(ResponseTypes.SUCCESS, data={"coordinates": str(coordinates)})
