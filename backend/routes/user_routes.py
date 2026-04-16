@@ -2,6 +2,7 @@ from flask import Blueprint, request, current_app, url_for
 from flask_jwt_extended import jwt_required, get_current_user, create_access_token, get_jwt_identity
 from backend.extensions import db, limiter
 from backend.models import User, Friendship
+from sqlalchemy import or_
 from backend.responses import ResponseTypes, make_api_response
 from backend.tasks import send_email_async
 from backend.helpers import (
@@ -58,40 +59,6 @@ def get_user_info(user_id):
         "profile_picture": profile_pic_data,
         "friend_count": friend_count,
         "deleted": user.deleted
-    }
-
-    return make_api_response(ResponseTypes.SUCCESS, data=user_data)
-
-
-@users_bp.route("/public_profile/<user_id>", methods=["GET"])
-@jwt_required()
-def get_public_user_info(user_id):
-    target_user_id = validate_uuid(user_id)
-    if not target_user_id:
-        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid user ID")
-
-    user = User.query.filter_by(user_id=target_user_id).first()
-    if not user or user.deleted is True:
-        return make_api_response(ResponseTypes.NOT_FOUND, message="User not found")
-
-    profile_pic_data = None
-    if user.profile_picture:
-        url, _ = cloudinary_url(user.profile_picture, secure=True)
-        profile_pic_data = {
-            "cloud_id": user.profile_picture,
-            "url": url,
-        }
-
-    user_data = {
-        "user_id": str(user.user_id),
-        "id": str(user.user_id),
-        "username": user.display_name,
-        "academy": user.academy,
-        "faculty": user.faculty,
-        "course": user.course,
-        "year": user.year,
-        "description": user.description,
-        "profile_picture": profile_pic_data,
     }
 
     return make_api_response(ResponseTypes.SUCCESS, data=user_data)
@@ -387,6 +354,7 @@ def delete_account():
         user.year = None
         user.academic_clubs = None
         
+        # scramble the password (the account can never be logged into again)
         user.update_password(uuid.uuid4().hex)
         
         revoke_all_user_tokens(user.user_id)
@@ -421,8 +389,6 @@ def get_users_list():
         return make_api_response(ResponseTypes.INVALID_DATA, message="Pagination must be a positive integer")
 
     search_val = request.args.get("search", default="", type=str).strip()
-    clean_search = ""
-    escaped_search = ""
 
     query = db.session.query(User, Friendship.friend_id).outerjoin(
         Friendship, 
@@ -430,52 +396,33 @@ def get_users_list():
             and_(Friendship.user_id == current_user_id, Friendship.friend_id == User.user_id),
             and_(Friendship.friend_id == current_user_id, Friendship.user_id == User.user_id)
         )
-    ).filter(User.deleted.isnot(True), User.user_id != current_user_id)
+    ).filter(User.deleted == False, User.user_id != current_user_id)
 
     if search_val:
         clean_search = sanitize_input(search_val).strip()[:Constants.MAX_USERNAME_LEN]
         if clean_search:
             escaped_search = clean_search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-            query = query.filter(User.username.ilike(f"%{escaped_search}%", escape="\\"))
+            query = query.filter(User.username.startswith(f"{escaped_search}"))
 
 
     friend_priority = case(
         (Friendship.friendship_id.isnot(None), 1), 
         else_=0
     )
-    if search_val and clean_search:
-        search_priority = case(
-            (User.username.ilike(clean_search), 3),
-            (User.username.ilike(f"{clean_search}%", escape="\\"), 2),
-            else_=1,
-        )
-        query = query.order_by(search_priority.desc(), friend_priority.desc(), User.username.asc())
-    else:
-        query = query.order_by(friend_priority.desc(), User.username.asc())
+
+    query = query.order_by(friend_priority.desc(), User.username.asc())
 
     pagination = query.paginate(page=page, per_page=limit, error_out=False)
 
     users_list = []
     for user, f_id in pagination.items:
         is_friend = f_id is not None
-        profile_pic_data = None
-        if user.profile_picture:
-            url, _ = cloudinary_url(user.profile_picture, secure=True)
-            profile_pic_data = {
-                "cloud_id": user.profile_picture,
-                "url": url
-            }
-
         user_info = {
             "user_id": str(user.user_id),
             "username": user.display_name,
             "academy": user.academy,
-            "faculty": user.faculty,
-            "course": user.course,
-            "year": user.year,
-            "profile_picture": profile_pic_data,
-            "is_friend": is_friend,
-            "is_self": False,
+            "profile_picture": user.profile_picture,
+            "is_friend": is_friend
         }
         users_list.append(user_info)
 
