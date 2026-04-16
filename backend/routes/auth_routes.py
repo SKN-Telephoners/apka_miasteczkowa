@@ -1,5 +1,5 @@
 from datetime import timedelta
-from flask import Blueprint, request, url_for
+from flask import Blueprint, request, url_for, current_app
 from backend.models import User
 from backend.extensions import db, mail, limiter
 from backend.constants import Constants
@@ -60,7 +60,10 @@ def register_user():
     
     try:
         db.session.commit()
-        mail.send(msg)
+        try:
+            mail.send(msg)
+        except Exception as e:
+            current_app.logger.error(f"Registration email send failed for {email}: {e}")
     except Exception as e:
         db.session.delete(new_user)
         db.session.rollback()
