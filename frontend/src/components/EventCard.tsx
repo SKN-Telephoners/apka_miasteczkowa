@@ -83,7 +83,15 @@ const SHARE_ICON_OFFSET = { x: -BASE_TILE_SIZE * 2, y: -BASE_TILE_SIZE * 2 };
 const EDIT_MENU_ICON_OFFSET = { x: -BASE_TILE_SIZE * 2, y: -BASE_TILE_SIZE };
 
 
-const EventCard = ({ item, showActions = true }: { item: Event; showActions?: boolean }) => {
+const EventCard = ({
+    item,
+    showActions = true,
+    showMapLabel = true,
+}: {
+    item: Event;
+    showActions?: boolean;
+    showMapLabel?: boolean;
+}) => {
     const navigation = useNavigation<any>();
     const { colors } = useTheme();
     const { friends, sendFriendRequest } = useFriends();
@@ -248,14 +256,16 @@ const EventCard = ({ item, showActions = true }: { item: Event; showActions?: bo
                 ) : null}
 
                 <Text style={[styles.textMuted, isPastEvent && styles.pastMetaText]}>• {item.date} • {item.time} </Text>
-                <View style={{ flexDirection: "row" }}>
-                    <View style={styles.mapLabelRow}>
-                        <Text style={[styles.textHighlight, isPastEvent && styles.pastMetaText]}>• MAPA</Text>
-                        <View style={styles.mapInlineIconContainer}>
-                            <SvgSpriteIcon set={1} size={MAP_INLINE_ICON_SIZE} offsetX={MAP_INLINE_ICON_OFFSET.x} offsetY={MAP_INLINE_ICON_OFFSET.y} />
+                {showMapLabel && (
+                    <View style={{ flexDirection: "row" }}>
+                        <View style={styles.mapLabelRow}>
+                            <Text style={[styles.textHighlight, isPastEvent && styles.pastMetaText]}>• MAPA</Text>
+                            <View style={styles.mapInlineIconContainer}>
+                                <SvgSpriteIcon set={1} size={MAP_INLINE_ICON_SIZE} offsetX={MAP_INLINE_ICON_OFFSET.x} offsetY={MAP_INLINE_ICON_OFFSET.y} />
+                            </View>
                         </View>
                     </View>
-                </View>
+                )}
 
                 <View style={{ paddingBottom: 10, paddingTop: 20 }}>
                     <UserCard

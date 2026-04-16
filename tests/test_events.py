@@ -68,6 +68,42 @@ def test_create_event_with_coordinate_location(client, logged_in_user, app):
         assert event is not None
         assert event.location == "[19.906100,50.068600]"
 
+
+def test_map_events_returns_only_future_events(client, logged_in_user, app):
+    with app.app_context():
+        user, token = logged_in_user
+
+        past_event = Event(
+            event_name="past map event",
+            description="old",
+            date_and_time=datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc),
+            location="[19.900000,50.060000]",
+            creator_id=user.user_id,
+            is_private=False,
+        )
+        future_event = Event(
+            event_name="future map event",
+            description="new",
+            date_and_time=datetime(2050, 1, 1, 12, 0, tzinfo=timezone.utc),
+            location="[19.910000,50.070000]",
+            creator_id=user.user_id,
+            is_private=False,
+        )
+        db.session.add_all([past_event, future_event])
+        db.session.commit()
+
+        response = client.get(
+            "/api/events/map",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 200
+        data = response.get_json()["data"]
+        returned_names = {event["name"] for event in data}
+        assert "future map event" in returned_names
+        assert "past map event" not in returned_names
+        assert all(event.get("location_coordinates") for event in data)
+
 def test_create_event_invalid_date(client, logged_in_user, app):
     with app.app_context():
         user, token = logged_in_user

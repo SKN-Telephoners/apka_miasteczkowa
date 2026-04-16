@@ -66,6 +66,74 @@ def normalize_location_input(raw_location):
 
     return normalized, None
 
+
+def parse_location_coordinates(raw_location):
+    if raw_location is None:
+        return None
+
+    if isinstance(raw_location, (list, tuple)) and len(raw_location) == 2:
+        candidate = raw_location
+    else:
+        location_text = str(raw_location).strip()
+        if not location_text:
+            return None
+
+        try:
+            candidate = json.loads(location_text)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return None
+
+    if not isinstance(candidate, (list, tuple)) or len(candidate) != 2:
+        return None
+
+    try:
+        lng = float(candidate[0])
+        lat = float(candidate[1])
+    except (TypeError, ValueError):
+        return None
+
+    if not (-180.0 <= lng <= 180.0 and -90.0 <= lat <= 90.0):
+        return None
+
+    return [lng, lat]
+
+
+def serialize_event_payload(event, user_id, creator_lookup, participating_event_ids):
+    local_dt = event.date_and_time.astimezone(local_tz) if event.date_and_time else None
+    creator = creator_lookup.get(str(event.creator_id))
+
+    return {
+        "id": str(event.event_id),
+        "event_id": str(event.event_id),
+        "name": event.event_name,
+        "description": event.description,
+        "date": local_dt.strftime("%d.%m.%Y") if local_dt else None,
+        "time": local_dt.strftime("%H:%M") if local_dt else None,
+        "location": event.location,
+        "creator_id": str(event.creator_id),
+        "pictures": [
+            {
+                "cloud_id": pic.cloud_id,
+                "url": cloudinary_url(pic.cloud_id, secure=True)[0],
+            }
+            for pic in event.pictures
+        ],
+        "creator_username": creator.display_name if creator else None,
+        "creator_profile_picture_url": cloudinary_url(creator.profile_picture, secure=True)[0] if creator and creator.profile_picture else None,
+        "creator_academy": creator.academy if creator else None,
+        "creator_faculty": creator.faculty if creator else None,
+        "creator_course": creator.course if creator else None,
+        "creator_year": creator.year if creator else None,
+        "created_at": event.created_at.isoformat() if event.created_at else None,
+        "comment_count": int(event.comment_count or 0),
+        "participant_count": int(event.participant_count or 0),
+        "participation_count": int(event.participant_count or 0),
+        "is_participating": event.creator_id == user_id or event.event_id in participating_event_ids,
+        "is_joined": event.creator_id == user_id or event.event_id in participating_event_ids,
+        "is_private": event.is_private,
+        "location_coordinates": parse_location_coordinates(event.location),
+    }
+
 @events_bp.route("/create", methods=["POST"])
 @limiter.limit("100 per minute")
 @jwt_required()
@@ -593,6 +661,70 @@ def feed():
         })
     except Exception as e:
         current_app.logger.error(f"Error in feed: {e}")
+        return make_api_response(ResponseTypes.SERVER_ERROR)
+
+
+@events_bp.route("/map", methods=["GET"])
+@limiter.limit("600 per minute")
+@jwt_required()
+def map_events():
+    try:
+        user = get_current_user()
+        user_id = user.user_id
+        now_utc = datetime.now(timezone.utc)
+
+        participant_exists = exists().where(
+            and_(
+                Event_participants.event_id == Event.event_id,
+                Event_participants.user_id == user_id,
+            )
+        )
+
+        visibility_exists = exists().where(
+            and_(
+                Event_visibility.event_id == Event.event_id,
+                Event_visibility.shared_with == user_id,
+            )
+        )
+
+        events = Event.query.options(joinedload(Event.pictures)).filter(
+            Event.date_and_time >= now_utc,
+            or_(
+                Event.is_private.is_(False),
+                Event.creator_id == user_id,
+                participant_exists,
+                visibility_exists,
+            )
+        ).order_by(Event.date_and_time.asc(), Event.event_id.asc()).all()
+
+        events = [event for event in events if parse_location_coordinates(event.location) is not None]
+
+        creator_ids = {event.creator_id for event in events if event.creator_id is not None}
+        creator_users = User.query.filter(User.user_id.in_(creator_ids)).all() if creator_ids else []
+        creator_lookup = {str(user.user_id): user for user in creator_users}
+
+        event_ids = [event.event_id for event in events]
+        participant_rows = (
+            db.session.query(Event_participants.event_id)
+            .filter(
+                Event_participants.user_id == user_id,
+                Event_participants.event_id.in_(event_ids),
+            )
+            .all()
+        ) if event_ids else []
+        participating_event_ids = {event_id for (event_id,) in participant_rows}
+
+        return make_api_response(
+            ResponseTypes.SUCCESS,
+            data={
+                "data": [
+                    serialize_event_payload(event, user_id, creator_lookup, participating_event_ids)
+                    for event in events
+                ]
+            },
+        )
+    except Exception as e:
+        current_app.logger.error(f"Error in map_events: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
 @events_bp.route("/participation/<event_id>", methods=["GET"])
