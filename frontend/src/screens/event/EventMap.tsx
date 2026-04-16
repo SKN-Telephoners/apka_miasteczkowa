@@ -4,7 +4,7 @@ import {
   MarkerView,
   UserLocation,
 } from "@maplibre/maplibre-react-native";
-import { useNavigation } from "@react-navigation/native";
+import { CommonActions, useNavigation, useRoute } from "@react-navigation/native";
 import Constants from "expo-constants";
 import React, { useRef, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -22,8 +22,10 @@ const DEFAULT_CAMERA = {
 };
 
 export default function EventMap() {
-  const mapRef = useRef<MapView>(null); // dunno how to fix, but works just fine
-  const cameraRef = useRef<Camera>(null);
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const mapRef = useRef<any>(null);
+  const cameraRef = useRef<any>(null);
 
   const [cameraPosition, setCameraPosition] = useState(DEFAULT_CAMERA);
   const [selectedLocation, setSelectedLocation] =
@@ -62,18 +64,30 @@ export default function EventMap() {
   // use selected location
   const handleUseLocation = () => {
     if (!selectedLocation) {
-      // notify user
       return;
     }
 
-    // pass selected location back
-    // navigation.navigate("AddEvent", {
-    //   selectedLocation: {
-    //     coordinates: selectedLocation.coordinates,
-    //     lat: selectedLocation.coordinates[1],
-    //     lng: selectedLocation.coordinates[0],
-    //   },
-    // } as any);
+    const selectedLocationPayload = {
+      coordinates: selectedLocation.coordinates,
+      lat: selectedLocation.coordinates[1],
+      lng: selectedLocation.coordinates[0],
+      timestamp: selectedLocation.timestamp,
+    };
+
+    const sourceRouteKey = route.params?.sourceRouteKey as string | undefined;
+    if (sourceRouteKey) {
+      navigation.dispatch({
+        ...CommonActions.setParams({ selectedLocation: selectedLocationPayload }),
+        source: sourceRouteKey,
+      });
+      navigation.goBack();
+      return;
+    }
+
+    const returnTo = route.params?.returnTo || "AddEvent";
+    navigation.navigate(returnTo, {
+      selectedLocation: selectedLocationPayload,
+    });
   };
 
   return (

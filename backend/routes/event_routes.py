@@ -10,6 +10,7 @@ from backend.helpers import validate_uuid, sanitize_input
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from sqlalchemy.exc import SQLAlchemyError
+import json
 import cloudinary.uploader
 from cloudinary.utils import cloudinary_url
 from sqlalchemy import or_, and_, func, case, exists
@@ -17,6 +18,53 @@ from sqlalchemy.orm import joinedload
 
 events_bp = Blueprint("events", __name__, url_prefix="/api/events")
 local_tz = ZoneInfo("Europe/Warsaw")
+
+
+def normalize_location_input(raw_location):
+    # Accept coordinate pairs and legacy location labels.
+    if raw_location is None:
+        return None, "Location is required"
+
+    parsed_coords = None
+
+    if isinstance(raw_location, (list, tuple)) and len(raw_location) == 2:
+        parsed_coords = raw_location
+    else:
+        location_text = sanitize_input(str(raw_location)).strip()
+        if not location_text:
+            return None, "Location is required"
+
+        try:
+            parsed_json = json.loads(location_text)
+            if isinstance(parsed_json, (list, tuple)) and len(parsed_json) == 2:
+                parsed_coords = parsed_json
+        except (TypeError, ValueError, json.JSONDecodeError):
+            parsed_json = None
+
+        if parsed_coords is None and "," in location_text and not location_text.startswith("["):
+            parts = [p.strip() for p in location_text.split(",")]
+            if len(parts) == 2:
+                parsed_coords = parts
+
+        if parsed_coords is None:
+            if len(location_text) > Constants.MAX_LOCATION_LEN:
+                return None, "Location name is too long"
+            return location_text, None
+
+    try:
+        lng = float(parsed_coords[0])
+        lat = float(parsed_coords[1])
+    except (TypeError, ValueError):
+        return None, "Invalid location coordinates format"
+
+    if not (-180.0 <= lng <= 180.0 and -90.0 <= lat <= 90.0):
+        return None, "Location coordinates are out of range"
+
+    normalized = f"[{lng:.6f},{lat:.6f}]"
+    if len(normalized) > Constants.MAX_LOCATION_LEN:
+        return None, "Location name is too long"
+
+    return normalized, None
 
 @events_bp.route("/create", methods=["POST"])
 @limiter.limit("100 per minute")
@@ -38,7 +86,9 @@ def create_event():
     description = sanitize_input(str(event_data.get("description", ""))).strip()
     date_str = str(event_data.get("date", "")).strip()
     time_str = str(event_data.get("time", "")).strip()
-    location = sanitize_input(str(event_data.get("location", ""))).strip()
+    location, location_error = normalize_location_input(event_data.get("location"))
+    if location_error:
+        return make_api_response(ResponseTypes.INVALID_DATA, message=location_error)
     is_private_raw = event_data.get("is_private", False)
     is_private = str(is_private_raw).strip().lower() in ['true', '1', 't', 'y', 'yes']
 
@@ -209,9 +259,9 @@ def edit_event(event_id):
 
     raw_loc = event_data.get("location")
     if raw_loc is not None:
-        location = sanitize_input(str(raw_loc)).strip()
-        if len(location) > Constants.MAX_LOCATION_LEN:
-            return make_api_response(ResponseTypes.INVALID_DATA, message="Location name is too long")
+        location, location_error = normalize_location_input(raw_loc)
+        if location_error:
+            return make_api_response(ResponseTypes.INVALID_DATA, message=location_error)
         event.location = location
 
     raw_is_private = event_data.get("is_private")

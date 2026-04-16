@@ -249,7 +249,6 @@ const EventCard = ({ item, showActions = true }: { item: Event; showActions?: bo
 
                 <Text style={[styles.textMuted, isPastEvent && styles.pastMetaText]}>• {item.date} • {item.time} </Text>
                 <View style={{ flexDirection: "row" }}>
-                    <Text style={[styles.textMuted, isPastEvent && styles.pastMetaText]}>• {item.location}</Text>
                     <View style={styles.mapLabelRow}>
                         <Text style={[styles.textHighlight, isPastEvent && styles.pastMetaText]}>• MAPA</Text>
                         <View style={styles.mapInlineIconContainer}>

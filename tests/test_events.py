@@ -43,6 +43,31 @@ def test_create_event(client, logged_in_user, app):
         assert data["message"] == "Event created successfully"
         assert "event_id" in data 
 
+
+def test_create_event_with_coordinate_location(client, logged_in_user, app):
+    with app.app_context():
+        user, token = logged_in_user
+
+        payload = {
+            "name": "event coords",
+            "description": "very cool event",
+            "date": "01.01.2050",
+            "time": "21:37",
+            "location": "[19.9061, 50.0686]",
+            "is_private": False,
+        }
+
+        response_create_event = client.post(
+            "/api/events/create",
+            headers={"Authorization": f"Bearer {token}"},
+            json=payload,
+        )
+
+        assert response_create_event.status_code == 201
+        event = Event.query.filter_by(event_name="event coords").first()
+        assert event is not None
+        assert event.location == "[19.906100,50.068600]"
+
 def test_create_event_invalid_date(client, logged_in_user, app):
     with app.app_context():
         user, token = logged_in_user
@@ -203,6 +228,42 @@ def test_edit_event(client, logged_in_user, app):
         assert edited_event.date_and_time == datetime(2050, 1, 20, 22, 37, tzinfo=local_tz)
         assert edited_event.location == "here"
         assert edited_event.is_edited == True
+
+
+def test_edit_event_with_coordinate_location(client, logged_in_user, app):
+    with app.app_context():
+        user, token = logged_in_user
+
+        payload = {
+            "name": "to edit coords",
+            "description": "very cool event",
+            "date": "01.01.2050",
+            "time": "21:37",
+            "location": "here",
+            "is_private": False,
+        }
+
+        response_create_event = client.post(
+            "/api/events/create",
+            headers={"Authorization": f"Bearer {token}"},
+            json=payload,
+        )
+        assert response_create_event.status_code == 201
+
+        event = Event.query.filter_by(event_name="to edit coords").first()
+        assert event is not None
+
+        response_edit_event = client.put(
+            f"/api/events/edit/{event.event_id}",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"location": [19.9061, 50.0686]},
+        )
+
+        assert response_edit_event.status_code == 200
+        db.session.expire_all()
+        edited_event = Event.query.filter_by(event_id=event.event_id).first()
+        assert edited_event is not None
+        assert edited_event.location == "[19.906100,50.068600]"
 
 def test_edit_event_not_exist(client, logged_in_user, app):
     with app.app_context():
