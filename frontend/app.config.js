@@ -1,7 +1,6 @@
 import dotenv from "dotenv";
-import path from "path";
 
-dotenv.config({ path: path.resolve(__dirname, ".env") });
+dotenv.config();
 
 export default {
   expo: {
@@ -11,7 +10,7 @@ export default {
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
-    newArchEnabled: false,
+    newArchEnabled: true,
     splash: {
       image: "./assets/splash-icon.png",
       resizeMode: "contain",
@@ -19,7 +18,6 @@ export default {
     },
     ios: {
       supportsTablet: true,
-      "bundleIdentifier": "com.skntelephoners.aplikacjamiasteczkowa",
     },
     android: {
       adaptiveIcon: {
@@ -31,7 +29,7 @@ export default {
     web: {
       favicon: "./assets/favicon.png",
     },
-    plugins: ["@maplibre/maplibre-react-native", "expo-image-picker", "expo-asset"],
+    plugins: ["@maplibre/maplibre-react-native"],
     extra: {
       eas: {
         projectId: "6b3dd378-2802-4aa8-8660-e3f3fd64d98a",

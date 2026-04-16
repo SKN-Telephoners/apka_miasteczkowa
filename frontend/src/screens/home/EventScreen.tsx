@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
     View,
     Text,
@@ -7,119 +7,143 @@ import {
     FlatList,
     RefreshControl,
     TouchableOpacity,
-    StyleSheet,
 } from "react-native";
 import EventCard from "../../components/EventCard"
-import { DEFAULT_EVENT_FILTERS, Event, EventFilterState } from "../../types";
+import { Event } from "../../types";
 import InputField from "../../components/InputField";
 import { getEvents } from "../../services/events";
-import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
-import { THEME } from "../../utils/constants";
-import ItemSeparator from "../../components/ItemSeparator"
-import { useInfiniteQuery } from "@tanstack/react-query"
-import SvgSpriteIcon from "../../components/SvgSpriteIcon";
-import { useTheme } from "../../contexts/ThemeContext";
+import { useNavigation } from "@react-navigation/native";
 
-const BASE_TILE_SIZE = 30;
-const FILTER_ICON_SIZE = 30;
-const FILTER_ICON_OFFSET = { x: -BASE_TILE_SIZE, y: 0 };
-const PAGE_SIZE = 20;
+const parseEventDateTime = (event: Event): Date | null => {
+    if (!event?.date || !event?.time) return null;
 
-const mergeUniqueEventsById = (events: Event[]): Event[] => {
-    const uniqueEvents = new Map<string, Event>();
-    for (const event of events) {
-        if (!event?.id) continue;
-        uniqueEvents.set(event.id, event);
+    const [day, month, year] = event.date.split('.').map(Number);
+    const [hours, minutes] = event.time.split(':').map(Number);
+
+    if ([day, month, year, hours, minutes].some(Number.isNaN)) {
+        return null;
     }
-    return Array.from(uniqueEvents.values());
+
+    return new Date(year, month - 1, day, hours, minutes, 0, 0);
+};
+
+const sortEventsByTime = (events: Event[]): Event[] => {
+    const now = new Date();
+    const upcoming: Event[] = [];
+    const past: Event[] = [];
+
+    for (const event of events) {
+        const dateTime = parseEventDateTime(event);
+        if (dateTime && dateTime >= now) {
+            upcoming.push(event);
+        } else {
+            past.push(event);
+        }
+    }
+
+    upcoming.sort((a, b) => {
+        const aTime = parseEventDateTime(a)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+        const bTime = parseEventDateTime(b)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+        return aTime - bTime;
+    });
+
+    past.sort((a, b) => {
+        const aTime = parseEventDateTime(a)?.getTime() ?? 0;
+        const bTime = parseEventDateTime(b)?.getTime() ?? 0;
+        return bTime - aTime;
+    });
+
+    return [...upcoming, ...past];
 };
 
 const EventScreen = () => {
 
     const [searchQuery, setSearchQuery] = useState("");
-    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
-    const [canLoadMore, setCanLoadMore] = useState(false);
-    const [filters, setFilters] = useState<EventFilterState>(DEFAULT_EVENT_FILTERS);
-    const { colors } = useTheme();
+    const [isLoading, setIsLoading] = useState(false);
+    const [data, setData] = useState<Event[]>([]);
+    const [error, setError] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [refreshing, setRefreshing] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(true);
 
     const navigation = useNavigation<any>();
-    const route = useRoute<any>();
+
+    const loadEvents = async (p = currentPage, isLoadMore: boolean = false) => {
+        try {
+            if (isLoadMore) {
+                setLoadingMore(true);
+            } else {
+                if (p === 1) setIsLoading(true);
+            }
+
+            const response = await getEvents(p, 20);
+
+            if (isLoadMore) {
+                setData(prevData => sortEventsByTime([...prevData, ...response.data]));
+            } else {
+                setData(sortEventsByTime(response.data));
+            }
+
+            setCurrentPage(response.pagination.page);
+            setTotalPages(response.pagination.pages)
+
+        } catch (error) {
+            console.error('Failed to load events:', error);
+            setError(true);
+        } finally {
+            setIsLoading(false);
+            setRefreshing(false);
+            setLoadingMore(false);
+        }
+    }
 
     useEffect(() => {
-        const timeout = setTimeout(() => {
-            setDebouncedSearchQuery(searchQuery.trim());
-        }, 350);
-
-        return () => clearTimeout(timeout);
-    }, [searchQuery]);
-
-    const feedParams = useMemo(
-        () => ({
-            q: debouncedSearchQuery || undefined,
-            visibility: filters.visibility,
-            participation: filters.participation,
-            created_window: filters.createdAtWindow,
-            sort_mode: filters.sortMode,
-            creator_source: filters.creatorSource,
-        }),
-        [debouncedSearchQuery, filters.createdAtWindow, filters.participation, filters.sortMode, filters.visibility, filters.creatorSource],
-    );
-
-    const {
-        data,
-        error,
-        isPending,
-        isRefetching,
-        isFetchingNextPage,
-        hasNextPage,
-        fetchNextPage,
-        refetch,
-    } = useInfiniteQuery({
-        queryKey: ["events-feed", PAGE_SIZE, feedParams],
-        queryFn: ({ pageParam }) => getEvents(pageParam, PAGE_SIZE, feedParams),
-        initialPageParam: 1,
-        getNextPageParam: (lastPage) => {
-            const nextPage = lastPage.pagination.page + 1;
-            return nextPage <= lastPage.pagination.pages ? nextPage : undefined;
-        },
-        refetchOnMount: true,
-    });
-
-    const allEvents = useMemo(() => {
-        const mergedPages = data?.pages.flatMap((page) => page.data) ?? [];
-        return mergeUniqueEventsById(mergedPages);
-    }, [data]);
-
-    useFocusEffect(
-        useCallback(() => {
-            refetch();
-        }, [refetch]),
-    );
-
-    useEffect(() => {
-        if (!route?.params?.eventFilters) return;
-        setFilters(route.params.eventFilters as EventFilterState);
-    }, [route?.params?.eventFilters]);
+        // Listen for screen focus to lazy-load events
+        const unsubscribe = navigation.addListener('focus', () => {
+            if (data.length === 0 && !error) {
+                loadEvents(1, false);
+            }
+        });
+        return unsubscribe;
+    }, [navigation, data.length, error]);
 
     const handleRefresh = useCallback(() => {
-        refetch();
-    }, [refetch]);
+        setRefreshing(true);
+        setHasMore(true);
+        loadEvents(1);
+    }, []);
 
     const loadMore = () => {
-        if (!canLoadMore) return;
-        if (hasNextPage && !isFetchingNextPage && !isRefetching) {
-            setCanLoadMore(false);
-            fetchNextPage();
+        if (!loadingMore && hasMore && currentPage < totalPages) {
+            loadEvents(currentPage + 1, true);
         }
     };
 
 
     const handleSearch = (query: string) => {
         setSearchQuery(query);
+        const lowerCaseQuery = query.toLowerCase().trim();
+        if (lowerCaseQuery === "") {
+            loadEvents(1, false);
+            return
+        }
+
+
+        const filteredData = data.filter((event: Event) => {
+
+            const { name, location, description } = event;
+            return name?.toLowerCase().includes(lowerCaseQuery) ||
+                location?.toLowerCase().includes(lowerCaseQuery) ||
+                description?.toLowerCase().includes(lowerCaseQuery)
+
+        })
+        setData(sortEventsByTime(filteredData))
     }
 
     const renderFooter = () => {
-        if (!isFetchingNextPage) return null;
+        if (!loadingMore) return null;
 
         return (
             <View style={{
@@ -127,15 +151,15 @@ const EventScreen = () => {
                 justifyContent: 'center',
                 alignItems: 'center'
             }}>
-                <ActivityIndicator size="large" color={colors.transparentHighlight} />
+                <ActivityIndicator size="large" color="#0000ff" />
             </View>
         );
     };
 
 
-    if (isPending && !isRefetching) {
+    if (isLoading && !refreshing) {
         return (
-            <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.background }}>
+            <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
                 <ActivityIndicator size="large" />
             </View>
         );
@@ -143,90 +167,56 @@ const EventScreen = () => {
 
     if (error) {
         return (
-            <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.background}}>
-                <Text style={{ color: colors.text }}>Wystąpił błąd podczas pobierania wydarzeń</Text>
+            <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+                <Text>Wystąpił błąd podczas pobierania wydarzeń</Text>
                 <TouchableOpacity
                     onPress={() => {
-                        refetch();
+                        setError(false);
+                        setIsLoading(true);
+                        loadEvents(1, false);
                     }}
                 >
-                    <Text style={{ color: colors.transparentHighlight, fontWeight: 'bold' }}>Spróbuj ponownie</Text>
+                    <Text style={{ color: '#0000ff', fontWeight: 'bold' }}>Spróbuj ponownie</Text>
                 </TouchableOpacity>
             </View>
         );
     }
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-            <View style={styles.searchRowContainer}>
-                <View style={styles.searchInputContainer}>
-                    <InputField
-                        placeholder="Szukaj wydarzeń"
-                        onChangeText={(query) => handleSearch(query)}
-                        value={searchQuery}
-                        showSearchSpriteIcon
-                        showFloatingLabel={false}
-                        reserveErrorSpace={false}
-                    />
-                </View>
-                <TouchableOpacity
-                    onPress={() => navigation.navigate("EventFilters", { initialFilters: filters })}
-                    style={styles.filterButton}
-                    activeOpacity={0.8}
-                >
-                    <View style={styles.filterIconContainer}>
-                        <SvgSpriteIcon set={1} size={FILTER_ICON_SIZE} offsetX={FILTER_ICON_OFFSET.x} offsetY={FILTER_ICON_OFFSET.y} />
-                    </View>
+        <SafeAreaView style={{ flex: 1, marginHorizontal: 10 }}>
+            <View style={{ marginVertical: 10 }}>
+                <InputField
+                    placeholder="Szukaj"
+                    onChangeText={(query) => handleSearch(query)}
+                    value={searchQuery}
+                />
+                <TouchableOpacity onPress={() => navigation.navigate('AddEvent')} style={{ backgroundColor: '#045ddaff', alignItems: 'center', padding: 10, borderRadius: 25 }} >
+                    <Text style={{ color: '#ffffff' }}>Dodaj wydarzenie</Text>
                 </TouchableOpacity>
+
             </View>
 
 
             <FlatList
-                data={allEvents}
+                data={data}
                 renderItem={({ item }) => <EventCard item={item} />}
-                keyExtractor={(item: Event, index) => item.id || `${item.name}-${index}`}
+                keyExtractor={(item: Event) => item.id!}
                 refreshControl={
-                    <RefreshControl refreshing={isRefetching && !isFetchingNextPage} onRefresh={handleRefresh} />
+                    <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
                 }
                 ListFooterComponent={renderFooter}
                 onEndReached={loadMore}
                 onEndReachedThreshold={0.5}
-                onMomentumScrollBegin={() => setCanLoadMore(true)}
                 initialNumToRender={10}
                 maxToRenderPerBatch={10}
                 windowSize={10}
                 removeClippedSubviews={true}
-                ItemSeparatorComponent={ItemSeparator}
 
             />
 
         </SafeAreaView>
     );
 }
-
-const styles = StyleSheet.create({
-    searchRowContainer: {
-        marginHorizontal: 10,
-        marginTop: 5,
-        flexDirection: "row",
-        alignItems: "center",
-    },
-    searchInputContainer: {
-        flex: 1,
-    },
-    filterButton: {
-        marginLeft: 10,
-        width: 38,
-        height: 38,
-        borderRadius: 19,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    filterIconContainer: {
-        width: FILTER_ICON_SIZE,
-        height: FILTER_ICON_SIZE,
-    },
-});
 
 
 

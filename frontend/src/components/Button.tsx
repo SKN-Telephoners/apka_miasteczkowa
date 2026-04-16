@@ -6,18 +6,16 @@ import {
     TouchableOpacityProps,
     ActivityIndicator,
     ViewStyle,
-    TextStyle,
-    StyleProp
+    TextStyle
 } from 'react-native';
-import { useTheme } from '../contexts/ThemeContext';
 import { THEME } from '../utils/constants';
 
 interface ButtonProps extends TouchableOpacityProps {
     title: string;
     loading?: boolean;
     type?: 'primary' | 'secondary' | 'outline';
-    style?: StyleProp<ViewStyle>;
-    textStyle?: StyleProp<TextStyle>;
+    style?: ViewStyle;
+    textStyle?: TextStyle;
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -30,8 +28,6 @@ const Button: React.FC<ButtonProps> = ({
     textStyle,
     ...rest
 }) => {
-    const { colors } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors), [colors]);
 
     const getButtonStyle = () => {
         switch (type) {
@@ -71,7 +67,7 @@ const Button: React.FC<ButtonProps> = ({
             {...rest}
         >
             {loading ? (
-                <ActivityIndicator color={type === 'outline' ? THEME.colors.light.transparentHighlight : '#FFF'} />
+                <ActivityIndicator color={type === 'outline' ? THEME.colors.lm_highlight : '#FFF'} />
             ) : (
                 <Text style={[styles.text, getTextStyle(), textStyle]}>
                     {title}
@@ -81,7 +77,7 @@ const Button: React.FC<ButtonProps> = ({
     );
 };
 
-const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
+const styles = StyleSheet.create({
     button: {
         width: '100%',
         height: 48,
@@ -92,31 +88,30 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
         marginVertical: THEME.spacing.s,
     },
     primaryButton: {
-        backgroundColor: colors.transparentHighlight,
+        backgroundColor: THEME.colors.lm_highlight,
     },
     secondaryButton: {
-        backgroundColor: colors.border,
+        backgroundColor: THEME.colors.lm_src_br,
     },
     outlineButton: {
         backgroundColor: 'transparent',
         borderWidth: 1,
-        borderColor: colors.highlight,
+        borderColor: THEME.colors.lm_highlight,
     },
     disabledButton: {
         opacity: 0.5,
     },
     text: {
         ...THEME.typography.text,
-        fontWeight: "700",
     },
     primaryText: {
         color: '#FFFFFF',
     },
     secondaryText: {
-        color: colors.text,
+        color: THEME.colors.lm_txt,
     },
     outlineText: {
-        color: colors.highlight,
+        color: THEME.colors.lm_highlight,
     }
 });
 
