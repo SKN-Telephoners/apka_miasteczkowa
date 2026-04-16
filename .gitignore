@@ -59,4 +59,3 @@ backend/migrations
 # schema.sql
 
 frontend/android
-frontend/ios

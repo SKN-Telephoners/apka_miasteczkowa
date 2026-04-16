@@ -1,6 +1,5 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { View, Image, StyleSheet, StyleProp, ViewStyle } from 'react-native';
-import { useTheme } from '../contexts/ThemeContext';
 import { THEME } from '../utils/constants';
 
 interface AvatarProps {
@@ -10,27 +9,25 @@ interface AvatarProps {
 }
 
 const Avatar = ({ uri, size = 80, style }: AvatarProps) => {
-    const { colors } = useTheme();
-    const styles = useMemo(() => getStyles(colors), [colors]);
-
     return (
         <View style={[styles.container, { width: size, height: size }, style]}>
             {uri ? (
                 <Image source={{ uri }} style={styles.image} />
             ) : (
-                <Image source={require("../../assets/portrait_Placeholder.png")} style={styles.image} />
+                <View style={styles.placeholder} />
             )}
         </View>
     );
 };
 
-const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
+const styles = StyleSheet.create({
     container: {
-        borderRadius: THEME.borderRadius.round,
+        borderRadius: THEME.borderRadius.l,
         overflow: 'hidden',
         borderWidth: 2,
-        borderColor: colors.text,
-        backgroundColor: colors.border,
+        borderRadius: 24,
+        borderColor: THEME.colors.txt,
+        backgroundColor: THEME.colors.lm_src_br,
     },
     image: {
         width: "100%",
@@ -39,7 +36,7 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     },
     placeholder: {
         flex: 1,
-        backgroundColor: colors.border,
+        backgroundColor: THEME.colors.lm_src_br,
     }
 });
 
