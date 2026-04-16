@@ -329,6 +329,65 @@ def test_feed_pagination(client, logged_in_user, app):
         assert data["pagination"]["total"] == 25
         assert data["pagination"]["pages"] == 3
 
+def test_feed_sorting_and_visibility(client, logged_in_user, registered_friend, app):
+    with app.app_context():
+        user, token = logged_in_user
+        friend, _ = registered_friend
+        
+        # 1. Event publiczny - jutro
+        ev1 = Event(event_name="Public Future", location="X", creator_id=friend.user_id, 
+                    is_private=False, date_and_time=datetime.now(timezone.utc) + timedelta(days=1))
+        # 2. Event publiczny - pojutrze
+        ev2 = Event(event_name="Public Later", location="X", creator_id=friend.user_id, 
+                    is_private=False, date_and_time=datetime.now(timezone.utc) + timedelta(days=2))
+        # 3. Event prywatny (nieudostępniony)
+        ev3 = Event(event_name="Private Hidden", location="X", creator_id=friend.user_id, 
+                    is_private=True, date_and_time=datetime.now(timezone.utc) + timedelta(days=1))
+        
+        db.session.add_all([ev1, ev2, ev3])
+        db.session.commit()
+
+        response = client.get("/api/events/feed", headers={"Authorization": f"Bearer {token}"})
+        data = response.get_json()["data"]
+        assert len(data) == 2
+
+        assert data[0]["name"] == "Public Future"
+
+        response_desc = client.get("/api/events/feed?sort=2", headers={"Authorization": f"Bearer {token}"})
+        data_desc = response_desc.get_json()["data"]
+        assert data_desc[0]["name"] == "Public Later"
+
+def test_private_event_visibility_denied(client, logged_in_user, registered_friend, app):
+    with app.app_context():
+        user, token = logged_in_user # Użytkownik A
+        friend, _ = registered_friend # Użytkownik B
+
+        ev = Event(event_name="Secret", location="X", creator_id=friend.user_id, is_private=True)
+        db.session.add(ev)
+        db.session.commit()
+
+        # Użytkownik A nie powinien go widzieć w feedzie
+        response = client.get("/api/events/feed", headers={"Authorization": f"Bearer {token}"})
+        data = response.get_json()["data"]
+        ids = [e["id"] for e in data]
+        assert str(ev.event_id) not in ids
+
+def test_private_event_shared_access(client, logged_in_user, registered_friend, app):
+    with app.app_context():
+        user, token = logged_in_user
+        friend, _ = registered_friend
+        ev = Event(event_name="Shared Secret", location="X", creator_id=friend.user_id, is_private=True)
+        db.session.add(ev)
+        db.session.flush()
+        
+        vis = Event_visibility(event_id=ev.event_id, sharing=friend.user_id, shared_with=user.user_id)
+        db.session.add(vis)
+        db.session.commit()
+
+        # Teraz Użytkownik A powinien go widzieć
+        response = client.get("/api/events/feed", headers={"Authorization": f"Bearer {token}"})
+        names = [e["name"] for e in response.get_json()["data"]]
+        assert "Shared Secret" in names
 
 # =============================================================================
 # Tests for handling events' pictures lifecycle
