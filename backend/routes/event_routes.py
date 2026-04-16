@@ -992,3 +992,4 @@ def map_events():
     except Exception as e:
         current_app.logger.error(f"Error in map_events: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
+
