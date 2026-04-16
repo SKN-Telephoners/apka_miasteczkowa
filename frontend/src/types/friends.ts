@@ -3,6 +3,12 @@ export type User = {
   username: string;
   email: string;
   avatarUrl?: string; // idk
+  academy?: string | null;
+  faculty?: string | null;
+  course?: string | null;
+  year?: number | null;
+  is_friend?: boolean;
+  profile_picture?: { cloud_id: string; url: string } | null;
 };
 
 export type Request = {

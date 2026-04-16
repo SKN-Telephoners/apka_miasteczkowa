@@ -22,6 +22,7 @@ interface FriendsContextType {
   sendFriendRequest: (userId: string) => Promise<void>;
   acceptRequest: (requestId: string) => Promise<void>;
   declineRequest: (requestId: string) => Promise<void>;
+  removeFriend: (friendId: string) => Promise<void>;
   searchUsers: (query: string) => Promise<User[]>; // Akcja zwracająca wynik
 }
 
@@ -37,6 +38,7 @@ const CONTEXT_DEFAULT_VALUE: FriendsContextType = {
   sendFriendRequest: async () => {},
   acceptRequest: async () => {},
   declineRequest: async () => {},
+  removeFriend: async () => {},
   searchUsers: async () => [],
 };
 
@@ -103,10 +105,19 @@ export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({
     async (userId: string) => {
       try {
         setLoading(true);
+        setError(null);
         await friendsService.addFriend(userId);
         await fetchFriends(); // Odświeżenie listy po akcji
-      } catch (err) {
-        setError("Nie udało się wysłać zaproszenia.");
+      } catch (err: any) {
+        const errorMsg = err?.response?.data?.message || err?.message || "Nie udało się wysłać zaproszenia.";
+        setError(errorMsg);
+        // Always try to refresh to sync state
+        try {
+          await fetchFriends();
+        } catch (refreshErr) {
+          console.error("Failed to refresh friends list", refreshErr);
+        }
+        throw new Error(errorMsg);
       } finally {
         setLoading(false);
       }
@@ -137,6 +148,30 @@ export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({
         await fetchFriends(); // Odświeżenie listy po akcji
       } catch (err) {
         setError("Nie udało się odrzucić zaproszenia.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [friends, incomingRequests, outgoingRequests, saveCache],
+  );
+
+  const removeFriend = useCallback(
+    async (friendId: string) => {
+      try {
+        setLoading(true);
+        setError(null);
+        await friendsService.removeFriend(friendId);
+        await fetchFriends(); // Odświeżenie listy po akcji
+      } catch (err: any) {
+        const errorMsg = err?.response?.data?.message || err?.message || "Nie udało się usunąć znajomego.";
+        setError(errorMsg);
+        // Always try to refresh to sync state
+        try {
+          await fetchFriends();
+        } catch (refreshErr) {
+          console.error("Failed to refresh friends list", refreshErr);
+        }
+        throw new Error(errorMsg);
       } finally {
         setLoading(false);
       }
@@ -184,6 +219,7 @@ export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({
       sendFriendRequest,
       acceptRequest,
       declineRequest,
+      removeFriend,
       searchUsers,
     }),
     [
@@ -196,6 +232,7 @@ export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({
       sendFriendRequest,
       acceptRequest,
       declineRequest,
+      removeFriend,
       searchUsers,
     ],
   );
