@@ -17,7 +17,7 @@ def test_upload_file_success(mock_cloudinary_upload, client, logged_in_user):
     
     mock_cloudinary_upload.return_value = {
         'eager': [{'secure_url': 'https://fake-cloudinary.com/picture.jpg'}],
-        'public_id': 'fake_12345',
+        'cloud_id': 'fake_12345',
         'tags': ['test', 'python', 'flask']
     }
 
@@ -48,11 +48,11 @@ def test_upload_batch_success(mock_upload, client, logged_in_user):
     # mock the Cloudinary response
     mock_upload.side_effect = [
         {
-            'public_id': 'id_1',
+            'cloud_id': 'id_1',
             'eager': [{'secure_url': 'https://res.cloudinary.com/url1.jpg'}]
         },
         {
-            'public_id': 'id_2',
+            'cloud_id': 'id_2',
             'eager': [{'secure_url': 'https://res.cloudinary.com/url2.jpg'}]
         }
     ]
@@ -122,7 +122,7 @@ def test_upload_batch_partial_failure(mock_upload, client, logged_in_user):
     # first call succeeds, second call raises an exception
     mock_upload.side_effect = [
         {
-            'public_id': 'success_id',
+            'cloud_id': 'success_id',
             'eager': [{'secure_url': 'https://res.cloudinary.com/success.jpg'}]
         },
         Exception("Cloudinary is down")

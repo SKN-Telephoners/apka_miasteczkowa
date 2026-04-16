@@ -19,7 +19,6 @@ class User(db.Model):
     
     description = db.Column(db.String(320))
     academy = db.Column(db.String(10), nullable=True)
-    faculty = db.Column(db.String(80), nullable=True)
     course = db.Column(db.String(100), nullable=True)
     year = db.Column(db.SmallInteger, nullable=True)
     academic_clubs = db.Column(ARRAY(db.String(100)), nullable=True)
