@@ -11,7 +11,8 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.exc import SQLAlchemyError
 import cloudinary.uploader
 from cloudinary.utils import cloudinary_url
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, exists
+from sqlalchemy.orm import joinedload
 import backend.notifications as notifications
 import json
 
@@ -151,7 +152,9 @@ def create_event():
     description = sanitize_input(str(event_data.get("description", ""))).strip()
     date_str = str(event_data.get("date", "")).strip()
     time_str = str(event_data.get("time", "")).strip()
-    location = sanitize_input(str(event_data.get("location", ""))).strip()
+    location, location_error = normalize_location_input(event_data.get("location"))
+    if location_error:
+        return make_api_response(ResponseTypes.INVALID_DATA, message=location_error)
     is_private_raw = event_data.get("is_private", False)
     is_private = str(is_private_raw).strip().lower() in ['true', '1', 't', 'y', 'yes']
 
@@ -164,9 +167,6 @@ def create_event():
 
     if not (Constants.MIN_EVENT_NAME <= len(name) <= Constants.MAX_EVENT_NAME):
         return make_api_response(ResponseTypes.INVALID_DATA, message=f"Event name must be between {Constants.MIN_EVENT_NAME} and {Constants.MAX_EVENT_NAME} characters")
-        
-    if len(location) > Constants.MAX_LOCATION_LEN:
-        return make_api_response(ResponseTypes.INVALID_DATA, message="Location name is too long")
         
     if len(description) > Constants.MAX_DESCRIPTION_LEN:
          return make_api_response(ResponseTypes.INVALID_DATA, message="Description is too long")
@@ -309,9 +309,11 @@ def edit_event(event_id):
     raw_name = event_data.get("name")
     if raw_name is not None:
         name = sanitize_input(str(raw_name)).strip()
-        if not (Constants.MIN_EVENT_NAME <= len(name) <= Constants.MAX_EVENT_NAME):
-            return make_api_response(ResponseTypes.INVALID_DATA, message=f"Event must be between {Constants.MIN_EVENT_NAME} and {Constants.MAX_EVENT_NAME} characters")
-        event.event_name = name
+        # Validate only when title is actually changed to keep legacy events editable.
+        if name != event.event_name:
+            if not (Constants.MIN_EVENT_NAME <= len(name) <= Constants.MAX_EVENT_NAME):
+                return make_api_response(ResponseTypes.INVALID_DATA, message=f"Event name must be between {Constants.MIN_EVENT_NAME} and {Constants.MAX_EVENT_NAME} characters")
+            event.event_name = name
 
     raw_desc = event_data.get("description")
     if raw_desc is not None:
@@ -322,9 +324,9 @@ def edit_event(event_id):
 
     raw_loc = event_data.get("location")
     if raw_loc is not None:
-        location = sanitize_input(str(raw_loc)).strip()
-        if len(location) > Constants.MAX_LOCATION_LEN:
-            return make_api_response(ResponseTypes.INVALID_DATA, message="Location name is too long")
+        location, location_error = normalize_location_input(raw_loc)
+        if location_error:
+            return make_api_response(ResponseTypes.INVALID_DATA, message=location_error)
         event.location = location
 
     raw_is_private = event_data.get("is_private")
@@ -459,11 +461,17 @@ def feed():
             Event_visibility.shared_with == user_id
         )
 
+        participation_subquery = db.session.query(Event_participants.event_id).filter(
+            Event_participants.event_id == Event.event_id,
+            Event_participants.user_id == user_id,
+        )
+
         query = Event.query.filter(
             or_(
                 Event.is_private == False,
                 Event.creator_id == user_id,
-                visibility_subquery.exists()
+                visibility_subquery.exists(),
+                participation_subquery.exists(),
             )
         )
 
@@ -516,32 +524,22 @@ def feed():
         pagination = query.distinct().paginate(page=page, per_page=limit, error_out=False)
 
         creator_ids = {e.creator_id for e in pagination.items if e.creator_id}
-        creators = {str(u.user_id): u.display_name for u in User.query.filter(User.user_id.in_(creator_ids)).all()}
+        creator_users = User.query.filter(User.user_id.in_(creator_ids)).all() if creator_ids else []
+        creator_lookup = {str(u.user_id): u for u in creator_users}
 
-        event_list=[
-            {
-                "event_id": str(event.event_id),
-                "name": event.event_name,
-                "description": event.description,
-                "date": event.date_and_time.astimezone(local_tz).strftime("%d.%m.%Y"),
-                "time": event.date_and_time.astimezone(local_tz).strftime("%H:%M"),
-                "location": event.location,
-                "creator_id": str(event.creator_id),
-                "pictures": [
-                    {
-                        "cloud_id": pic.cloud_id,
-                        "url": cloudinary_url(pic.cloud_id, secure=True)[0]
-                    } 
-                    for pic in event.pictures
-                ],
-                "creator_username": creators.get(str(event.creator_id), "[deleted]"),
-                "comment_count": str(event.comment_count),
-                "participation_count": event.participant_count,
-                "is_private": event.is_private,
-                "is_joined": db.session.query(Event_participants).filter_by(
-                    event_id=event.event_id, user_id=user_id
-                ).first() is not None
-            }
+        event_ids = [event.event_id for event in pagination.items]
+        participant_rows = (
+            db.session.query(Event_participants.event_id)
+            .filter(
+                Event_participants.user_id == user_id,
+                Event_participants.event_id.in_(event_ids),
+            )
+            .all()
+        ) if event_ids else []
+        participating_event_ids = {event_id for (event_id,) in participant_rows}
+
+        event_list = [
+            serialize_event_payload(event, user_id, creator_lookup, participating_event_ids)
             for event in pagination.items
         ]
 
@@ -740,7 +738,37 @@ def invite_to_event(event_id):
         return make_api_response(ResponseTypes.SERVER_ERROR)
     
     return make_api_response(ResponseTypes.CREATED, message="Invite created successfully")
-       
+
+@events_bp.route("/invites/<event_id>", methods=["GET"])
+@limiter.limit("100 per minute")
+@jwt_required()
+def get_sent_invites(event_id):
+    user = get_current_user()
+    u_uuid = validate_uuid(user.user_id)
+    e_uuid = validate_uuid(event_id)
+
+    if not u_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid user ID")
+    if not e_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid event ID")
+
+    event = db.session.get(Event, e_uuid)
+    if event is None:
+        return make_api_response(ResponseTypes.NOT_FOUND, message="This event does not exist")
+
+    # Only the event creator can view sent invites
+    if event.creator_id != u_uuid:
+        return make_api_response(ResponseTypes.FORBIDDEN, message="Only the event creator can view sent invites")
+
+    try:
+        invites = db.session.query(Invites).filter_by(event_id=e_uuid).all()
+        invited_ids = [str(invite.invited_id) for invite in invites]
+    
+        return make_api_response(ResponseTypes.SUCCESS, data={"invited_ids": invited_ids})
+    except SQLAlchemyError as e:
+        current_app.logger.error(f"Database error in get_sent_invites: {e}")
+        return make_api_response(ResponseTypes.SERVER_ERROR)
+   
 @events_bp.route("/delete_invite/<event_id>", methods=["DELETE"])
 @limiter.limit("100 per minute")
 @jwt_required()
