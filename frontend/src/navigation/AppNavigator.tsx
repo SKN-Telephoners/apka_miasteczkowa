@@ -1,4 +1,4 @@
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, getFocusedRouteNameFromRoute } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import WelcomeScreen from "../screens/auth/WelcomeScreen";
@@ -9,10 +9,17 @@ import HomeScreen from "../screens/home/HomeScreen";
 import MapScreen from "../screens/home/MapScreen";
 import ProfileStack from "./ProfileStack";
 import EventStack from "./EventStack";
+import NotificationsScreen from "../screens/home/NotificationsScreen";
+import UserScreen from "../screens/user/UserScreen";
 import { Ionicons } from "@expo/vector-icons";
-import type { ComponentProps } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { ActivityIndicator, View, TouchableOpacity, Image } from "react-native";
+import { ActivityIndicator, View, TouchableOpacity } from "react-native";
+import AppIcon from "../components/AppIcon";
+import SvgSpriteIcon from "../components/SvgSpriteIcon";
+import { useTheme } from "../contexts/ThemeContext";
+import { useUser } from "../contexts/UserContext";
+import { useFriends } from "../contexts/FriendsContext";
+import Avatar from "../components/Avatar";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -29,77 +36,126 @@ const AuthStack = () => {
   );
 };
 
-// Konfiguracja "sprite'a" dla iconset1.jpg
 const ICON_SIZE = 30;
-// Skoro ikony są rozłożone w wierszach (górny, na środku) i kolumnach (lewa, środek, prawa),
-// założyłem że obrazek to siatka 3x3. Gdyby rozmiary się nie zgadzały, dopasuj IMAGE_WIDTH i IMAGE_HEIGHT.
-const IMAGE_WIDTH = 90;
-const IMAGE_HEIGHT = 90;
+const SEARCH_ICON_OFFSET = { x: -ICON_SIZE * 2, y: 0 };
+const SearchScreen = require("../screens/user/SearchScreen").default;
 
-const getIconOffset = (routeName: string) => {
-  const offsets: Record<string, { x: number, y: number }> = {
-    // "prawy górny róg" (X: po prawej, Y: u góry)
-    'Home': { x: -ICON_SIZE * 2, y: 0 },
-    // "na środku po lewej" (X: po lewej, Y: na środku)
-    'Mapa': { x: 0, y: -ICON_SIZE },
-    // "na samym środku" (X: na środku, Y: na środku)
-    'Wydarzenia': { x: -ICON_SIZE, y: -ICON_SIZE },
-    // "po prawej na środku" (X: po prawej, Y: na środku)
-    'Profil': { x: -ICON_SIZE * 2, y: -ICON_SIZE }
-  };
-
-  return offsets[routeName] ?? { x: 0, y: 0 };
+const ROUTE_ICON_MAP: Record<string, string> = {
+  'Przewodnik po miasteczku': 'Home',
+  'Mapa': 'Map',
+  'Wydarzenia': 'Events'
 };
 
 // for authenticated users
 const MainTabs = () => {
+  const { colors } = useTheme();
+  const { user } = useUser();
+  const { incomingRequests } = useFriends();
+  const hasNotifications = incomingRequests.length > 0;
+
   return (
     <Tab.Navigator
       initialRouteName="Mapa"
-      screenOptions={({ route }) => ({
-        headerStyle: { height: 70 },
+      screenOptions={({ route, navigation }) => ({
+        headerStyle: {
+          height: 50,
+          elevation: 0,
+          shadowOpacity: 0,
+          borderBottomWidth: 0,
+          backgroundColor: colors.background,
+        },
+        headerTintColor: colors.text,
+        headerTitleStyle: { color: colors.text },
+        headerShadowVisible: false,
         headerTitleAlign: "left",
-        tabBarStyle: { height: 70 },
+        tabBarStyle: {
+          height: 60,
+          backgroundColor: colors.background,
+          borderTopColor: colors.border,
+        },
         tabBarItemStyle: { margin: 8, borderRadius: 10 },
+        tabBarShowLabel: false,
+        tabBarActiveTintColor: colors.highlight,
+        tabBarInactiveTintColor: colors.icon,
 
-        headerRight: () => (
-          <View style={{ flexDirection: 'row' }}>
-            <TouchableOpacity style={{ marginHorizontal: 20 }}>
-              <Ionicons name={'search'} size={28} />
-            </TouchableOpacity>
-            <TouchableOpacity style={{ marginHorizontal: 20 }}>
-              <Ionicons name={'notifications'} size={28} />
-            </TouchableOpacity>
-          </View>
-        ),
+        headerRight: () => {
+          if (route.name === 'Mapa' || route.name === 'Przewodnik po miasteczku') {
+            return (
+              <View style={{ flexDirection: 'row' }}>
+                <TouchableOpacity
+                  style={{ marginHorizontal: 20 }}
+                  onPress={() => navigation.navigate('Search')}
+                >
+                  <AppIcon name="Search" size={28} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{ marginHorizontal: 20 }}
+                  onPress={() => navigation.navigate('Notifications')}
+                >
+                  <View>
+                    <AppIcon name="Bell" size={28} focused={hasNotifications} />
+                    {hasNotifications && (
+                      <View style={{ position: 'absolute', top: 0, right: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: colors.highlight, borderWidth: 1, borderColor: colors.background }} />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              </View>
+            );
+          }
 
-        tabBarIcon: ({ focused }) => {
-          const offset = getIconOffset(route.name);
+          if (route.name !== 'Wydarzenia') {
+            return null;
+          }
+
+          const focusedRoute = getFocusedRouteNameFromRoute(route) ?? 'EventScreen';
+          if (focusedRoute !== 'EventScreen') {
+            return null;
+          }
+
           return (
-            <View style={{
-              width: ICON_SIZE,
-              height: ICON_SIZE,
-              overflow: 'hidden',
-              opacity: focused ? 1 : 0.4
-            }}>
-              <Image
-                source={require('../../assets/iconset1.jpg')}
-                style={{
-                  width: IMAGE_WIDTH,
-                  height: IMAGE_HEIGHT,
-                  transform: [
-                    { translateX: offset.x },
-                    { translateY: offset.y }
-                  ]
-                }}
-                resizeMode="cover"
-              />
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity
+                style={{ marginHorizontal: 20 }}
+                onPress={() => navigation.navigate('Wydarzenia', { screen: 'AddEvent' })}
+              >
+                <SvgSpriteIcon set={2} size={ICON_SIZE} offsetX={SEARCH_ICON_OFFSET.x} offsetY={SEARCH_ICON_OFFSET.y} />
+              </TouchableOpacity>
+              <TouchableOpacity style={{ marginHorizontal: 20 }} onPress={() => navigation.navigate('Search')}>
+                <AppIcon name="Search" size={28} />
+              </TouchableOpacity>
+              <TouchableOpacity style={{ marginHorizontal: 20 }} onPress={() => navigation.navigate("Notifications")}>
+                <View>
+                  <AppIcon name="Bell" size={28} focused={hasNotifications} />
+                  {hasNotifications && (
+                    <View style={{ position: 'absolute', top: 0, right: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: colors.highlight, borderWidth: 1, borderColor: colors.background }} />
+                  )}
+                </View>
+              </TouchableOpacity>
             </View>
           );
         },
+
+        tabBarIcon: ({ focused }) => {
+          if (route.name === 'Profil') {
+            const uri = user?.profile_picture?.url || user?.avatarUrl || (typeof user?.profile_picture === "string" ? user?.profile_picture : undefined);
+            return (
+              <View style={{ opacity: focused ? 1 : 0.75 }}>
+                <Avatar 
+                  uri={uri} 
+                  size={32} 
+                  style={{ 
+                    borderWidth: 2, 
+                    borderColor: focused ? colors.highlight : 'transparent' 
+                  }} 
+                />
+              </View>
+            );
+          }
+          return <AppIcon name={ROUTE_ICON_MAP[route.name] || 'Home'} focused={focused} />;
+        },
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Przewodnik po miasteczku" component={HomeScreen} />
       <Tab.Screen name="Mapa" component={MapScreen} />
       <Tab.Screen name="Wydarzenia" component={EventStack} />
       <Tab.Screen name="Profil" component={ProfileStack} />
@@ -110,24 +166,78 @@ const MainTabs = () => {
 // root navigator
 const AppNavigator = () => {
   const { isAuthenticated, isLoading } = useAuth();
+  const { colors, isDark } = useTheme();
+
+  const navigationTheme = {
+    dark: isDark,
+    colors: {
+      primary: colors.highlight,
+      background: colors.background,
+      card: colors.background,
+      text: colors.text,
+      border: colors.border,
+      notification: colors.highlight,
+    },
+    fonts: {
+      regular: { fontFamily: "System", fontWeight: "400" as const },
+      medium: { fontFamily: "System", fontWeight: "500" as const },
+      bold: { fontFamily: "System", fontWeight: "700" as const },
+      heavy: { fontFamily: "System", fontWeight: "800" as const },
+    },
+  };
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#0000ff" />
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.highlight} />
       </View>
     );
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={navigationTheme}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
 
-         {!isAuthenticated ? (
+        {!isAuthenticated ? (
           <Stack.Screen name="Auth" component={AuthStack} />
         ) : (
-          <Stack.Screen name="Main" component={MainTabs} />
-        )} 
+          <Stack.Group>
+            <Stack.Screen name="Main" component={MainTabs} />
+            <Stack.Screen
+              name="Notifications"
+              component={NotificationsScreen}
+              options={{
+                headerShown: true,
+                headerTitle: 'Powiadomienia',
+                headerStyle: { backgroundColor: colors.background },
+                headerTintColor: colors.text,
+                headerTitleStyle: { color: colors.text },
+              }}
+            />
+            <Stack.Screen
+              name="Search"
+              component={SearchScreen}
+              options={{
+                headerShown: true,
+                headerTitle: 'Szukaj użytkowników',
+                headerStyle: { backgroundColor: colors.background },
+                headerTintColor: colors.text,
+                headerTitleStyle: { color: colors.text },
+              }}
+            />
+            <Stack.Screen
+              name="UserScreen"
+              component={UserScreen}
+              options={{
+                headerShown: true,
+                headerTitle: 'Profil użytkownika',
+                headerStyle: { backgroundColor: colors.background },
+                headerTintColor: colors.text,
+                headerTitleStyle: { color: colors.text },
+              }}
+            />
+          </Stack.Group>
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );
