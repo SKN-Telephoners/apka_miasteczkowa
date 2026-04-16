@@ -12,11 +12,11 @@ export interface FriendsDataResponse {
 
 export const getFriendsList = async (): Promise<FriendsDataResponse> => {
   try {
-    const response = await api.get<{ message?: string; friends: User[]; incomingRequests: Request[]; outgoingRequests: Request[] }>('/api/friends/list');
+    const response = await api.get<{ message?: string; data: { friends: User[]; incomingRequests?: Request[]; outgoingRequests?: Request[] } }>('/api/friends/list');
     return {
-      friends: response.data?.friends || [],
-      incomingRequests: response.data?.incomingRequests || [],
-      outgoingRequests: response.data?.outgoingRequests || []
+      friends: response.data?.data?.friends || [],
+      incomingRequests: response.data?.data?.incomingRequests || [],
+      outgoingRequests: response.data?.data?.outgoingRequests || []
     };
   } catch (err: any) {
     //error handling for now
