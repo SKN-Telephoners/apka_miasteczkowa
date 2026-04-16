@@ -5,10 +5,10 @@ from backend.extensions import db,limiter
 from backend.responses import ResponseTypes, make_api_response
 from flask_jwt_extended import jwt_required, get_current_user
 from backend.helpers import validate_uuid
+import uuid
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy import or_, and_
 import backend.notifications as notifications
-from cloudinary.utils import cloudinary_url
 
 friends_bp = Blueprint("friends", __name__, url_prefix="/api/friends")
 
@@ -196,74 +196,33 @@ def get_pending_requests():
 @friends_bp.route("/list", methods=["GET"])
 @jwt_required()
 def get_friends_list():
-    user = get_current_user()
+    user= get_current_user()
     
     try:
-        # 1. Fetching accepted friendships
         friendships = Friendship.query.filter(
             or_(
                 Friendship.user_id == user.user_id,
                 Friendship.friend_id == user.user_id
             )
         ).all()
+        if not friendships:
+            return make_api_response(ResponseTypes.SUCCESS, message="Empty friends list", data={"friends": []})
 
-        friends_id = []
+        friends_id=[]
         for friendship in friendships:
-            if user.user_id == friendship.user_id:
+            if user.user_id==friendship.user_id:
                 friends_id.append(friendship.friend_id)
             else:
                 friends_id.append(friendship.user_id)
-                
+        friends = User.query.filter(User.user_id.in_(friends_id)).all()
+
         friends_data = []
-        if friends_id:
-            friends = User.query.filter(User.user_id.in_(friends_id)).all()
-            for friend in friends:
-                profile_pic_data = None
-                if friend.profile_picture:
-                    profile_pic_data = {
-                        "cloud_id": friend.profile_picture,
-                        "url": cloudinary_url(friend.profile_picture, secure=True)[0],
-                    }
-                friends_data.append({
-                    "id": str(friend.user_id),
-                    "username": friend.display_name,
-                    "email": friend.email,
-                    "academy": friend.academy,
-                    "course": friend.course,
-                    "year": friend.year,
-                    "profile_picture": profile_pic_data,
-                })
-
-        # 2. Fetching pending incoming friend requests
-        incoming_reqs = FriendRequest.query.filter_by(receiver_id=user.user_id).all()
-        incoming_data = [{
-            "id": str(r.sender_id),
-            "senderId": str(r.sender_id),
-            "receiverId": str(r.receiver_id),
-            "createdAt": r.requested_at.isoformat(),
-            "user": {
-                "id": str(r.sender.user_id),
-                "username": r.sender.display_name,
-                "email": r.sender.email,
-                "academy": r.sender.academy,
-                "course": r.sender.course,
-                "year": r.sender.year,
-                "profile_picture": {
-                    "cloud_id": r.sender.profile_picture,
-                    "url": cloudinary_url(r.sender.profile_picture, secure=True)[0],
-                } if r.sender.profile_picture else None,
-            }
-        } for r in incoming_reqs]
-
-        return make_api_response(
-            ResponseTypes.SUCCESS, 
-            message="Friends list and requests", 
-            data={
-                "friends": friends_data,
-                "incomingRequests": incoming_data,
-                "outgoingRequests": []
-            }
-        )
+        for friend in friends:
+            friends_data.append({
+                "id": str(friend.user_id),
+                "username": friend.display_name
+            })
+        return make_api_response(ResponseTypes.SUCCESS, message="Friends list", data={"friends": friends_data})
     except SQLAlchemyError as e:
         current_app.logger.error(f"Database error: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)

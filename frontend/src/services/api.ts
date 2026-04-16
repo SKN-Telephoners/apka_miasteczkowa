@@ -1,40 +1,14 @@
 import axios from "axios";
 import { tokenStorage } from "../utils/storage";
-import { API_BASE_URL } from "../utils/constants";
+import { API_BASE_URL, STORAGE_KEYS } from "../utils/constants";
 
 const MAX_RETRY_ATTEMPTS = 2;
 const INITIAL_RETRY_DELAY = 500; // in milliseconds
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms)); // helper function for delay
+<<<<<<< HEAD
+=======
 let refreshPromise: Promise<string> | null = null;
-
-const setAuthHeader = (headers: any, token: string) => {
-  if (!headers) {
-    return;
-  }
-
-  if (typeof headers.set === "function") {
-    headers.set("Authorization", `Bearer ${token}`);
-    return;
-  }
-
-  headers.Authorization = `Bearer ${token}`;
-  headers.authorization = `Bearer ${token}`;
-};
-
-const clearAuthHeader = (headers: any) => {
-  if (!headers) {
-    return;
-  }
-
-  if (typeof headers.delete === "function") {
-    headers.delete("Authorization");
-    headers.delete("authorization");
-    return;
-  }
-
-  delete headers.Authorization;
-  delete headers.authorization;
-};
+>>>>>>> 9c42500a4eb4d70dc0669bea7839855b7fa818a3
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -49,7 +23,7 @@ const api = axios.create({
 export async function handleSessionExpiry() {
   console.log("Token refresh failed, logging out");
   await tokenStorage.clearTokens();
-  //TO DO : redirect to login screen
+    //TO DO : redirect to login screen
 }
 
 async function refreshAccessToken(): Promise<string> {
@@ -72,11 +46,6 @@ async function refreshAccessToken(): Promise<string> {
         throw new Error("Invalid refresh response");
       }
 
-      const currentRefreshToken = await tokenStorage.getRefreshToken();
-      if (!currentRefreshToken || currentRefreshToken !== refreshToken) {
-        throw new Error("Stale refresh response ignored");
-      }
-
       await tokenStorage.saveTokens(access_token, refresh_token);
       return access_token;
     })().finally(() => {
@@ -90,21 +59,10 @@ async function refreshAccessToken(): Promise<string> {
 api.interceptors.request.use(
   async (config) => {
     console.log("Request interceptor for", config.url);
-
-    // Let axios/runtime set multipart boundary for FormData automatically.
-    if (typeof FormData !== "undefined" && config.data instanceof FormData) {
-      if (config.headers) {
-        delete (config.headers as any)["Content-Type"];
-        delete (config.headers as any)["content-type"];
-      }
-    }
-
     const token = await tokenStorage.getAccessToken();
     if (token) {
       console.log("Found token, adding to headers");
-      setAuthHeader(config.headers, token);
-    } else {
-      clearAuthHeader(config.headers);
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
@@ -123,31 +81,40 @@ api.interceptors.response.use(
     if (!originalRequest) {
       return Promise.reject(error);
     }
-
-    const requestUrl: string = String(originalRequest.url || "");
-    const isAuthEndpoint =
-      requestUrl.includes("/api/auth/login") ||
-      requestUrl.includes("/api/auth/register") ||
-      requestUrl.includes("/api/auth/refresh");
-    const isAuthMutationEndpoint =
-      requestUrl.includes("/api/auth/login") ||
-      requestUrl.includes("/api/auth/register") ||
-      requestUrl.includes("/api/email/reset_password_request");
-
-    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+    
+    if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
-        const accessToken = await refreshAccessToken();
-        setAuthHeader(originalRequest.headers, accessToken);
+<<<<<<< HEAD
+        const refreshToken = await tokenStorage.getRefreshToken();
+
+        if (refreshToken) {
+          console.log("Attempting token refresh");
+          const response = await axios.post(`${API_BASE_URL}/api/refresh`, {}, {
+            headers: { Authorization: `Bearer ${refreshToken}`}
+          });
+
+          const { access_token, refresh_token } = response.data;
+          await tokenStorage.saveTokens(access_token, refresh_token);
+
+          // retry original request with new token
+          originalRequest.headers.Authorization = `Bearer ${access_token}`;
+          return api(originalRequest);
+        } 
+=======
+        const newAccessToken = await refreshAccessToken();
+
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return api(originalRequest);
+>>>>>>> 9c42500a4eb4d70dc0669bea7839855b7fa818a3
       } catch (refreshError) {
         await handleSessionExpiry();
         return Promise.reject(new Error("Session expired. Please log in again."));
       }
     }
     const isRetryableError = !error.response || (error.response.status >= 500 && error.response.status < 600);
-    if (isRetryableError && !isAuthMutationEndpoint) {
+    if (isRetryableError) {
       originalRequest._retryCount = originalRequest._retryCount || 0;
       if (originalRequest._retryCount < MAX_RETRY_ATTEMPTS) {
         originalRequest._retryCount += 1;
@@ -182,37 +149,19 @@ export const authService = {
     return response.data;
   },
   logout: async () => {
-    const refreshToken = await tokenStorage.getRefreshToken();
-    const accessToken = await tokenStorage.getAccessToken();
-
-    const response = await api.delete("/api/auth/logout", {
-      data: { access_token: accessToken },
-      headers: refreshToken
-        ? { Authorization: `Bearer ${refreshToken}` }
-        : undefined,
-    });
+    const response = await api.post("/api/auth/logout");
     return response.data;
   },
 };
 
 export const userService = {
   getProfile: async () => {
-    const response = await api.get("/api/users/profile");
+    const response = await api.get("/api/user/profile");
     return response.data;
   },
 
   updateProfile: async (data: any) => {
-    const response = await api.put("/api/users/update_profile", data);
-    return response.data;
-  },
-
-  updateAcademicDetails: async (data: { faculty?: string, course?: string, year?: number }) => {
-    const response = await api.put("/api/users/update_academic_details", data);
-    return response.data;
-  },
-
-  changeEmail: async (newEmail: string) => {
-    const response = await api.put("/api/users/settings/change_email", { new_email: newEmail });
+    const response = await api.put("/api/user/profile", data);
     return response.data;
   },
 };

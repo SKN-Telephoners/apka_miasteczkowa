@@ -3,6 +3,7 @@ from backend.extensions import db
 from backend.models import Friendship, Event
 from backend.models.event import Event_participants, InviteRequestStatus, Invites
 from datetime import datetime, timezone
+import uuid
 
 def test_participation_status(client, logged_in_user, event, app):
     with app.app_context():
@@ -68,29 +69,6 @@ def test_leave_event(client, logged_in_user, registered_friend, app):
         response = client.delete(f"/api/events/leave/{ev.event_id}", headers={"Authorization": f"Bearer {f_token}"})
         assert response.status_code == 200
         assert response.get_json()["participant_count"] == 0
-
-def test_leave_private_event(client, logged_in_user, registered_friend, app):
-    with app.app_context():
-        user, token = logged_in_user
-        friend, f_pass = registered_friend
-
-        ev = Event(event_name="Private Event", location="X", creator_id=user.user_id, is_private=True)
-        db.session.add(ev)
-        db.session.flush()
-
-        share = Event_visibility(event_id=ev.event_id, sharing=user.user_id, shared_with=friend.user_id)
-        part = Event_participants(event_id=ev.event_id, user_id=friend.user_id)
-        ev.participant_count = 1
-        db.session.add_all([share, part])
-        db.session.commit()
-
-        login_res = client.post("/api/auth/login", json={"username": friend.username, "password": f_pass})
-        f_token = login_res.get_json()["access_token"]
-
-        response = client.delete(f"/api/events/leave/{ev.event_id}", headers={"Authorization": f"Bearer {f_token}"})
-        assert response.status_code == 200
-        assert response.get_json()["participant_count"] == 0
-        assert Event_participants.query.filter_by(event_id=ev.event_id, user_id=friend.user_id).first() is None
 
 def test_invite_friend_to_event(client, logged_in_user, registered_friend, event, app):
     with app.app_context():

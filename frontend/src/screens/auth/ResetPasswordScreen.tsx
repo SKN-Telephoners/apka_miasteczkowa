@@ -1,117 +1,100 @@
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  TouchableOpacity,
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  StyleSheet, 
+  Alert 
 } from "react-native";
-import { useTheme } from "../../contexts/ThemeContext";
-import { THEME, MESSAGES } from "../../utils/constants";
-import InputField from "../../components/InputField";
-import Button from "../../components/Button";
+import { Ionicons } from "@expo/vector-icons";
 
 const ResetPasswordScreen = ({ navigation }: { navigation: any }) => {
   const [email, setEmail] = useState("");
-  const { colors } = useTheme();
 
   const handleResetPassword = () => {
     if (!email) {
       Alert.alert("Błąd", "Podaj swój adres email");
       return;
     }
-
     console.log("Wysyłanie linku resetowania hasła na adres:", email);
     Alert.alert("Sukces", "Link do resetowania hasła został wysłany!");
+    // miejsce na logike
   };
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.screen, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <ScrollView
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={[styles.title, { color: colors.text }]}>
-          {MESSAGES.APP.RESET_PASSWORD_TITLE}
-        </Text>
+    <View style={styles.container}>
+      <Text style={styles.title}>Resetowanie hasła</Text>
+      
+      <View style={styles.inputContainer}>
+        <Ionicons name="mail-outline" size={20} color="#ff914d" />
+        <TextInput
+          placeholder="Email"
+          value={email}
+          onChangeText={setEmail}
+          style={styles.input}
+          keyboardType="email-address"
+        />
+      </View>
 
-        <View style={styles.inputContainer}>
-          <InputField
-            placeholder="Email"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            autoComplete="email"
-            textContentType="emailAddress"
-            importantForAutofill="yes"
-            showFloatingLabel={false}
-            reserveErrorSpace={false}
-            floatingLabelColor={colors.text}
-            floatingLabelBackgroundColor={colors.background}
-            leadingElement={
-              <Text style={[styles.emoji, { color: colors.highlight }]}>✉️</Text>
-            }
-          />
-        </View>
+      <TouchableOpacity style={styles.resetButton} onPress={handleResetPassword}>
+        <Text style={styles.buttonText}>Wyślij link</Text>
+      </TouchableOpacity>
 
-        <View style={styles.buttonContainer}>
-          <Button
-            title={MESSAGES.BUTTONS.SEND_RESET_LINK}
-            onPress={handleResetPassword}
-            type="primary"
-          />
-        </View>
-
-        <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.8}>
-          <Text style={[styles.backText, { color: colors.highlight }]}>
-            Wróć do logowania
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <TouchableOpacity onPress={() => navigation.goBack()}>
+        <Text style={styles.backText}>Wróć do logowania</Text>
+      </TouchableOpacity>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
   container: {
-    flexGrow: 1,
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: THEME.spacing.m,
+    backgroundColor: "#f5f5f5"
   },
   title: {
-    ...THEME.typography.title,
-    textAlign: "center",
-    marginBottom: THEME.spacing.xl,
+    fontSize: 50,
+    fontWeight: "bold",
+    color: "#004aad",
+    marginBottom: 50,
+    textAlign: "center"
   },
   inputContainer: {
-    width: "80%",
-    marginBottom: THEME.spacing.l,
-  },
-  buttonContainer: {
-    width: "80%",
+    flexDirection: "row",
     alignItems: "center",
-    marginBottom: THEME.spacing.m,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    marginBottom: 15,
+    width: "80%",
+    height: 50,
+    borderWidth: 1,
+    borderColor: "#ccc"
   },
-  emoji: {
-    fontSize: 18,
+  input: {
+    flex: 1,
+    marginLeft: 10
+  },
+  resetButton: {
+    backgroundColor: "#4a90e2",
+    paddingVertical: 12,
+    width: "80%",
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 30,
+    marginBottom: 10
+  },
+  buttonText: {
+    color: "#fff",
+    fontSize: 18
   },
   backText: {
-    ...THEME.typography.text,
-    fontSize: 13,
-    textAlign: "center",
-    marginTop: THEME.spacing.s,
-  },
+    color: "#4a90e2",
+    marginTop: 10
+  }
 });
 
 export default ResetPasswordScreen;

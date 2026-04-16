@@ -57,6 +57,3 @@ backend/migrations
 
 # DB schema stays on github for test database 
 # schema.sql
-
-frontend/android
-frontend/ios
