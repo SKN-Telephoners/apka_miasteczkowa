@@ -6,6 +6,7 @@ from backend.responses import ResponseTypes, make_api_response
 from flask_jwt_extended import jwt_required, get_current_user
 from backend.helpers import validate_uuid, sanitize_input, has_event_access
 from sqlalchemy.exc import SQLAlchemyError
+from cloudinary.utils import cloudinary_url
 
 comments_bp = Blueprint("comments", __name__, url_prefix="/api/comments")
 
@@ -36,9 +37,10 @@ def create_comment(event_id):
         return make_api_response(ResponseTypes.INVALID_DATA, message="Comment too long")
     
     try:
-        new_comment = Comment(user_id=user.user_id, event_id=event_id, content=comment_data["content"])
+        new_comment = Comment(user_id=user.user_id, event_id=event_id, content=content)
 
         db.session.add(new_comment)
+        event.comment_count = int(event.comment_count or 0) + 1
         db.session.commit()
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -84,11 +86,12 @@ def reply_to_comment(parent_comment_id):
         new_comment = Comment(
             user_id=user.user_id,
             event_id=parent_comment.event_id,
-            content=comment_data["content"],
+            content=content,
             parent_comment_id=parent_comment_id
             )
 
         db.session.add(new_comment)
+        event.comment_count = int(event.comment_count or 0) + 1
         db.session.commit()
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -114,9 +117,15 @@ def delete_comment(comment_id):
 
     if user.user_id != comment.user_id:
         return make_api_response(ResponseTypes.FORBIDDEN, message="You can delete your own comments only")
+
+    if comment.deleted:
+        return make_api_response(ResponseTypes.BAD_REQUEST, message="Comment already deleted")
         
     try: 
+        event = db.session.get(Event, comment.event_id)
         comment.soft_delete()
+        if event is not None:
+            event.comment_count = max(int(event.comment_count or 0) - 1, 0)
         db.session.commit()
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -182,13 +191,21 @@ def get_comments_list(event_id):
 
     try:
         comments = Comment.query.filter_by(event_id=event_id).order_by(Comment.created_at.asc()).all()
+        active_comment_count = sum(1 for c in comments if not c.deleted)
 
         if not comments:
-            return make_api_response(ResponseTypes.SUCCESS, message="Empty comments list", data={"comments": []})
+            return make_api_response(ResponseTypes.SUCCESS, message="Empty comments list", data={"comments": [], "comment_count": 0})
 
         user_ids = {c.user_id for c in comments if c.user_id is not None and not c.deleted}
         users = User.query.filter(User.user_id.in_(user_ids)).all() if user_ids else []
         usernames_by_id = {str(user.user_id): user.display_name for user in users}
+        profile_pictures_by_id = {
+            str(user.user_id): cloudinary_url(user.profile_picture, secure=True)[0] if user.profile_picture else None
+            for user in users
+        }
+        academy_by_id = {str(user.user_id): user.academy for user in users}
+        course_by_id = {str(user.user_id): user.course for user in users}
+        year_by_id = {str(user.user_id): user.year for user in users}
 
         top_level_comments = [c for c in comments if c.parent_comment_id is None]
         comments_tree = [c.to_dict() for c in top_level_comments]
@@ -196,13 +213,17 @@ def get_comments_list(event_id):
         def attach_usernames(comment_node):
             comment_user_id = comment_node.get("user_id")
             comment_node["username"] = usernames_by_id.get(comment_user_id) if comment_user_id else None
+            comment_node["profile_picture_url"] = profile_pictures_by_id.get(comment_user_id) if comment_user_id else None
+            comment_node["academy"] = academy_by_id.get(comment_user_id) if comment_user_id else None
+            comment_node["course"] = course_by_id.get(comment_user_id) if comment_user_id else None
+            comment_node["year"] = year_by_id.get(comment_user_id) if comment_user_id else None
             for reply in comment_node.get("replies", []):
                 attach_usernames(reply)
 
         for comment_node in comments_tree:
             attach_usernames(comment_node)
 
-        return make_api_response(ResponseTypes.SUCCESS, message="Comments list", data={"comments": comments_tree})
+        return make_api_response(ResponseTypes.SUCCESS, message="Comments list", data={"comments": comments_tree, "comment_count": active_comment_count})
     except SQLAlchemyError as e:
         current_app.logger.error(f"Database error get_comment_list: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)

@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, make_response
 from backend.extensions import db, bcrypt, jwt, mail, limiter, CORS, celery_init_app, load_static_data
 from backend.config import Config, TestConfig
-from werkzeug.exceptions import HTTPException
+from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 from flask_talisman import Talisman
 import logging
 from backend.routes import register_blueprints
@@ -26,7 +26,20 @@ def create_app(test_mode=False, dev_mode=False):
     limiter.init_app(app)
     celery_init_app(app)
     
-    cloudinary.config(secure=True)
+    cloudinary_url = os.getenv("CLOUDINARY_URL")
+    if cloudinary_url:
+        cloudinary.config(cloudinary_url=cloudinary_url, secure=True)
+    else:
+        cloudinary.config(
+            cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+            api_key=os.getenv("CLOUDINARY_API_KEY"),
+            api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+            secure=True,
+        )
+
+    cloudinary_cfg = cloudinary.config()
+    if not (cloudinary_cfg.cloud_name and cloudinary_cfg.api_key and cloudinary_cfg.api_secret):
+        app.logger.warning("Cloudinary is not fully configured. Set CLOUDINARY_URL or CLOUDINARY_CLOUD_NAME/CLOUDINARY_API_KEY/CLOUDINARY_API_SECRET.")
 
     register_blueprints(app)
 
@@ -59,6 +72,14 @@ def create_app(test_mode=False, dev_mode=False):
             "error": "Za dużo żądań.",
             "message": f"Spróbuj ponownie za {e.description.split('at '[-1])}."
         }), 429)
+
+    @app.errorhandler(RequestEntityTooLarge)
+    def on_request_too_large(_e):
+        max_size_mb = round(app.config.get("MAX_CONTENT_LENGTH", 0) / (1024 * 1024))
+        return make_response(jsonify({
+            "error": "Plik za duży",
+            "message": f"Maksymalny rozmiar pliku to {max_size_mb} MB."
+        }), 413)
 
     @app.errorhandler(Exception)
     def handle_exception(e):

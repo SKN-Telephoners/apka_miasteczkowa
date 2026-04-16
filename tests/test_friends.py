@@ -1,6 +1,7 @@
 import pytest
 from backend.extensions import db
-from backend.models import FriendRequest, Friendship
+from backend.models import FriendRequest, Friendship, User
+from backend.models.friend import FriendRequestStatus
 import json
 import uuid
 
@@ -262,3 +263,53 @@ def test_get_empty_friends_list(client, logged_in_user, app):
 
         assert data["message"] == "Empty friends list"
         assert data["friends"] == []
+
+def test_get_pending_friend_requests(client, logged_in_user, registered_friend, app):
+    with app.app_context():
+        user, token = logged_in_user
+        friend = registered_friend[0]
+
+        password2 = "FriendSecret123!"
+
+        friend2 = User(
+            username="friend2", 
+            password=password2, 
+            email="friend2@gmail.com",
+            is_confirmed=True
+        )
+        db.session.add(friend2)
+        db.session.commit()
+
+        
+        incoming_request_pending = FriendRequest(
+            sender_id=friend.user_id, 
+            receiver_id=user.user_id, 
+            status=FriendRequestStatus.pending
+        )
+        db.session.add(incoming_request_pending)
+
+        outgoing_request_pending = FriendRequest(
+            sender_id=user.user_id, 
+            receiver_id=friend2.user_id, 
+            status=FriendRequestStatus.pending
+        )
+        db.session.add(outgoing_request_pending)
+
+        db.session.commit()
+        
+        response = client.get("/api/friends/request/pending", headers={
+            "Authorization": f"Bearer {token}"
+        })
+        
+        assert response.status_code == 200
+
+        data_in = response.get_json()["incoming_pending_requests"]
+        data_out = response.get_json()["outgoing_pending_requests"] 
+        
+        assert len(data_in) == 1
+        assert str(data_in[0]["sender_id"]) == str(friend.user_id)
+        assert data_in[0]["sender_username"] == friend.username
+
+        assert len(data_out) == 1
+        assert str(data_out[0]["receiver_id"]) == str(friend2.user_id)
+        assert data_out[0]["receiver_username"] == friend2.username
