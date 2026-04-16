@@ -10,15 +10,12 @@ export interface FriendsDataResponse {
   outgoingRequests: Request[];
 }
 
-export const getFriendsList = async (): Promise<FriendsDataResponse> => {
+// Function to get the friends list
+export const getFriendsList = async (): Promise<string> => {
   try {
-    const response = await api.get<{ message?: string; friends: User[]; incomingRequests: Request[]; outgoingRequests: Request[] }>('/api/friends/list');
-    return {
-      friends: response.data?.friends || [],
-      incomingRequests: response.data?.incomingRequests || [],
-      outgoingRequests: response.data?.outgoingRequests || []
-    };
-  } catch (err: any) {
+    const response = await api.post<ApiMessage>('/list');
+    return response.data.message ?? "Returned Friends List"
+  }catch (err: any){
     //error handling for now
     const msg = err?.response?.data?.message || err?.message || "Network error"
     throw new Error(msg)
@@ -27,34 +24,15 @@ export const getFriendsList = async (): Promise<FriendsDataResponse> => {
 
 // Function to search users - move do correct spot 
 export const searchUsers = async (query: string): Promise<User[]> => {
-  try {
-    const response = await api.get<{ users: any[] }>('/api/users/users_list', {
-      params: { search: query, limit: 20 }
-    });
-    
-    return response.data?.users?.map(u => ({
-      id: u.user_id,
-      username: u.username,
-      email: "", // publiczna szukajka raczej tego nie zdradzi
-      academy: u.academy,
-      faculty: u.faculty,
-      course: u.course,
-      year: u.year,
-      avatarUrl: u.profile_picture?.url || u.profile_picture || undefined,
-      profile_picture: u.profile_picture || null,
-      is_friend: u.is_friend
-    })) as User[];
-  } catch (err) {
-    console.warn("Wyszukiwanie użytkowników zwróciło wyjątek:", err);
-    return [];
-  }
+  const response = await api.get<User[]>('/users/search', { params: { q: query } });
+  return response.data;
 };
 
 // Function to send a friend request
 export const addFriend = async (friendId: string): Promise<string> => {
   try {
     // post /create_friend_request/:friendId{string}
-    const response = await api.post<ApiMessage>(`/api/friends/request/${friendId}/create`);
+    const response = await api.post<ApiMessage>(`/requst/${friendId}/crate`);
     return response.data.message ?? "Friend request created";
   } catch (err: any) {
     // error handling for now
@@ -66,7 +44,7 @@ export const addFriend = async (friendId: string): Promise<string> => {
 // Function to accept a friend request
 export const acceptFriend = async (friendId: string): Promise<string> => {
   try {
-    const response = await api.post<ApiMessage>(`/api/friends/request/${friendId}/accept`);
+    const response = await api.post<ApiMessage>(`/request/${friendId}/accept`);
     return response.data.message ?? "Friend request accepted";
   } catch (err: any) {
     // error handling for now
@@ -77,7 +55,7 @@ export const acceptFriend = async (friendId: string): Promise<string> => {
 // Function to reject a friend request
 export const rejectFriend = async (friendId: string): Promise<string> => {
   try {
-    const response = await api.post<ApiMessage>(`/api/friends/request/${friendId}/decline`);
+    const response = await api.post<ApiMessage>(`/request/${friendId}/decline`);
     return response.data.message ?? "Friend request rejected";
   } catch (err: any) {
     // error handling for now
@@ -88,20 +66,8 @@ export const rejectFriend = async (friendId: string): Promise<string> => {
 // Function to cancel friend request
 export const cancelRequest = async (friendId: string): Promise<string> => {
   try {
-    const response = await api.post<ApiMessage>(`/api/friends/request/${friendId}/cancel`);
+    const response = await api.post<ApiMessage>(`/request/${friendId}/cancel`);
     return response.data.message ?? "Friend request canceled";
-  } catch (err: any) {
-    // error handling for now
-    const msg = err?.response?.data?.message || err?.message || "Network error";
-    throw new Error(msg);
-  }
-}
-
-// Function to remove a friend
-export const removeFriend = async (friendId: string): Promise<string> => {
-  try {
-    const response = await api.post<ApiMessage>(`/api/friends/${friendId}/remove`);
-    return response.data.message ?? "Friend removed";
   } catch (err: any) {
     // error handling for now
     const msg = err?.response?.data?.message || err?.message || "Network error";

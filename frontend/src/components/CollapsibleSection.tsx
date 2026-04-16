@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     View,
     Text,
@@ -10,10 +10,8 @@ import {
     Platform,
     UIManager
 } from 'react-native';
-import { useTheme } from '../contexts/ThemeContext';
 import { THEME } from '../utils/constants';
 import Icon from 'react-native-vector-icons/Ionicons';
-import AppIcon from './AppIcon';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android') {
@@ -39,9 +37,6 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     onRightActionPress,
     style
 }) => {
-    const { colors } = useTheme();
-    const styles = useMemo(() => getStyles(colors), [colors]);
-
     const [expanded, setExpanded] = useState(initialExpanded);
     const animation = useRef(new Animated.Value(initialExpanded ? 1 : 0)).current;
 
@@ -74,7 +69,7 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
                 >
                     <Text style={styles.title}>{title}</Text>
                     <Animated.View style={{ transform: [{ rotate: rotateInterpolation }] }}>
-                        <AppIcon name="ArrowDown" size={20} />
+                        <Icon name="chevron-down" size={20} color={THEME.colors.lm_ico} />
                     </Animated.View>
                 </TouchableOpacity>
 
@@ -84,7 +79,7 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
                         onPress={onRightActionPress}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                        <Icon name={rightActionIcon} size={24} color={colors.highlight} />
+                        <Icon name={rightActionIcon} size={24} color={THEME.colors.lm_highlight} />
                     </TouchableOpacity>
                 )}
             </View>
@@ -98,7 +93,7 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     );
 };
 
-const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
+const styles = StyleSheet.create({
     container: {
         marginBottom: THEME.spacing.m,
     },
@@ -107,7 +102,7 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
         alignItems: 'center',
         paddingVertical: THEME.spacing.s,
         borderBottomWidth: 1,
-        borderBottomColor: colors.border,
+        borderBottomColor: THEME.colors.lm_src_br,
     },
     headerTouch: {
         flex: 1,
@@ -118,14 +113,14 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     title: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: colors.text,
+        color: THEME.colors.lm_txt,
         marginRight: THEME.spacing.s,
     },
     rightAction: {
         marginLeft: THEME.spacing.m,
         paddingLeft: THEME.spacing.s,
         borderLeftWidth: 1,
-        borderLeftColor: colors.border,
+        borderLeftColor: THEME.colors.lm_src_br,
     },
     content: {
         paddingTop: THEME.spacing.m,

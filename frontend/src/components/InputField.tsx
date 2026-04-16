@@ -1,18 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
-  TextStyle,
-  TextInputProps,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import { useMemo } from "react";
-import { useTheme } from "../contexts/ThemeContext";
-import { THEME } from '../utils/constants';
-import SvgSpriteIcon from "./SvgSpriteIcon";
 
 interface InputFieldProps {
   placeholder: string;
@@ -23,19 +17,7 @@ interface InputFieldProps {
   errorMessage?: string;
   validate?: (text: string) => string | null;
   autoCapitalize?: "none" | "sentences" | "words" | "characters";
-  showSearchSpriteIcon?: boolean;
-  reserveErrorSpace?: boolean;
-  autoComplete?: TextInputProps["autoComplete"];
-  textContentType?: TextInputProps["textContentType"];
-  importantForAutofill?: TextInputProps["importantForAutofill"];
-  showFloatingLabel?: boolean;
-  floatingLabelColor?: TextStyle["color"];
-  floatingLabelBackgroundColor?: TextStyle["backgroundColor"];
-  leadingElement?: React.ReactNode;
 }
-
-const BASE_TILE_SIZE = 30;
-const ICON_SIZE = 18;
 
 const InputField: React.FC<InputFieldProps> = ({
   placeholder,
@@ -46,18 +28,7 @@ const InputField: React.FC<InputFieldProps> = ({
   errorMessage,
   validate,
   autoCapitalize = "none",
-  showSearchSpriteIcon = false,
-  reserveErrorSpace = true,
-  autoComplete,
-  textContentType,
-  importantForAutofill,
-  showFloatingLabel = true,
-  floatingLabelColor = THEME.colors.light.text,
-  floatingLabelBackgroundColor = THEME.colors.light.background,
-  leadingElement,
 }) => {
-  const { colors, isDark } = useTheme();
-  const styles = useMemo(() => getStyles(colors), [colors]);
   const [localErrorMessage, setLocalErrorMessage] = useState<string | null>(
     null
   );
@@ -94,10 +65,6 @@ const InputField: React.FC<InputFieldProps> = ({
     ? localErrorMessage ?? errorMessage
     : null;
 
-  const resolvedFloatingLabelColor = floatingLabelColor ?? colors.text;
-  const resolvedFloatingLabelBackgroundColor = floatingLabelBackgroundColor ?? colors.background;
-  const resolvedPlaceholderTextColor = showSearchSpriteIcon && isDark ? colors.text : colors.searchWord;
-
   return (
     <View style={styles.container}>
       <View
@@ -106,21 +73,10 @@ const InputField: React.FC<InputFieldProps> = ({
           displayErrorMessage ? styles.inputBoxError : null,
         ]}
       >
-        {leadingElement ? <View style={styles.leadingElementContainer}>{leadingElement}</View> : null}
-        {!isEmpty && showFloatingLabel && (
-          <Text
-            style={[
-              styles.legend,
-              { color: resolvedFloatingLabelColor, backgroundColor: resolvedFloatingLabelBackgroundColor },
-            ]}
-          >
-            {placeholder}
-          </Text>
-        )}
+        {!isEmpty && <Text style={styles.legend}>{placeholder}</Text>}
         <TextInput
           style={styles.input}
           placeholder={placeholder}
-          placeholderTextColor={resolvedPlaceholderTextColor}
           value={value}
           onChangeText={handleTextChange}
           onBlur={handleBlur}
@@ -129,87 +85,57 @@ const InputField: React.FC<InputFieldProps> = ({
           accessibilityLabel={placeholder}
           accessibilityHint={displayErrorMessage || undefined}
           autoCapitalize={autoCapitalize}
-          autoComplete={autoComplete}
-          textContentType={textContentType}
-          importantForAutofill={importantForAutofill}
         />
         {toggleSecure && (
           <TouchableOpacity onPress={toggleSecure}>
             <Ionicons
               name={secureTextEntry ? "eye-off-outline" : "eye-outline"}
               size={20}
-              color={colors.transparentHighlight}
+              color="#ff914d"
             />
           </TouchableOpacity>
         )}
-        {!toggleSecure && showSearchSpriteIcon && (
-          <View style={styles.searchIconContainer}>
-            <SvgSpriteIcon set={1} size={ICON_SIZE} />
-          </View>
-        )}
       </View>
 
-      <Text
-        style={[
-          styles.errorMessage,
-          !reserveErrorSpace && !displayErrorMessage ? styles.errorMessageHidden : null,
-        ]}
-      >
-        {displayErrorMessage}
-      </Text>
+      <Text style={styles.errorMessage}>{displayErrorMessage}</Text>
     </View>
   );
 };
 
-const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
+const styles = StyleSheet.create({
   container: {
-    marginBottom: 1,
+    marginBottom: 15,
   },
   inputBox: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 35,
+    borderRadius: 10,
     paddingHorizontal: 10,
-    height: 40,
+    height: 50,
     borderWidth: 2,
-    borderColor: colors.searchWord,
-    backgroundColor: colors.border,
+    borderColor: "#ccc",
   },
   inputBoxError: {
-    borderColor: colors.aghRed,
+    borderColor: "red",
   },
   input: {
     flex: 1,
     marginLeft: 10,
-    color: colors.text,
-  },
-  leadingElementContainer: {
-    marginLeft: 2,
-    marginRight: 2,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  searchIconContainer: {
-    width: ICON_SIZE,
-    height: ICON_SIZE,
-    marginLeft: 8,
   },
   legend: {
     position: "absolute",
     top: -10,
     left: 18,
+    backgroundColor: "#f5f5f5",
+    color: "#aaa",
     paddingHorizontal: 5,
   },
   errorMessage: {
-    color: colors.aghRed,
+    color: "red",
     fontSize: 12,
     marginTop: 5,
     marginLeft: 10,
     height: 18,
-  },
-  errorMessageHidden: {
-    height: 0,
-    marginTop: 0,
   },
 });
 

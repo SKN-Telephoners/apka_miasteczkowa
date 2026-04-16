@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   View,
   Text,
+  TouchableOpacity,
   StyleSheet,
   Alert,
   KeyboardAvoidingView,
@@ -11,9 +12,7 @@ import {
 import { ScrollView } from "react-native-gesture-handler";
 import { authService } from "../../services/api";
 import InputField from "../../components/InputField";
-import Button from "../../components/Button";
-import { useTheme } from "../../contexts/ThemeContext";
-import { MESSAGES, THEME } from "../../utils/constants";
+import { MESSAGES } from "../../utils/constants";
 
 const RegisterScreen = ({ navigation }: { navigation: any }) => {
   const [username, setUsername] = useState("");
@@ -28,8 +27,6 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [confirmPasswordError, setConfirmPasswordError] = useState("");
-
-  const { colors } = useTheme();
 
   // Field-specific validation functions
   const validateUsername = (text: string): string | null => {
@@ -105,25 +102,14 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
     setIsLoading(true);
     try {
       await authService.register(username, email, password);
-      setIsLoading(false);
-      Alert.alert(
-        "Rejestracja przebiegła pomyślnie!",
-        "Konto zostało utworzone. Potwierdź swoje konto przez link, który dostaniesz na maila.",
-        [{
-          text: "Przejdź do logowania",
-          onPress: () => {
-            navigation.reset({
-              index: 0,
-              routes: [{ name: "Login" }],
-            });
-          }
-        }]
-      );
+      Alert.alert("Rejestracja powiodła się!", "Możesz się teraz zalogować.", [
+        { text: "OK", onPress: () => navigation.navigate("Login") },
+      ]);
     } catch (error: any) {
       if (error.response) {
         Alert.alert(
-          "Błąd rejestracji",
-          error.response.data.message || "Taki użytkownik lub email już istnieje."
+          "Rejestracja nie powiodła się",
+          error.response.data.message
         );
       } else {
         Alert.alert(
@@ -145,7 +131,7 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={[styles.title, { color: colors.text }]}>{MESSAGES.APP.REGISTER_TITLE}</Text>
+        <Text style={styles.title}>{MESSAGES.APP.REGISTER_TITLE}</Text>
 
         <View style={styles.inputContainer}>
           <InputField
@@ -153,8 +139,6 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
             value={username}
             onChangeText={setUsername}
             secureTextEntry={false}
-            floatingLabelColor={colors.text}
-            floatingLabelBackgroundColor={colors.background}
             errorMessage={usernameError}
             validate={validateUsername}
           />
@@ -164,8 +148,6 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
             value={email}
             onChangeText={setEmail}
             secureTextEntry={false}
-            floatingLabelColor={colors.text}
-            floatingLabelBackgroundColor={colors.background}
             errorMessage={emailError}
             validate={validateEmail}
           />
@@ -175,8 +157,6 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
             value={password}
             onChangeText={setPassword}
             secureTextEntry={secureText}
-            floatingLabelColor={colors.text}
-            floatingLabelBackgroundColor={colors.background}
             toggleSecure={() => setSecureText(!secureText)}
             errorMessage={passwordError}
             validate={validatePassword}
@@ -187,8 +167,6 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             secureTextEntry={secureTextConfirm}
-            floatingLabelColor={colors.text}
-            floatingLabelBackgroundColor={colors.background}
             toggleSecure={() => setSecureTextConfirm(!secureTextConfirm)}
             errorMessage={confirmPasswordError}
             validate={validateConfirmPassword}
@@ -196,18 +174,26 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
         </View>
 
         <View style={styles.buttonContainer}>
-          <Button
-            title={MESSAGES.BUTTONS.REGISTER}
+          <TouchableOpacity
+            style={[styles.registerButton, isLoading && styles.buttonDisabled]}
             onPress={handleRegister}
-            loading={isLoading}
-            type="primary"
-          />
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>{MESSAGES.BUTTONS.REGISTER}</Text>
+            )}
+          </TouchableOpacity>
 
-          <Button
-            title={MESSAGES.BUTTONS.BACK_TO_LOGIN}
+          <TouchableOpacity
+            style={styles.registerButton}
             onPress={() => navigation.navigate("Login")}
-            type="outline"
-          />
+          >
+            <Text style={styles.buttonText}>
+              {MESSAGES.BUTTONS.BACK_TO_LOGIN}
+            </Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -220,7 +206,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   title: {
-    ...THEME.typography.title,
+    fontSize: 48,
+    fontWeight: "bold",
     marginVertical: 30,
     textAlign: "center",
   },
@@ -233,6 +220,20 @@ const styles = StyleSheet.create({
     width: "80%",
     alignItems: "center",
     gap: 15,
+  },
+  registerButton: {
+    backgroundColor: "#4a90e2",
+    paddingVertical: 12,
+    width: "80%",
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: "#fff",
+    fontSize: 18,
   },
 });
 
