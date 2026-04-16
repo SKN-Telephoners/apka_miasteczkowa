@@ -354,6 +354,9 @@ const AddEvent = () => {
           <UserCard
             creatorDisplayName={currentUser?.username || "użytkownik"}
             avatarUri={currentUser?.profile_picture?.url ?? undefined}
+            uniName={currentUser?.academy || undefined}
+            majorName={currentUser?.course || undefined}
+            yearOfStudy={currentUser?.year ?? undefined}
             showCreatedAt={false}
             showMetaIcon={false}
             showUsernameIcon={false}
@@ -455,7 +458,9 @@ const AddEvent = () => {
                         showCreatedAt={false}
                         showMetaIcon={false}
                         showUsernameIcon={false}
-                        metaPrefix={`${friend?.academy || "wydział"} • ${friend?.course || "kierunek"}`}
+                        uniName={friend?.academy || undefined}
+                        majorName={friend?.course || undefined}
+                        yearOfStudy={friend?.year ?? undefined}
                         avatarSize={40}
                       />
                     </View>

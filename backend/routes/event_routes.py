@@ -7,13 +7,13 @@ from backend.constants import Constants
 from backend.responses import ResponseTypes, make_api_response
 from flask_jwt_extended import jwt_required, get_current_user
 from backend.helpers import validate_uuid, sanitize_input
-import uuid
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from sqlalchemy.exc import SQLAlchemyError
 import cloudinary.uploader
 from cloudinary.utils import cloudinary_url
 from sqlalchemy import or_, and_, func, case, exists
+from sqlalchemy.orm import joinedload
 
 events_bp = Blueprint("events", __name__, url_prefix="/api/events")
 local_tz = ZoneInfo("Europe/Warsaw")
@@ -147,7 +147,7 @@ def delete_event(event_id):
     if not e_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Event ID")
 
-    event = Event.query.filter_by(event_id=event_id).first()
+    event = Event.query.filter_by(event_id=e_uuid).first()
 
     if event is None:
         return make_api_response(ResponseTypes.NOT_FOUND, message="Event doesn't exist")
@@ -216,8 +216,39 @@ def edit_event(event_id):
 
     raw_is_private = event_data.get("is_private")
     if raw_is_private is not None:
-        event.is_private = str(raw_is_private).strip().lower() in ['true', '1', 't', 'y', 'yes']
+        new_is_private = str(raw_is_private).strip().lower() in ['true', '1', 't', 'y', 'yes']
+        if event.is_private and not new_is_private: # private -> public 
+            Event_visibility.query.filter_by(event_id=event.event_id).delete()
+        event.is_private = new_is_private
     
+    if event.is_private and "shared_list" in event_data:
+        raw_shared_list = event_data["shared_list"]
+        if not isinstance(raw_shared_list, list):
+            return make_api_response(ResponseTypes.BAD_REQUEST, message="shared_list must be an array")
+        incoming_user_uuids = set()
+        for uid in raw_shared_list:
+            u_uuid = validate_uuid(uid)
+            if u_uuid and u_uuid != user.user_id:
+                incoming_user_uuids.add(u_uuid)
+
+        current_visibility = Event_visibility.query.filter_by(event_id=event.event_id).all()
+        current_user_ids = {v.shared_with for v in current_visibility}
+        
+        #synchronization
+        to_remove = current_user_ids - incoming_user_uuids
+        to_add = incoming_user_uuids - current_user_ids
+
+        if to_remove:
+            Event_visibility.query.filter(
+                Event_visibility.event_id == event.event_id,
+                Event_visibility.shared_with.in_(list(to_remove))
+            ).delete(synchronize_session=False)
+
+        for new_uid in to_add:
+            if db.session.get(User, new_uid):
+                new_vis = Event_visibility(event_id=event.event_id, sharing=user.user_id, shared_with=new_uid)
+                db.session.add(new_vis)
+
     date_str = event_data.get("date")
     time_str = event_data.get("time")
     
@@ -240,21 +271,26 @@ def edit_event(event_id):
         except ValueError:
             return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid date format. Use DD.MM.YYYY and HH:MM")
 
-    raw_pictures = event_data.get("pictures")
+    raw_pictures = event_data.get("pictures", [])
     if raw_pictures is not None:
         if not isinstance(raw_pictures, list):
             return make_api_response(ResponseTypes.BAD_REQUEST, message="Pictures must be a list")
         
-        if len(raw_pictures) > Constants.MAX_PICTURES_COUNT: #TODO: impove!!
-            return make_api_response(ResponseTypes.BAD_REQUEST, message=f"Maximum of {Constants.MAX_PICTURES_COUNT} pictures allowed per event")
-
         existing_pictures_map = {pic.cloud_id: pic for pic in event.pictures}
         existing_ids = set(existing_pictures_map.keys())
         
         incoming_ids = {pic["cloud_id"] for pic in raw_pictures if pic.get("cloud_id")}
 
+        staying_ids = existing_ids.intersection(incoming_ids)
+
         ids_to_delete = existing_ids - incoming_ids
         ids_to_add = incoming_ids - existing_ids
+
+        count_staying = len(staying_ids)
+        count_to_add = len(ids_to_add)
+        total_after_edit = count_staying + count_to_add
+        if total_after_edit > Constants.MAX_PICTURES_COUNT:
+            return make_api_response(ResponseTypes.BAD_REQUEST, message=f"Limit of pictures exceeded, you can only add {Constants.MAX_PICTURES_COUNT} pictures at best")
 
         for pic_id in ids_to_delete:
             pic_to_remove = existing_pictures_map[pic_id]
@@ -266,7 +302,7 @@ def edit_event(event_id):
             event.pictures.remove(pic_to_remove)
 
         for new_id in ids_to_add:
-            new_picture = Pictures(cloud_id=new_id)
+            new_picture = Pictures(cloud_id=new_id, event_id=event.event_id)
             event.pictures.append(new_picture)
 
     try:
@@ -310,11 +346,19 @@ def feed():
             )
         )
 
-        events = Event.query.filter(
+        visibility_exists = exists().where(
+            and_(
+                Event_visibility.event_id == Event.event_id,
+                Event_visibility.shared_with == user_id,
+            )
+        )
+
+        events = Event.query.options(joinedload(Event.pictures)).filter(
             or_(
                 Event.is_private.is_(False),
                 Event.creator_id == user_id,
                 participant_exists,
+                visibility_exists,
             )
         )
 
@@ -339,7 +383,6 @@ def feed():
             )
 
         if creator_source in ("friends", "others"):
-            # Get user's friend IDs (bidirectional)
             friend_ids = db.session.query(
                 Friendship.friend_id
             ).filter(Friendship.user_id == user_id).union(
@@ -386,12 +429,6 @@ def feed():
             )
 
         upcoming_first = case((Event.date_and_time >= now_utc, 0), else_=1)
-        comment_count_expr = (
-            db.session.query(func.count(Comment.comment_id))
-            .filter(Comment.event_id == Event.event_id, Comment.deleted.is_(False))
-            .correlate(Event)
-            .scalar_subquery()
-        )
 
         if sort_mode == "members_desc":
             events = events.order_by(
@@ -412,7 +449,7 @@ def feed():
         elif sort_mode == "comments_desc":
             events = events.order_by(
                 upcoming_first.asc(),
-                func.coalesce(comment_count_expr, 0).desc(),
+                func.coalesce(Event.comment_count, 0).desc(),
                 case((Event.date_and_time >= now_utc, Event.date_and_time), else_=None).asc(),
                 case((Event.date_and_time < now_utc, Event.date_and_time), else_=None).desc(),
                 Event.event_id.asc(),
@@ -420,7 +457,7 @@ def feed():
         elif sort_mode == "comments_asc":
             events = events.order_by(
                 upcoming_first.asc(),
-                func.coalesce(comment_count_expr, 0).asc(),
+                func.coalesce(Event.comment_count, 0).asc(),
                 case((Event.date_and_time >= now_utc, Event.date_and_time), else_=None).asc(),
                 case((Event.date_and_time < now_utc, Event.date_and_time), else_=None).desc(),
                 Event.event_id.asc(),
@@ -436,19 +473,12 @@ def feed():
         pagination = events.paginate(page=page, per_page=limit, error_out=False)
 
         event_ids = [event.event_id for event in pagination.items]
-        counts_rows = (
-            db.session.query(Comment.event_id, func.count(Comment.comment_id))
-            .filter(Comment.event_id.in_(event_ids), Comment.deleted.is_(False))
-            .group_by(Comment.event_id)
-            .all()
-        ) if event_ids else []
-        comment_counts = {event_id: int(count) for event_id, count in counts_rows}
 
         participant_rows = (
             db.session.query(Event_participants.event_id)
             .filter(
                 Event_participants.user_id == user_id,
-                Event_participants.event_id.in_(event_ids)
+                Event_participants.event_id.in_(event_ids),
             )
             .all()
         ) if event_ids else []
@@ -456,41 +486,50 @@ def feed():
 
         creator_ids = {event.creator_id for event in pagination.items if event.creator_id is not None}
         creator_users = User.query.filter(User.user_id.in_(creator_ids)).all() if creator_ids else []
-        creator_usernames = {str(user.user_id): user.display_name for user in creator_users}
+        creator_usernames = {str(u.user_id): u.display_name for u in creator_users}
         creator_profile_pictures = {
-            str(user.user_id): cloudinary_url(user.profile_picture, secure=True)[0] if user.profile_picture else None
-            for user in creator_users
+            str(u.user_id): cloudinary_url(u.profile_picture, secure=True)[0] if u.profile_picture else None
+            for u in creator_users
         }
+        creator_academies = {str(u.user_id): u.academy for u in creator_users}
+        creator_faculties = {str(u.user_id): u.faculty for u in creator_users}
+        creator_courses = {str(u.user_id): u.course for u in creator_users}
+        creator_years = {str(u.user_id): u.year for u in creator_users}
 
-        event_list=[
-            {
+        event_list = []
+        for event in pagination.items:
+            local_dt = event.date_and_time.astimezone(local_tz) if event.date_and_time else None
+            event_payload = {
                 "id": str(event.event_id),
+                "event_id": str(event.event_id),
                 "name": event.event_name,
                 "description": event.description,
-                "date": event.date_and_time.astimezone(local_tz).strftime("%d.%m.%Y"),
-                "time": event.date_and_time.astimezone(local_tz).strftime("%H:%M"),
+                "date": local_dt.strftime("%d.%m.%Y") if local_dt else None,
+                "time": local_dt.strftime("%H:%M") if local_dt else None,
                 "location": event.location,
                 "creator_id": str(event.creator_id),
                 "pictures": [
                     {
                         "cloud_id": pic.cloud_id,
-                        "url": cloudinary_url(pic.cloud_id, secure=True)[0]
-                    } 
+                        "url": cloudinary_url(pic.cloud_id, secure=True)[0],
+                    }
                     for pic in event.pictures
                 ],
                 "creator_username": creator_usernames.get(str(event.creator_id)),
                 "creator_profile_picture_url": creator_profile_pictures.get(str(event.creator_id)),
+                "creator_academy": creator_academies.get(str(event.creator_id)),
+                "creator_faculty": creator_faculties.get(str(event.creator_id)),
+                "creator_course": creator_courses.get(str(event.creator_id)),
+                "creator_year": creator_years.get(str(event.creator_id)),
                 "created_at": event.created_at.isoformat() if event.created_at else None,
-                "comment_count": str(comment_counts.get(event.event_id, 0)),
+                "comment_count": int(event.comment_count or 0),
                 "participant_count": int(event.participant_count or 0),
+                "participation_count": int(event.participant_count or 0),
                 "is_participating": event.creator_id == user_id or event.event_id in participating_event_ids,
+                "is_joined": event.creator_id == user_id or event.event_id in participating_event_ids,
                 "is_private": event.is_private,
-                "is_joined": db.session.query(Event_participants).filter_by(
-                    event_id=event.event_id, user_id=user_id
-                ).first() is not None
             }
-            for event in pagination.items
-        ]
+            event_list.append(event_payload)
 
         return make_api_response(ResponseTypes.SUCCESS, data={
             "data": event_list,

@@ -2,6 +2,30 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import { STORAGE_KEYS } from "./constants";
 
+const decodeUserIdFromToken = (accessToken: string | null) => {
+  if (!accessToken) {
+    return null;
+  }
+
+  const parts = accessToken.split(".");
+  if (parts.length !== 3) {
+    return null;
+  }
+
+  const payload = parts[1];
+  const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+  const jsonPayload = decodeURIComponent(
+    Array.prototype.map
+      .call(atob(base64), (c) => {
+        return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
+      })
+      .join("")
+  );
+
+  const plainObject = JSON.parse(jsonPayload);
+  return plainObject.sub || plainObject.user_id || null;
+};
+
 export const tokenStorage = {
   saveTokens: async (accessToken: string, refreshToken: string) => {
     await SecureStore.setItemAsync(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
@@ -24,27 +48,16 @@ export const tokenStorage = {
   getUserId: async () => {
     try {
       const accessToken = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
+      return decodeUserIdFromToken(accessToken);
+    } catch (e) {
+      console.error("Error decoding JWT:", e);
+      return null;
+    }
+  },
 
-      if (!accessToken) {
-        return null;
-      }
-
-      const parts = accessToken.split(".");
-      if (parts.length !== 3) return null;
-
-      const payload = parts[1];
-      // Manuall base64 decode for react-native
-      const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
-      const jsonPayload = decodeURIComponent(
-        Array.prototype.map
-          .call(atob(base64), (c) => {
-            return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
-          })
-          .join("")
-      );
-
-      const plainObject = JSON.parse(jsonPayload);
-      return plainObject.sub || plainObject.user_id || null;
+  getUserIdFromAccessToken: async (accessToken: string) => {
+    try {
+      return decodeUserIdFromToken(accessToken);
     } catch (e) {
       console.error("Error decoding JWT:", e);
       return null;

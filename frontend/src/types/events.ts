@@ -51,6 +51,10 @@ export type Event = {
     creator_id: string;
     creator_username?: string | null;
     creator_profile_picture_url?: string | null;
+    creator_academy?: string | null;
+    creator_faculty?: string | null;
+    creator_course?: string | null;
+    creator_year?: number | null;
     created_at?: string;
     updated_at?: string;
     is_edited?: boolean;

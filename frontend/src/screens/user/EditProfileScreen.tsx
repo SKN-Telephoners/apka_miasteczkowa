@@ -5,11 +5,16 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { THEME, ACADEMIES } from '../../utils/constants';
 import Button from '../../components/Button';
+import CustomDropdown from '../../components/CustomDropdown';
 import { userService } from '../../services/api';
 import AppIcon from '../../components/AppIcon';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { uploadEventPicture } from '../../services/events';
+import { COURSES } from '../../utils/courses';
+import { FACULTIES } from '../../utils/faculties';
+
+const YEARS = [1, 2, 3, 4, 5, 6];
 
 const EditProfileScreen = () => {
     const { user, updateUserProfile } = useUser();
@@ -23,7 +28,9 @@ const EditProfileScreen = () => {
     const [email, setEmail] = useState(user?.email || "");
     const [description, setDescription] = useState(user?.description || "");
     const [academy, setAcademy] = useState(user?.academy || "");
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [faculty, setFaculty] = useState(user?.faculty || "");
+    const [course, setCourse] = useState(user?.course || "");
+    const [year, setYear] = useState<number | null>(user?.year || null);
     const [profilePicture, setProfilePicture] = useState<{ cloud_id: string; url?: string } | null>(user?.profile_picture || null);
     const [profilePicturePreviewUri, setProfilePicturePreviewUri] = useState<string | null>(null);
     const [isPictureUploading, setIsPictureUploading] = useState(false);
@@ -131,10 +138,13 @@ const EditProfileScreen = () => {
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            await updateUserProfile({ 
+            await updateUserProfile({
                 username,
-                description, 
+                description,
                 academy: academy === "" ? null : academy,
+                faculty: faculty === "" ? null : faculty,
+                course: course === "" ? null : course,
+                year: year,
                 profile_picture: profilePicture ? { cloud_id: profilePicture.cloud_id } : null,
             });
             Alert.alert("Sukces", "Zaktualizowano profil", [{ text: "OK", onPress: () => navigation.goBack() }]);
@@ -146,8 +156,12 @@ const EditProfileScreen = () => {
     };
 
     return (
-        <View style={styles.container}>
-            {/* Sekcja Avatara */}
+        <ScrollView
+            style={styles.container}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+        >
             <View style={styles.avatarSection}>
                 <Image
                     source={
@@ -164,7 +178,6 @@ const EditProfileScreen = () => {
                 </TouchableOpacity>
             </View>
 
-            {/* Sekcja Formularza */}
             <View style={styles.formSection}>
                 <Text style={styles.label}>Nazwa użytkownika</Text>
                 <TextInput
@@ -183,43 +196,56 @@ const EditProfileScreen = () => {
                 />
                 {isEmailChanged && (
                     <TouchableOpacity onPress={handleEmailRequest} style={{ marginTop: THEME.spacing.xs, alignSelf: 'flex-start' }}>
-                        <Text style={{ color: colors.primary, fontWeight: 'bold' }}>
+                        <Text style={{ color: colors.highlight, fontWeight: 'bold' }}>
                             Zatwierdź zmianę e-maila
                         </Text>
                     </TouchableOpacity>
                 )}
 
                 <Text style={[styles.label, { marginTop: THEME.spacing.m }]}>Uczelnia</Text>
-                <View style={styles.dropdownContainer}>
-                    <TouchableOpacity
-                        style={styles.dropdownButton}
-                        onPress={() => setIsDropdownOpen(!isDropdownOpen)}
-                    >
-                        <Text style={[styles.input, styles.dropdownInputText]}>
-                            {academy || "Wybierz uczelnię"}
-                        </Text>
-                        <AppIcon name="ArrowDown" size={24} />
-                    </TouchableOpacity>
+                <CustomDropdown
+                    data={ACADEMIES as unknown as string[]}
+                    selectedValue={academy}
+                    onSelect={(val) => {
+                        setAcademy(String(val));
+                        if (val !== "AGH") {
+                            setFaculty("");
+                            setCourse("");
+                            setYear(null);
+                        }
+                    }}
+                    placeholder="Wybierz uczelnię"
+                />
 
-                    {isDropdownOpen && (
-                        <View style={styles.dropdownList}>
-                            <ScrollView nestedScrollEnabled style={{ maxHeight: 150 }}>
-                                {ACADEMIES.map((acc) => (
-                                    <TouchableOpacity
-                                        key={acc}
-                                        style={styles.dropdownItem}
-                                        onPress={() => {
-                                            setAcademy(acc);
-                                            setIsDropdownOpen(false);
-                                        }}
-                                    >
-                                        <Text style={styles.dropdownItemText}>{acc}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
-                        </View>
-                    )}
-                </View>
+                {academy === "AGH" && (
+                    <>
+                        <Text style={[styles.label, { marginTop: THEME.spacing.m }]}>Wydział</Text>
+                        <CustomDropdown
+                            data={FACULTIES}
+                            selectedValue={faculty}
+                            onSelect={(val) => setFaculty(String(val))}
+                            placeholder="Wybierz wydział"
+                            searchable
+                        />
+
+                        <Text style={[styles.label, { marginTop: THEME.spacing.m }]}>Rok studiów</Text>
+                        <CustomDropdown
+                            data={YEARS}
+                            selectedValue={year}
+                            onSelect={(val) => setYear(Number(val))}
+                            placeholder="Wybierz rok studiów"
+                        />
+
+                        <Text style={[styles.label, { marginTop: THEME.spacing.m }]}>Kierunek</Text>
+                        <CustomDropdown
+                            data={COURSES}
+                            selectedValue={course}
+                            onSelect={(val) => setCourse(String(val))}
+                            placeholder="Wybierz kierunek"
+                            searchable
+                        />
+                    </>
+                )}
 
                 <Text style={[styles.label, { marginTop: THEME.spacing.m }]}>Opis / Bio</Text>
                 <TextInput
@@ -234,7 +260,7 @@ const EditProfileScreen = () => {
 
             {/* Przycisk zapisu */}
             <Button title={isSaving ? "Zapisywanie..." : "Zapisz zmiany"} onPress={handleSave} disabled={isSaving} />
-        </View>
+        </ScrollView>
     );
 };
 
@@ -242,7 +268,10 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background,
+    },
+    scrollContent: {
         padding: THEME.spacing.m,
+        paddingBottom: THEME.spacing.xl,
     },
     avatarSection: {
         alignItems: 'center',
@@ -263,7 +292,7 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
         fontWeight: 'bold',
     },
     formSection: {
-        flex: 1, // Pozwala przyciskowi odsunąć się na dół, jeśli jest mało miejsca
+        marginBottom: THEME.spacing.l,
     },
     label: {
         ...THEME.typography.text,
@@ -292,41 +321,6 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
         color: colors.icon,
         marginBottom: THEME.spacing.s,
         marginTop: THEME.spacing.xs,
-    },
-    dropdownContainer: {
-        position: 'relative',
-        zIndex: 10,
-    },
-    dropdownButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: colors.border,
-        borderRadius: THEME.borderRadius.m,
-        backgroundColor: colors.background,
-        paddingRight: THEME.spacing.s,
-    },
-    dropdownInputText: {
-        flex: 1,
-        borderWidth: 0,
-        backgroundColor: 'transparent',
-    },
-    dropdownList: {
-        marginTop: THEME.spacing.xs,
-        backgroundColor: colors.background,
-        borderWidth: 1,
-        borderColor: colors.border,
-        borderRadius: THEME.borderRadius.m,
-        overflow: 'hidden',
-    },
-    dropdownItem: {
-        padding: THEME.spacing.m,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
-    },
-    dropdownItemText: {
-        ...THEME.typography.text,
-        color: colors.text,
     }
 });
 

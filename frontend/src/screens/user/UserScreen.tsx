@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, Linking } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 import { useUser } from "../../contexts/UserContext";
 import { useFriends } from "../../contexts/FriendsContext";
@@ -10,16 +10,17 @@ import { THEME } from "../../utils/constants";
 import Button from "../../components/Button";
 import CollapsibleSection from "../../components/CollapsibleSection";
 import Avatar from "../../components/Avatar";
-import { Ionicons } from "@expo/vector-icons";
+import AppIcon from "../../components/AppIcon";
 import { useEffect, useCallback } from "react";
 import { getPublicUserProfile } from "../../services/users";
+import { getUserEventsInfo, UserEventsInfoResponse } from "../../services/events";
 import InputField from "../../components/InputField";
 import UserCard from "../../components/UserCard";
 
 const UserScreen = () => {
-  const { logout } = useAuth();
+  const { userId } = useAuth();
   const { user: currentUser } = useUser();
-  const { friends, sendFriendRequest, removeFriend, fetchFriends } = useFriends();
+  const { friends, outgoingRequests, sendFriendRequest, removeFriend, fetchFriends } = useFriends();
   const { events } = useEvents();
   const { colors } = useTheme();
   const navigation = useNavigation<any>();
@@ -27,21 +28,50 @@ const UserScreen = () => {
 
   // Przechwytywanie trybu
   const visitedUser = route.params?.visitedUser;
-  const isOwner = !visitedUser || visitedUser.id === currentUser?.user_id || visitedUser.user_id === currentUser?.user_id;
+  const visitedUserId = visitedUser?.user_id || visitedUser?.id;
+  const hasVisitedUser = Boolean(visitedUserId);
+  const isOwnerRoute = route.name === "UserProfile";
+  const isOwner = hasVisitedUser
+    ? String(visitedUserId) === String(userId)
+    : isOwnerRoute;
   const [visitedProfileData, setVisitedProfileData] = useState<any | null>(null);
+  const [visitorEvents, setVisitorEvents] = useState<UserEventsInfoResponse | null>(null);
   const profileData = isOwner ? currentUser : (visitedProfileData || visitedUser);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isFriend, setIsFriend] = useState(false);
+
+  const hasSentRequest = useMemo(() => {
+    return !isOwner && outgoingRequests.some(req => String(req.receiverId || req.user?.id) === String(visitedUserId));
+  }, [outgoingRequests, isOwner, visitedUserId]);
+
+  const renderDescription = (text: string) => {
+    if (!text) return isOwner ? "Brak opisu" : "";
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+
+    return parts.map((part, index) => {
+      if (part.match(urlRegex)) {
+        return (
+          <Text
+            key={index}
+            style={{ color: colors.primary, textDecorationLine: "underline" }}
+            onPress={() => Linking.openURL(part).catch(() => Alert.alert("Błąd", "Nie można otworzyć tego linku."))}
+          >
+            {part}
+          </Text>
+        );
+      }
+      return <Text key={index}>{part}</Text>;
+    });
+  };
 
   const styles = useMemo(() => getStyles(colors), [colors]);
 
   // Refresh friends list when this screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      if (!isOwner) {
-        fetchFriends();
-      }
+      fetchFriends();
     }, [isOwner, fetchFriends])
   );
 
@@ -49,20 +79,27 @@ const UserScreen = () => {
     const loadVisitedUser = async () => {
       if (isOwner || !visitedUser) {
         setVisitedProfileData(null);
+        setVisitorEvents(null);
         return;
       }
 
       const targetId = visitedUser.user_id || visitedUser.id;
       if (!targetId) {
         setVisitedProfileData(visitedUser);
+        setVisitorEvents(null);
         return;
       }
 
       try {
-        const fullData = await getPublicUserProfile(targetId);
+        const [fullData, eventsData] = await Promise.all([
+          getPublicUserProfile(targetId),
+          getUserEventsInfo(targetId)
+        ]);
         setVisitedProfileData(fullData);
+        setVisitorEvents(eventsData);
       } catch {
         setVisitedProfileData(visitedUser);
+        setVisitorEvents(null);
       }
     };
 
@@ -114,6 +151,31 @@ const UserScreen = () => {
     );
   }, [friends, searchQuery]);
 
+  const myCreatedEvents = useMemo(() => {
+    return events.filter(e => String(e.creator_id) === String(profileData?.id || profileData?.user_id));
+  }, [events, profileData]);
+
+  const myJoinedEvents = useMemo(() => {
+    // "is_participating" obejmuje też twórcę, więc odrzucamy własne:
+    return events.filter(e => e.is_participating && String(e.creator_id) !== String(profileData?.id || profileData?.user_id));
+  }, [events, profileData]);
+
+  const publicCreatedEvents = useMemo(() => {
+    if (isOwner || !visitorEvents) return [];
+    return visitorEvents.created.map(slim => {
+      const full = events.find(e => String(e.id) === String(slim.event_id) || String((e as any).event_id) === String(slim.event_id));
+      return full ? full : { id: slim.event_id, name: slim.name, isSlim: true };
+    });
+  }, [visitorEvents, events, isOwner]);
+
+  const publicJoinedEvents = useMemo(() => {
+    if (isOwner || !visitorEvents) return [];
+    return visitorEvents.participating.map(slim => {
+      const full = events.find(e => String(e.id) === String(slim.event_id) || String((e as any).event_id) === String(slim.event_id));
+      return full ? full : { id: slim.event_id, name: slim.name, isSlim: true };
+    });
+  }, [visitorEvents, events, isOwner]);
+
   const handleSendRequest = async () => {
     try {
       if (profileData?.id || profileData?.user_id) {
@@ -156,8 +218,10 @@ const UserScreen = () => {
       <View style={styles.headerRow}>
         <Avatar uri={profileData?.profile_picture?.url || profileData?.avatarUrl || (typeof profileData?.profile_picture === "string" ? profileData?.profile_picture : undefined)} size={80} style={{ marginRight: THEME.spacing.m }} />
 
-        <View style={styles.headerInfo}>
-          <Text style={styles.userName}>{profileData?.username || profileData?.display_name || "Użytkownik"}</Text>
+        <View style={[styles.headerInfo, { flex: 1 }]}>
+          <Text style={[styles.userName, { flexWrap: 'wrap' }]} numberOfLines={2}>
+            {profileData?.username || profileData?.display_name || "Użytkownik"}
+          </Text>
           {isOwner && (
             <>
               <Text style={styles.statsText}>
@@ -172,17 +236,23 @@ const UserScreen = () => {
 
         {isOwner && (
           <TouchableOpacity onPress={gotoSettings} style={styles.settingsIcon}>
-            <Ionicons name="settings-outline" size={28} color={colors.text} />
+            <AppIcon name="Settings" size={28} color={colors.text} />
           </TouchableOpacity>
         )}
       </View>
 
-      <Text style={styles.facultyText}>{profileData?.academy || "Brak Uczelni"}</Text>
-      {isOwner && (
-        <Text style={styles.majorText}>{profileData?.course ? `${profileData.course} ${profileData.year || ""} rok` : "Brak przypisanego kierunku"}</Text>
+      <View style={{ flexWrap: 'wrap', flexDirection: 'row' }}>
+        <Text style={[styles.facultyText, { flexShrink: 1 }]}>{profileData?.academy || "Brak Uczelni"}</Text>
+      </View>
+      {profileData?.faculty && profileData?.course && (
+        <View style={{ flexWrap: 'wrap', flexDirection: 'row' }}>
+          <Text style={[styles.majorText, { flexShrink: 1 }]}>
+            {`${profileData.faculty} • ${profileData.course}${profileData.year ? ` • ${profileData.year} rok` : ""}`}
+          </Text>
+        </View>
       )}
 
-      <Text style={styles.userBio}>{profileData?.description || (isOwner ? "Brak opisu" : "")}</Text>
+      <Text style={styles.userBio}>{renderDescription(profileData?.description)}</Text>
 
       {isOwner ? (
         <Button
@@ -198,9 +268,10 @@ const UserScreen = () => {
         />
       ) : (
         <Button
-          title="Wyślij zaproszenie"
-          onPress={handleSendRequest}
-          style={styles.editButton}
+          title={hasSentRequest ? "Wysłano zaproszenie" : "Wyślij zaproszenie"}
+          onPress={hasSentRequest ? undefined : handleSendRequest}
+          style={[styles.editButton, hasSentRequest && { backgroundColor: THEME.colors.lightGray }]}
+          disabled={hasSentRequest}
         />
       )}
 
@@ -217,7 +288,7 @@ const UserScreen = () => {
             />
             {filteredFriends.length > 0 ? (
               filteredFriends.map((friend) => (
-                <TouchableOpacity key={friend.id} onPress={() => goToFriendProfile(friend)} style={[styles.listItem, { borderColor: colors.border }]}> 
+                <TouchableOpacity key={friend.id} onPress={() => goToFriendProfile(friend)} style={[styles.listItem, { borderColor: colors.border }]}>
                   <UserCard
                     creatorDisplayName={friend.username}
                     avatarUri={friend?.profile_picture?.url || friend?.avatarUrl || (typeof friend?.profile_picture === "string" ? friend?.profile_picture : undefined)}
@@ -225,7 +296,9 @@ const UserScreen = () => {
                     showCreatedAt={false}
                     showMetaIcon={false}
                     showUsernameIcon={false}
-                    metaPrefix={`${friend?.academy || "wydział"} • ${friend?.course || "kierunek"}`}
+                    uniName={friend?.academy || undefined}
+                    majorName={friend?.course || undefined}
+                    yearOfStudy={friend?.year ?? undefined}
                     avatarSize={40}
                   />
                 </TouchableOpacity>
@@ -238,8 +311,8 @@ const UserScreen = () => {
           </CollapsibleSection>
 
           <CollapsibleSection title="Moje wydarzenia">
-            {events.length > 0 ? (
-              events.map((event) => (
+            {myCreatedEvents.length > 0 ? (
+              myCreatedEvents.map((event) => (
                 <TouchableOpacity
                   key={event.id}
                   style={[styles.listItem, { borderColor: colors.border }]}
@@ -258,9 +331,73 @@ const UserScreen = () => {
           </CollapsibleSection>
 
           <CollapsibleSection title="Zapisane wydarzenia">
-            <Text style={styles.infoText}>Brak zapisanych wydarzeń (Oczekuje na endpoint w backendzie)</Text>
+            {myJoinedEvents.length > 0 ? (
+              myJoinedEvents.map((event) => (
+                <TouchableOpacity
+                  key={event.id}
+                  style={[styles.listItem, { borderColor: colors.border }]}
+                  activeOpacity={0.8}
+                  onPress={() => navigation.navigate("MyEventPreview", { event, screenTitle: "Zapisane wydarzenie", allowEdit: false })}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.listTitle}>{event.name}</Text>
+                    <Text style={styles.listSubtitle}>{event.date} o {event.time} • {event.location}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <Text style={styles.infoText}>Brak zapisanych wydarzeń</Text>
+            )}
           </CollapsibleSection>
 
+        </>
+      )}
+
+      {!isOwner && (
+        <>
+          <CollapsibleSection title={`Wydarzenia ${profileData?.username || "użytkownika"}`}>
+            {publicCreatedEvents.length > 0 ? (
+              publicCreatedEvents.map((event: any) => (
+                <TouchableOpacity
+                  key={event.id}
+                  style={[styles.listItem, { borderColor: colors.border }]}
+                  activeOpacity={0.8}
+                  onPress={() => event.isSlim ? null : navigation.navigate("MyEventPreview", { event, screenTitle: "Wydarzenie z profilu", allowEdit: false })}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.listTitle}>{event.name}</Text>
+                    {!event.isSlim && (
+                      <Text style={styles.listSubtitle}>{event.date} o {event.time} • {event.location}</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <Text style={styles.infoText}>Użytkownik nie utworzył jeszcze żadnych wydarzeń</Text>
+            )}
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Zapisane wydarzenia">
+            {publicJoinedEvents.length > 0 ? (
+              publicJoinedEvents.map((event: any) => (
+                <TouchableOpacity
+                  key={event.id}
+                  style={[styles.listItem, { borderColor: colors.border }]}
+                  activeOpacity={0.8}
+                  onPress={() => event.isSlim ? null : navigation.navigate("MyEventPreview", { event, screenTitle: "Zapisane wydarzenie", allowEdit: false })}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.listTitle}>{event.name}</Text>
+                    {!event.isSlim && (
+                      <Text style={styles.listSubtitle}>{event.date} o {event.time} • {event.location}</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <Text style={styles.infoText}>Brak zapisanych wydarzeń</Text>
+            )}
+          </CollapsibleSection>
         </>
       )}
 

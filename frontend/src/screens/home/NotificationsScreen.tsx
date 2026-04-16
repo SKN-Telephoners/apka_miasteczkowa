@@ -63,12 +63,13 @@ const NotificationsScreen = () => {
                 <UserCard
                     creatorDisplayName={item.user.username}
                     avatarUri={item.user.profile_picture?.url || item.user.avatarUrl}
-                    createdAtDisplay={item.user.course || undefined}
-                    metaPrefix={item.user.academy || "wydział • kierunek"}
+                    uniName={item.user.academy || undefined}
+                    majorName={item.user.course || undefined}
+                    yearOfStudy={item.user.year ?? undefined}
                     showUsernameIcon={false}
                     showMetaIcon={true}
                     showMetaRow={true}
-                    showCreatedAt={Boolean(item.user.course)}
+                    showCreatedAt={false}
                     onMetaIconPress={handleNavigateToProfile}
                 />
                 <View style={styles.actionButtons}>
@@ -126,12 +127,13 @@ const NotificationsScreen = () => {
                 <UserCard
                     creatorDisplayName={invite.inviter.username}
                     avatarUri={invite.inviter.profile_picture?.url || invite.inviter.avatarUrl}
-                    createdAtDisplay={invite.inviter.course || undefined}
-                    metaPrefix={invite.inviter.academy || 'wydział • kierunek'}
+                    uniName={invite.inviter.academy || undefined}
+                    majorName={invite.inviter.course || undefined}
+                    yearOfStudy={(invite.inviter as any).year ?? undefined}
                     showUsernameIcon={false}
                     showMetaIcon={true}
                     showMetaRow={true}
-                    showCreatedAt={Boolean(invite.inviter.course)}
+                    showCreatedAt={false}
                     onMetaIconPress={handleNavigateToProfile}
                 />
 

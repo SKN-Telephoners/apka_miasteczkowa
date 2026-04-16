@@ -7,6 +7,35 @@ const INITIAL_RETRY_DELAY = 500; // in milliseconds
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms)); // helper function for delay
 let refreshPromise: Promise<string> | null = null;
 
+const setAuthHeader = (headers: any, token: string) => {
+  if (!headers) {
+    return;
+  }
+
+  if (typeof headers.set === "function") {
+    headers.set("Authorization", `Bearer ${token}`);
+    return;
+  }
+
+  headers.Authorization = `Bearer ${token}`;
+  headers.authorization = `Bearer ${token}`;
+};
+
+const clearAuthHeader = (headers: any) => {
+  if (!headers) {
+    return;
+  }
+
+  if (typeof headers.delete === "function") {
+    headers.delete("Authorization");
+    headers.delete("authorization");
+    return;
+  }
+
+  delete headers.Authorization;
+  delete headers.authorization;
+};
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
@@ -20,7 +49,7 @@ const api = axios.create({
 export async function handleSessionExpiry() {
   console.log("Token refresh failed, logging out");
   await tokenStorage.clearTokens();
-    //TO DO : redirect to login screen
+  //TO DO : redirect to login screen
 }
 
 async function refreshAccessToken(): Promise<string> {
@@ -41,6 +70,11 @@ async function refreshAccessToken(): Promise<string> {
 
       if (!access_token || !refresh_token) {
         throw new Error("Invalid refresh response");
+      }
+
+      const currentRefreshToken = await tokenStorage.getRefreshToken();
+      if (!currentRefreshToken || currentRefreshToken !== refreshToken) {
+        throw new Error("Stale refresh response ignored");
       }
 
       await tokenStorage.saveTokens(access_token, refresh_token);
@@ -66,9 +100,11 @@ api.interceptors.request.use(
     }
 
     const token = await tokenStorage.getAccessToken();
-    if (token && !config.headers?.Authorization) {
+    if (token) {
       console.log("Found token, adding to headers");
-      config.headers.Authorization = `Bearer ${token}`;
+      setAuthHeader(config.headers, token);
+    } else {
+      clearAuthHeader(config.headers);
     }
     return config;
   },
@@ -87,19 +123,23 @@ api.interceptors.response.use(
     if (!originalRequest) {
       return Promise.reject(error);
     }
-    
+
     const requestUrl: string = String(originalRequest.url || "");
     const isAuthEndpoint =
       requestUrl.includes("/api/auth/login") ||
       requestUrl.includes("/api/auth/register") ||
       requestUrl.includes("/api/auth/refresh");
+    const isAuthMutationEndpoint =
+      requestUrl.includes("/api/auth/login") ||
+      requestUrl.includes("/api/auth/register") ||
+      requestUrl.includes("/api/email/reset_password_request");
 
     if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
 
       try {
         const accessToken = await refreshAccessToken();
-        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        setAuthHeader(originalRequest.headers, accessToken);
         return api(originalRequest);
       } catch (refreshError) {
         await handleSessionExpiry();
@@ -107,7 +147,7 @@ api.interceptors.response.use(
       }
     }
     const isRetryableError = !error.response || (error.response.status >= 500 && error.response.status < 600);
-    if (isRetryableError) {
+    if (isRetryableError && !isAuthMutationEndpoint) {
       originalRequest._retryCount = originalRequest._retryCount || 0;
       if (originalRequest._retryCount < MAX_RETRY_ATTEMPTS) {
         originalRequest._retryCount += 1;
@@ -163,6 +203,11 @@ export const userService = {
 
   updateProfile: async (data: any) => {
     const response = await api.put("/api/users/update_profile", data);
+    return response.data;
+  },
+
+  updateAcademicDetails: async (data: { faculty?: string, course?: string, year?: number }) => {
+    const response = await api.put("/api/users/update_academic_details", data);
     return response.data;
   },
 

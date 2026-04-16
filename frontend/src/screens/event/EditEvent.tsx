@@ -507,7 +507,9 @@ const EditEvent = () => {
                                                 showCreatedAt={false}
                                                 showMetaIcon={false}
                                                 showUsernameIcon={false}
-                                                metaPrefix={`${friend?.academy || "wydział"} • ${friend?.course || "kierunek"}`}
+                                                uniName={friend?.academy || undefined}
+                                                majorName={friend?.course || undefined}
+                                                yearOfStudy={friend?.year ?? undefined}
                                                 avatarSize={40}
                                             />
                                         </View>

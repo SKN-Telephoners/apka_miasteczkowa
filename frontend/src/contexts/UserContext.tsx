@@ -15,6 +15,7 @@ export interface UserProfile {
     url: string;
   };
   academy?: string;
+  faculty?: string;
   course?: string;
   year?: number;
   academic_clubs?: string[];
@@ -55,12 +56,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: profileData.description || "",
         profile_picture: profileData.profile_picture,
         academy: profileData.academy,
+        faculty: profileData.faculty,
         course: profileData.course,
         year: profileData.year,
         academic_clubs: profileData.academic_clubs,
         joinedDate: "Marzec 2024" // TODO: Backend musi zwrócić created_at
       };
-      
+
       setUser(nextUser as any);
     } catch (error) {
       console.error("Error fetching user profile:", error);
@@ -84,12 +86,24 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         username: data.username !== undefined ? data.username : prev.username,
         description: data.description !== undefined ? data.description : prev.description,
         academy: data.academy !== undefined ? data.academy : prev.academy,
+        faculty: data.faculty !== undefined ? data.faculty : prev.faculty,
+        course: data.course !== undefined ? data.course : prev.course,
+        year: data.year !== undefined ? data.year : prev.year,
       };
       return next;
     });
 
     try {
       await userService.updateProfile(data);
+
+      if (data.academy === "AGH" && data.faculty && data.course && data.year) {
+        await userService.updateAcademicDetails({
+          faculty: data.faculty,
+          course: data.course,
+          year: Number(data.year)
+        });
+      }
+
       await fetchUser();
     } catch (error) {
       console.error("Błąd podczas aktualizacji profilu użytkownika:", error);

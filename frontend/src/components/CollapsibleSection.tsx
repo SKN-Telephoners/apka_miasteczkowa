@@ -13,6 +13,7 @@ import {
 import { useTheme } from '../contexts/ThemeContext';
 import { THEME } from '../utils/constants';
 import Icon from 'react-native-vector-icons/Ionicons';
+import AppIcon from './AppIcon';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android') {
@@ -73,7 +74,7 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
                 >
                     <Text style={styles.title}>{title}</Text>
                     <Animated.View style={{ transform: [{ rotate: rotateInterpolation }] }}>
-                        <Icon name="chevron-down" size={20} color={colors.icon} />
+                        <AppIcon name="ArrowDown" size={20} />
                     </Animated.View>
                 </TouchableOpacity>
 

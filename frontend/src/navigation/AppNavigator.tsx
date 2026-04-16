@@ -17,6 +17,9 @@ import { ActivityIndicator, View, TouchableOpacity } from "react-native";
 import AppIcon from "../components/AppIcon";
 import SvgSpriteIcon from "../components/SvgSpriteIcon";
 import { useTheme } from "../contexts/ThemeContext";
+import { useUser } from "../contexts/UserContext";
+import { useFriends } from "../contexts/FriendsContext";
+import Avatar from "../components/Avatar";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -37,9 +40,18 @@ const ICON_SIZE = 30;
 const SEARCH_ICON_OFFSET = { x: -ICON_SIZE * 2, y: 0 };
 const SearchScreen = require("../screens/user/SearchScreen").default;
 
+const ROUTE_ICON_MAP: Record<string, string> = {
+  'Przewodnik po miasteczku': 'Home',
+  'Mapa': 'Map',
+  'Wydarzenia': 'Events'
+};
+
 // for authenticated users
 const MainTabs = () => {
   const { colors } = useTheme();
+  const { user } = useUser();
+  const { incomingRequests } = useFriends();
+  const hasNotifications = incomingRequests.length > 0;
 
   return (
     <Tab.Navigator
@@ -67,20 +79,25 @@ const MainTabs = () => {
         tabBarInactiveTintColor: colors.icon,
 
         headerRight: () => {
-          if (route.name === 'Mapa') {
+          if (route.name === 'Mapa' || route.name === 'Przewodnik po miasteczku') {
             return (
               <View style={{ flexDirection: 'row' }}>
                 <TouchableOpacity
                   style={{ marginHorizontal: 20 }}
                   onPress={() => navigation.navigate('Search')}
                 >
-                  <Ionicons name={'search'} size={28} color={colors.icon} />
+                  <AppIcon name="Search" size={28} />
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={{ marginHorizontal: 20 }}
                   onPress={() => navigation.navigate('Notifications')}
                 >
-                  <Ionicons name={'notifications'} size={28} color={colors.icon} />
+                  <View>
+                    <AppIcon name="Bell" size={28} focused={hasNotifications} />
+                    {hasNotifications && (
+                      <View style={{ position: 'absolute', top: 0, right: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: colors.highlight, borderWidth: 1, borderColor: colors.background }} />
+                    )}
+                  </View>
                 </TouchableOpacity>
               </View>
             );
@@ -96,7 +113,7 @@ const MainTabs = () => {
           }
 
           return (
-            <View style={{ flexDirection: 'row' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <TouchableOpacity
                 style={{ marginHorizontal: 20 }}
                 onPress={() => navigation.navigate('Wydarzenia', { screen: 'AddEvent' })}
@@ -104,21 +121,41 @@ const MainTabs = () => {
                 <SvgSpriteIcon set={2} size={ICON_SIZE} offsetX={SEARCH_ICON_OFFSET.x} offsetY={SEARCH_ICON_OFFSET.y} />
               </TouchableOpacity>
               <TouchableOpacity style={{ marginHorizontal: 20 }} onPress={() => navigation.navigate('Search')}>
-                <Ionicons name={'search'} size={28} color={colors.icon} />
-            </TouchableOpacity>
-            <TouchableOpacity style={{ marginHorizontal: 20 }} onPress={() => navigation.navigate("Notifications")}>
-                <Ionicons name={'notifications'} size={28} color={colors.icon} />
-            </TouchableOpacity>
+                <AppIcon name="Search" size={28} />
+              </TouchableOpacity>
+              <TouchableOpacity style={{ marginHorizontal: 20 }} onPress={() => navigation.navigate("Notifications")}>
+                <View>
+                  <AppIcon name="Bell" size={28} focused={hasNotifications} />
+                  {hasNotifications && (
+                    <View style={{ position: 'absolute', top: 0, right: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: colors.highlight, borderWidth: 1, borderColor: colors.background }} />
+                  )}
+                </View>
+              </TouchableOpacity>
             </View>
           );
         },
 
         tabBarIcon: ({ focused }) => {
-          return <AppIcon name={route.name} focused={focused} />;
+          if (route.name === 'Profil') {
+            const uri = user?.profile_picture?.url || user?.avatarUrl || (typeof user?.profile_picture === "string" ? user?.profile_picture : undefined);
+            return (
+              <View style={{ opacity: focused ? 1 : 0.75 }}>
+                <Avatar 
+                  uri={uri} 
+                  size={32} 
+                  style={{ 
+                    borderWidth: 2, 
+                    borderColor: focused ? colors.highlight : 'transparent' 
+                  }} 
+                />
+              </View>
+            );
+          }
+          return <AppIcon name={ROUTE_ICON_MAP[route.name] || 'Home'} focused={focused} />;
         },
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Przewodnik po miasteczku" component={HomeScreen} />
       <Tab.Screen name="Mapa" component={MapScreen} />
       <Tab.Screen name="Wydarzenia" component={EventStack} />
       <Tab.Screen name="Profil" component={ProfileStack} />
@@ -161,7 +198,7 @@ const AppNavigator = () => {
     <NavigationContainer theme={navigationTheme}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
 
-         {!isAuthenticated ? (
+        {!isAuthenticated ? (
           <Stack.Screen name="Auth" component={AuthStack} />
         ) : (
           <Stack.Group>
@@ -200,7 +237,7 @@ const AppNavigator = () => {
               }}
             />
           </Stack.Group>
-        )} 
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );

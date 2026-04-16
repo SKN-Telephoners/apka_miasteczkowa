@@ -10,11 +10,14 @@ type UserCardProps = {
     creatorDisplayName: string;
     createdAtDisplay?: string;
     avatarUri?: string;
+    subtitle?: string;
     showCreatedAt?: boolean;
     showMetaIcon?: boolean;
     showMetaRow?: boolean;
     showUsernameIcon?: boolean;
-    metaPrefix?: string;
+    uniName?: string;
+    majorName?: string;
+    yearOfStudy?: number | null;
     avatarSize?: number;
     onMetaIconPress?: (event: any) => void;
     onUsernameIconPress?: () => void;
@@ -30,11 +33,14 @@ const UserCard = ({
     creatorDisplayName,
     createdAtDisplay,
     avatarUri,
+    subtitle,
     showCreatedAt = true,
     showMetaIcon = true,
     showMetaRow = true,
     showUsernameIcon = true,
-    metaPrefix = "wydział • kierunek",
+    uniName,
+    majorName,
+    yearOfStudy,
     avatarSize = 55,
     onMetaIconPress,
     onUsernameIconPress,
@@ -42,17 +48,35 @@ const UserCard = ({
 }: UserCardProps) => {
     const { colors } = useTheme();
     const styles = useMemo(() => getStyles(colors), [colors]);
-    const metaText = showCreatedAt && createdAtDisplay
-        ? `${metaPrefix} • ${createdAtDisplay}`
-        : metaPrefix;
+    const compact = avatarSize <= 44;
+
+    const firstLineSegments: string[] = [];
+    if (uniName) {
+        firstLineSegments.push(uniName);
+    }
+    if (majorName) {
+        firstLineSegments.push(majorName);
+    }
+
+    const secondLineSegments: string[] = [];
+    if (yearOfStudy !== undefined && yearOfStudy !== null) {
+        secondLineSegments.push(`${yearOfStudy} rok`);
+    }
+    
+    if (showCreatedAt && createdAtDisplay) {
+        secondLineSegments.push(createdAtDisplay);
+    }
+
+    const firstLineText = firstLineSegments.join(" • ");
+    const secondLineText = secondLineSegments.join(" • ");
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, compact ? styles.compactContainer : null]}>
             <Avatar size={avatarSize} uri={avatarUri} />
             <View style={styles.authorInfoContainer}>
                 <View>
                     <View style={styles.usernameRow}>
-                        <Text style={[THEME.typography.eventTitle, { color: colors.text }]}>{creatorDisplayName}</Text>
+                        <Text style={[styles.displayName, { color: colors.text }]} numberOfLines={1}>{creatorDisplayName}</Text>
                         {showUsernameIcon && (
                             <TouchableOpacity
                                 style={styles.usernameIconContainer}
@@ -66,7 +90,35 @@ const UserCard = ({
                     </View>
                     {showMetaRow && (
                         <View style={styles.authorMetaRow}>
-                            <Text style={[styles.authorMetaText, metaTextColor ? { color: metaTextColor } : null]}>{metaText}</Text>
+                            <View style={styles.metaTextColumn}>
+                                {subtitle ? (
+                                    <Text
+                                        style={[styles.authorMetaText, metaTextColor ? { color: metaTextColor } : null]}
+                                        numberOfLines={compact ? 1 : 2}
+                                    >
+                                        {subtitle}
+                                    </Text>
+                                ) : (
+                                    <>
+                                        {(firstLineText || secondLineText) ? (
+                                            <Text
+                                                style={[styles.authorMetaText, metaTextColor ? { color: metaTextColor } : null]}
+                                                numberOfLines={1}
+                                            >
+                                                {firstLineText || secondLineText}
+                                            </Text>
+                                        ) : null}
+                                        {secondLineText && firstLineText ? (
+                                            <Text
+                                                style={[styles.authorMetaText, metaTextColor ? { color: metaTextColor } : null]}
+                                                numberOfLines={1}
+                                            >
+                                                {secondLineText}
+                                            </Text>
+                                        ) : null}
+                                    </>
+                                )}
+                            </View>
                             {showMetaIcon && (
                                 <TouchableOpacity
                                     style={styles.metaIconContainer}
@@ -88,12 +140,22 @@ const UserCard = ({
 const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     container: {
         flexDirection: "row",
+        alignItems: "center",
+    },
+
+    compactContainer: {
+        paddingVertical: 2,
     },
 
     authorInfoContainer: {
         paddingHorizontal: 10,
         flex: 1,
         minWidth: 0,
+    },
+
+    displayName: {
+        ...THEME.typography.eventTitle,
+        lineHeight: 20,
     },
 
     usernameRow: {
@@ -110,9 +172,14 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
 
     authorMetaRow: {
         flexDirection: "row",
-        alignItems: "center",
+        alignItems: "flex-start",
         justifyContent: "space-between",
         width: "100%",
+    },
+
+    metaTextColumn: {
+        flex: 1,
+        minWidth: 0,
     },
 
     authorMetaText: {
@@ -120,6 +187,8 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
         color: colors.icon,
         flex: 1,
         minWidth: 0,
+        fontSize: 13,
+        lineHeight: 18,
     },
 
     metaIconContainer: {

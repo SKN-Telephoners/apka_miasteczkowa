@@ -50,7 +50,7 @@ export const THEME = {
       background: "#000000",
       text: "#FFFFFF",
       navIcons: "#E9E9E9",
-      highlight: "#0300D1",
+      highlight: "#2f2cf8",
       icon: "#7F7F7F",
       border: "#222222",
       searchWord: "#999999",
@@ -123,7 +123,7 @@ export const THEME = {
 export const MESSAGES = {
   // Auth Messages
   AUTH: {
-    LOGIN_SUCCESS: "Logowanie powiodło się!",
+    LOGIN_SUCCESS: "Logowanie się powiodło!",
     LOGIN_ERROR: "Wystąpił błąd podczas logowania",
     LOGIN_INVALID_CREDENTIALS: "Nieprawidłowa nazwa użytkownika lub hasło",
     LOGIN_USER_NOT_FOUND: "Użytkownik nie istnieje",

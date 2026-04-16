@@ -100,7 +100,7 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     outlineButton: {
         backgroundColor: 'transparent',
         borderWidth: 1,
-        borderColor: colors.transparentHighlight,
+        borderColor: colors.highlight,
     },
     disabledButton: {
         opacity: 0.5,
@@ -116,7 +116,7 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
         color: colors.text,
     },
     outlineText: {
-        color: colors.transparentHighlight,
+        color: colors.highlight,
     }
 });
 

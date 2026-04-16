@@ -4,6 +4,7 @@ export type User = {
   email: string;
   avatarUrl?: string; // idk
   academy?: string | null;
+  faculty?: string | null;
   course?: string | null;
   year?: number | null;
   is_friend?: boolean;
