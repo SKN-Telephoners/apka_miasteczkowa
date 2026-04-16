@@ -40,7 +40,7 @@ const EventPreviewScreen = () => {
                     )
                     : undefined,
         });
-    }, [navigation, colors.background, colors.text, colors.highlight, screenTitle, allowEdit, event]);
+    }, [navigation, colors.background, colors.text, screenTitle, allowEdit, event]);
 
     if (!event) {
         return (

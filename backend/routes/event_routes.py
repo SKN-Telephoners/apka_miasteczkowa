@@ -1,5 +1,4 @@
 from flask import jsonify, Blueprint, request, current_app
-import json
 from backend.models.event import Event, Event_visibility, Event_participants, Invites, InviteRequestStatus
 from backend.models.event import Pictures
 from backend.models import User, Comment, Friendship 
@@ -18,27 +17,6 @@ from sqlalchemy.orm import joinedload
 
 events_bp = Blueprint("events", __name__, url_prefix="/api/events")
 local_tz = ZoneInfo("Europe/Warsaw")
-
-
-def _serialize_location(raw_location):
-    if isinstance(raw_location, (list, tuple)) and len(raw_location) == 2:
-        try:
-            x = round(float(raw_location[0]), 6)
-            y = round(float(raw_location[1]), 6)
-        except (TypeError, ValueError):
-            return None, "Location coordinates must be numeric"
-
-        return f"{x:.6f},{y:.6f}", None
-
-    if isinstance(raw_location, str):
-        location = sanitize_input(raw_location).strip()
-        if not location:
-            return None, "Location is required"
-        if len(location) > Constants.MAX_LOCATION_LEN:
-            return None, "Location name is too long"
-        return location, None
-
-    return None, "Location must be a pair of coordinates"
 
 @events_bp.route("/create", methods=["POST"])
 @limiter.limit("100 per minute")
@@ -60,9 +38,7 @@ def create_event():
     description = sanitize_input(str(event_data.get("description", ""))).strip()
     date_str = str(event_data.get("date", "")).strip()
     time_str = str(event_data.get("time", "")).strip()
-    location, location_error = _serialize_location(event_data.get("location"))
-    if location_error:
-        return make_api_response(ResponseTypes.INVALID_DATA, message=location_error)
+    location = sanitize_input(str(event_data.get("location", ""))).strip()
     is_private_raw = event_data.get("is_private", False)
     is_private = str(is_private_raw).strip().lower() in ['true', '1', 't', 'y', 'yes']
 
@@ -75,6 +51,9 @@ def create_event():
 
     if not (Constants.MIN_EVENT_NAME <= len(name) <= Constants.MAX_EVENT_NAME):
         return make_api_response(ResponseTypes.INVALID_DATA, message=f"Event name must be between {Constants.MIN_EVENT_NAME} and {Constants.MAX_EVENT_NAME} characters")
+        
+    if len(location) > Constants.MAX_LOCATION_LEN:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Location name is too long")
         
     if len(description) > Constants.MAX_DESCRIPTION_LEN:
          return make_api_response(ResponseTypes.INVALID_DATA, message="Description is too long")
@@ -230,9 +209,9 @@ def edit_event(event_id):
 
     raw_loc = event_data.get("location")
     if raw_loc is not None:
-        location, location_error = _serialize_location(raw_loc)
-        if location_error:
-            return make_api_response(ResponseTypes.INVALID_DATA, message=location_error)
+        location = sanitize_input(str(raw_loc)).strip()
+        if len(location) > Constants.MAX_LOCATION_LEN:
+            return make_api_response(ResponseTypes.INVALID_DATA, message="Location name is too long")
         event.location = location
 
     raw_is_private = event_data.get("is_private")
