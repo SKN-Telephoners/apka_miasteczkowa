@@ -560,3 +560,96 @@ def test_edit_event_pictures_limit_logic(client, logged_in_user, app):
     res_fail = client.put(f"/api/events/edit/{event_id}", headers={"Authorization": f"Bearer {token}"}, json=payload_fail)
     assert res_fail.status_code == 400
     assert "Limit of pictures exceeded" in res_fail.get_json()["message"]
+
+def test_create_event_with_coordinate_location(client, logged_in_user, app):
+    with app.app_context():
+        user, token = logged_in_user
+
+        payload = {
+            "name": "event coords",
+            "description": "very cool event",
+            "date": "01.01.2050",
+            "time": "21:37",
+            "location": "[19.9061, 50.0686]",
+            "is_private": False,
+        }
+
+        response_create_event = client.post(
+            "/api/events/create",
+            headers={"Authorization": f"Bearer {token}"},
+            json=payload,
+        )
+
+        assert response_create_event.status_code == 201
+        event = Event.query.filter_by(event_name="event coords").first()
+        assert event is not None
+        assert event.location == "[19.906100,50.068600]"
+def test_edit_event_with_coordinate_location(client, logged_in_user, app):
+    with app.app_context():
+        user, token = logged_in_user
+
+        payload = {
+            "name": "to edit coords",
+            "description": "very cool event",
+            "date": "01.01.2050",
+            "time": "21:37",
+            "location": "here",
+            "is_private": False,
+        }
+
+        response_create_event = client.post(
+            "/api/events/create",
+            headers={"Authorization": f"Bearer {token}"},
+            json=payload,
+        )
+        assert response_create_event.status_code == 201
+
+        event = Event.query.filter_by(event_name="to edit coords").first()
+        assert event is not None
+
+        response_edit_event = client.put(
+            f"/api/events/edit/{event.event_id}",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"location": [19.9061, 50.0686]},
+        )
+
+        assert response_edit_event.status_code == 200
+        db.session.expire_all()
+        edited_event = Event.query.filter_by(event_id=event.event_id).first()
+        assert edited_event is not None
+        assert edited_event.location == "[19.906100,50.068600]"
+        
+def test_map_events_returns_only_future_events(client, logged_in_user, app):
+    with app.app_context():
+        user, token = logged_in_user
+
+        past_event = Event(
+            event_name="past map event",
+            description="old",
+            date_and_time=datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc),
+            location="[19.900000,50.060000]",
+            creator_id=user.user_id,
+            is_private=False,
+        )
+        future_event = Event(
+            event_name="future map event",
+            description="new",
+            date_and_time=datetime(2050, 1, 1, 12, 0, tzinfo=timezone.utc),
+            location="[19.910000,50.070000]",
+            creator_id=user.user_id,
+            is_private=False,
+        )
+        db.session.add_all([past_event, future_event])
+        db.session.commit()
+
+        response = client.get(
+            "/api/events/map",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 200
+        data = response.get_json()["data"]
+        returned_names = {event["name"] for event in data}
+        assert "future map event" in returned_names
+        assert "past map event" not in returned_names
+        assert all(event.get("location_coordinates") for event in data)
