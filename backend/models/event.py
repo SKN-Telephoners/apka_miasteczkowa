@@ -7,6 +7,7 @@ import enum
 from sqlalchemy.orm import validates
 
 
+
 class InviteRequestStatus(enum.Enum):
     pending = "pending"
     accepted = "accepted"
@@ -104,3 +105,10 @@ class Pictures(db.Model):
     event_id = db.Column(UUID(as_uuid=True), db.ForeignKey("Event.event_id", ondelete='CASCADE'), nullable=False, index=True)
 
     event = db.relationship("Event", back_populates="pictures")
+
+class Location(db.Model):
+    __tablename__ = "Event_location"
+    
+    event_location_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
+    location_name = db.Column(db.String(32), nullable=False, unique=True)
+    coordinates = db.Column(db.String(255), nullable=False, unique=True)

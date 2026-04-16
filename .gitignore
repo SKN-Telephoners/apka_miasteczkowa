@@ -49,6 +49,7 @@ tests/__pycache__/
 backend/routes/__pycache__/
 backend/models/__pycache__/
 .pytest_cache/
+backend/notifications/__pycache__/
 
 
 # migrations
