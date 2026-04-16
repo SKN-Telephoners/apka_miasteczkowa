@@ -29,9 +29,13 @@ def upload_file():
             eager=[{"width": 500, "height": 500, "crop": "fill"}]
         )
 
+        picture_url = response.get('eager')[0].get('secure_url') if response.get('eager') else response.get('secure_url')
+        picture_id = response.get('public_id') or response.get('cloud_id')
+
         return make_api_response(ResponseTypes.CREATED, data={
-            "picture_url": response.get('eager')[0].get('secure_url'),
-            "clout_id": response.get('cloud_id'),
+            "picture_url": picture_url,
+            "cloud_id": picture_id,
+            "public_id": response.get('public_id'),
             "tags": response.get('tags', [])
         }, message="Picture uploaded and tagged successfully") # Returns the tags as a Python list
 
@@ -71,10 +75,14 @@ def upload_multiple_files():
                 overwrite=True,
                 eager=[{"width": 500, "height": 500, "crop": "fill"}]
             )
+
+            picture_url = response.get('eager')[0].get('secure_url') if response.get('eager') else response.get('secure_url')
+            picture_id = response.get('public_id') or response.get('cloud_id')
             
             uploaded_data.append({
-                "picture_url": response.get('eager')[0].get('secure_url'),
-                "cloud_id": response.get('cloud_id')
+                "picture_url": picture_url,
+                "cloud_id": picture_id,
+                "public_id": response.get('public_id')
             })
 
         except Exception as e:

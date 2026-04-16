@@ -13,7 +13,8 @@ import Avatar from "../../components/Avatar";
 import AppIcon from "../../components/AppIcon";
 import { useEffect, useCallback } from "react";
 import { getPublicUserProfile } from "../../services/users";
-import { getUserEventsInfo, UserEventsInfoResponse } from "../../services/events";
+import { getUserCreatedEvents, getUserParticipatingEvents } from "../../services/events";
+import { Event } from "../../types";
 import InputField from "../../components/InputField";
 import UserCard from "../../components/UserCard";
 
@@ -35,7 +36,8 @@ const UserScreen = () => {
     ? String(visitedUserId) === String(userId)
     : isOwnerRoute;
   const [visitedProfileData, setVisitedProfileData] = useState<any | null>(null);
-  const [visitorEvents, setVisitorEvents] = useState<UserEventsInfoResponse | null>(null);
+  const [userCreatedEvents, setUserCreatedEvents] = useState<Event[]>([]);
+  const [userJoinedEvents, setUserJoinedEvents] = useState<Event[]>([]);
   const profileData = isOwner ? currentUser : (visitedProfileData || visitedUser);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -76,35 +78,48 @@ const UserScreen = () => {
   );
 
   useEffect(() => {
-    const loadVisitedUser = async () => {
-      if (isOwner || !visitedUser) {
-        setVisitedProfileData(null);
-        setVisitorEvents(null);
-        return;
-      }
-
-      const targetId = visitedUser.user_id || visitedUser.id;
+    const loadUserData = async () => {
+      const targetId = isOwner ? (currentUser?.id || currentUser?.user_id) : (visitedUser?.user_id || visitedUser?.id);
+      
       if (!targetId) {
-        setVisitedProfileData(visitedUser);
-        setVisitorEvents(null);
+        if (!isOwner) {
+          setVisitedProfileData(visitedUser);
+        }
+        setUserCreatedEvents([]);
+        setUserJoinedEvents([]);
         return;
       }
 
       try {
-        const [fullData, eventsData] = await Promise.all([
-          getPublicUserProfile(targetId),
-          getUserEventsInfo(targetId)
-        ]);
-        setVisitedProfileData(fullData);
-        setVisitorEvents(eventsData);
-      } catch {
-        setVisitedProfileData(visitedUser);
-        setVisitorEvents(null);
+        const promises: Promise<any>[] = [
+          getUserCreatedEvents(targetId),
+          getUserParticipatingEvents(targetId),
+        ];
+
+        if (!isOwner) {
+          promises.push(getPublicUserProfile(targetId));
+        }
+
+        const results = await Promise.all(promises);
+        setUserCreatedEvents(results[0] || []);
+        setUserJoinedEvents(results[1] || []);
+
+        if (!isOwner) {
+          setVisitedProfileData(results[2]);
+        } else {
+          setVisitedProfileData(null);
+        }
+      } catch (err) {
+        setUserCreatedEvents([]);
+        setUserJoinedEvents([]);
+        if (!isOwner) {
+          setVisitedProfileData(visitedUser);
+        }
       }
     };
 
-    loadVisitedUser();
-  }, [isOwner, visitedUser?.id, visitedUser?.user_id]);
+    loadUserData();
+  }, [isOwner, visitedUser?.id, visitedUser?.user_id, currentUser?.id, currentUser?.user_id]);
 
   // Check if visitedUser is already a friend (runs whenever friends list updates)
   useEffect(() => {
@@ -150,31 +165,6 @@ const UserScreen = () => {
       (friend.username || "").toLowerCase().includes(normalizedQuery)
     );
   }, [friends, searchQuery]);
-
-  const myCreatedEvents = useMemo(() => {
-    return events.filter(e => String(e.creator_id) === String(profileData?.id || profileData?.user_id));
-  }, [events, profileData]);
-
-  const myJoinedEvents = useMemo(() => {
-    // "is_participating" obejmuje też twórcę, więc odrzucamy własne:
-    return events.filter(e => e.is_participating && String(e.creator_id) !== String(profileData?.id || profileData?.user_id));
-  }, [events, profileData]);
-
-  const publicCreatedEvents = useMemo(() => {
-    if (isOwner || !visitorEvents) return [];
-    return visitorEvents.created.map(slim => {
-      const full = events.find(e => String(e.id) === String(slim.event_id) || String((e as any).event_id) === String(slim.event_id));
-      return full ? full : { id: slim.event_id, name: slim.name, isSlim: true };
-    });
-  }, [visitorEvents, events, isOwner]);
-
-  const publicJoinedEvents = useMemo(() => {
-    if (isOwner || !visitorEvents) return [];
-    return visitorEvents.participating.map(slim => {
-      const full = events.find(e => String(e.id) === String(slim.event_id) || String((e as any).event_id) === String(slim.event_id));
-      return full ? full : { id: slim.event_id, name: slim.name, isSlim: true };
-    });
-  }, [visitorEvents, events, isOwner]);
 
   const handleSendRequest = async () => {
     try {
@@ -311,10 +301,10 @@ const UserScreen = () => {
           </CollapsibleSection>
 
           <CollapsibleSection title="Moje wydarzenia">
-            {myCreatedEvents.length > 0 ? (
-              myCreatedEvents.map((event) => (
+            {userCreatedEvents.length > 0 ? (
+              userCreatedEvents.map((event) => (
                 <TouchableOpacity
-                  key={event.id}
+                  key={event.id || (event as any).event_id}
                   style={[styles.listItem, { borderColor: colors.border }]}
                   activeOpacity={0.8}
                   onPress={() => navigation.navigate("MyEventPreview", { event, screenTitle: "Moje wydarzenie", allowEdit: true })}
@@ -331,10 +321,10 @@ const UserScreen = () => {
           </CollapsibleSection>
 
           <CollapsibleSection title="Zapisane wydarzenia">
-            {myJoinedEvents.length > 0 ? (
-              myJoinedEvents.map((event) => (
+            {userJoinedEvents.length > 0 ? (
+              userJoinedEvents.map((event) => (
                 <TouchableOpacity
-                  key={event.id}
+                  key={event.id || (event as any).event_id}
                   style={[styles.listItem, { borderColor: colors.border }]}
                   activeOpacity={0.8}
                   onPress={() => navigation.navigate("MyEventPreview", { event, screenTitle: "Zapisane wydarzenie", allowEdit: false })}
@@ -356,19 +346,17 @@ const UserScreen = () => {
       {!isOwner && (
         <>
           <CollapsibleSection title={`Wydarzenia ${profileData?.username || "użytkownika"}`}>
-            {publicCreatedEvents.length > 0 ? (
-              publicCreatedEvents.map((event: any) => (
+            {userCreatedEvents.length > 0 ? (
+              userCreatedEvents.map((event: any) => (
                 <TouchableOpacity
-                  key={event.id}
+                  key={event.id || event.event_id}
                   style={[styles.listItem, { borderColor: colors.border }]}
                   activeOpacity={0.8}
-                  onPress={() => event.isSlim ? null : navigation.navigate("MyEventPreview", { event, screenTitle: "Wydarzenie z profilu", allowEdit: false })}
+                  onPress={() => navigation.navigate("MyEventPreview", { event, screenTitle: "Wydarzenie z profilu", allowEdit: false })}
                 >
                   <View style={{ flex: 1 }}>
                     <Text style={styles.listTitle}>{event.name}</Text>
-                    {!event.isSlim && (
-                      <Text style={styles.listSubtitle}>{event.date} o {event.time} • {event.location}</Text>
-                    )}
+                    <Text style={styles.listSubtitle}>{event.date} o {event.time} • {event.location}</Text>
                   </View>
                 </TouchableOpacity>
               ))
@@ -378,19 +366,17 @@ const UserScreen = () => {
           </CollapsibleSection>
 
           <CollapsibleSection title="Zapisane wydarzenia">
-            {publicJoinedEvents.length > 0 ? (
-              publicJoinedEvents.map((event: any) => (
+            {userJoinedEvents.length > 0 ? (
+              userJoinedEvents.map((event: any) => (
                 <TouchableOpacity
-                  key={event.id}
+                  key={event.id || event.event_id}
                   style={[styles.listItem, { borderColor: colors.border }]}
                   activeOpacity={0.8}
-                  onPress={() => event.isSlim ? null : navigation.navigate("MyEventPreview", { event, screenTitle: "Zapisane wydarzenie", allowEdit: false })}
+                  onPress={() => navigation.navigate("MyEventPreview", { event, screenTitle: "Zapisane wydarzenie", allowEdit: false })}
                 >
                   <View style={{ flex: 1 }}>
                     <Text style={styles.listTitle}>{event.name}</Text>
-                    {!event.isSlim && (
-                      <Text style={styles.listSubtitle}>{event.date} o {event.time} • {event.location}</Text>
-                    )}
+                    <Text style={styles.listSubtitle}>{event.date} o {event.time} • {event.location}</Text>
                   </View>
                 </TouchableOpacity>
               ))

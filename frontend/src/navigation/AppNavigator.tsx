@@ -11,6 +11,7 @@ import ProfileStack from "./ProfileStack";
 import EventStack from "./EventStack";
 import NotificationsScreen from "../screens/home/NotificationsScreen";
 import UserScreen from "../screens/user/UserScreen";
+import EventDetailsScreen from "../screens/event/EventDetailsScreen";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../contexts/AuthContext";
 import { ActivityIndicator, View, TouchableOpacity } from "react-native";
@@ -137,7 +138,7 @@ const MainTabs = () => {
 
         tabBarIcon: ({ focused }) => {
           if (route.name === 'Profil') {
-            const uri = user?.profile_picture?.url || user?.avatarUrl || (typeof user?.profile_picture === "string" ? user?.profile_picture : undefined);
+            const uri = user?.profile_picture?.url || (typeof user?.profile_picture === "string" ? user?.profile_picture : undefined);
             return (
               <View style={{ opacity: focused ? 1 : 0.75 }}>
                 <Avatar 
@@ -231,6 +232,17 @@ const AppNavigator = () => {
               options={{
                 headerShown: true,
                 headerTitle: 'Profil użytkownika',
+                headerStyle: { backgroundColor: colors.background },
+                headerTintColor: colors.text,
+                headerTitleStyle: { color: colors.text },
+              }}
+            />
+            <Stack.Screen
+              name="EventDetails"
+              component={EventDetailsScreen}
+              options={{
+                headerShown: true,
+                headerTitle: 'Szczegóły wydarzenia',
                 headerStyle: { backgroundColor: colors.background },
                 headerTintColor: colors.text,
                 headerTitleStyle: { color: colors.text },

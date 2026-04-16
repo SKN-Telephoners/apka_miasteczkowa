@@ -1,5 +1,5 @@
 from datetime import timedelta
-from flask import Blueprint, request, url_for
+from flask import Blueprint, request, url_for, current_app
 from backend.models import User
 from backend.extensions import db, mail, limiter
 from backend.constants import Constants
@@ -60,12 +60,20 @@ def register_user():
     
     try:
         db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Registration db commit error: {e}")
+        return make_api_response(ResponseTypes.SERVER_ERROR, message="Registration failed")
+
+    try:
         mail.send(msg)
     except Exception as e:
-        db.session.delete(new_user)
-        db.session.rollback()
-        db.session.commit()
-        return make_api_response(ResponseTypes.SERVER_ERROR, message="Registration failed (mail eror)")
+        # Registration is already committed; do not fail with 500 just because email delivery failed.
+        current_app.logger.error(f"Registration mail send error for {email}: {e}")
+        return make_api_response(
+            ResponseTypes.CREATED,
+            message="Registration successful. Verification email could not be sent, please request it again."
+        )
     
     return make_api_response(ResponseTypes.CREATED, message="Registration successful")
 
