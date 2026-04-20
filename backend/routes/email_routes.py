@@ -19,7 +19,9 @@ def verify_request():
         return make_api_response(ResponseTypes.BAD_REQUEST)
     
     email=user_data["email"]
-    user = User.query.filter_by(email=email).first()
+
+    user_query = db.select(User).filter_by(email=email)
+    user = db.session.execute(user_query, bind_arguments={'bind_key': 'readonly'}).scalar_one_or_none()
 
     if user and not user.is_confirmed:
         try:
@@ -84,8 +86,9 @@ def reset_password_request():
     if not re.match(Constants.EMAIL_PATTERN, email):
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid email format")
         
-    user = User.query.filter_by(email=email).first()  
-    
+    user_query = db.select(User).filter_by(email=email)
+    user = db.session.execute(user_query, bind_arguments={'bind_key': 'readonly'}).scalar_one_or_none()
+
     if user:
         revoke_all_user_tokens(user.user_id, token_type="password_reset")
 

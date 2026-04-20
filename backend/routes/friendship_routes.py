@@ -27,21 +27,24 @@ def create_friend_request(friend_id):
     if user.user_id == friend_id:
         return make_api_response(ResponseTypes.BAD_REQUEST, message="You can't befriend yourself")
     
-    existing_friend_request = FriendRequest.query.filter(
+    existing_friend_request_query = db.select(FriendRequest).filter(
         or_(
             and_(FriendRequest.sender_id == user.user_id, FriendRequest.receiver_id == friend_id),
             and_(FriendRequest.sender_id == friend_id, FriendRequest.receiver_id == user.user_id),
         )
-    ).first()
+    )
+    existing_friend_request = db.session.execute(existing_friend_request_query, bind_arguments={'bind_key': 'readonly'}).scalar_one_or_none()
 
     if existing_friend_request is not None:
         return make_api_response(ResponseTypes.CONFLICT, message="Request already exists")
-    existing_friendship = Friendship.query.filter(
+
+    existing_friendship_query = db.select(Friendship).filter(
         or_(
             and_(Friendship.user_id == user.user_id, Friendship.friend_id == friend_id),
             and_(Friendship.user_id == friend_id, Friendship.friend_id == user.user_id),
         )
-    ).first()
+    )
+    existing_friendship = db.session.execute(existing_friendship_query, bind_arguments={'bind_key': 'readonly'}).scalar_one_or_none()
 
     if existing_friendship is not None:
         return make_api_response(ResponseTypes.CONFLICT, message="Friendship already exists")
@@ -151,19 +154,22 @@ def decline_friend_request(friend_id):
 def get_pending_requests():
     user = get_current_user()
     
-    incoming_pending_requests = FriendRequest.query.filter_by(
+    incoming_pending_requests_query = db.select(FriendRequest).filter_by(
         receiver_id=user.user_id,
         status=FriendRequestStatus.pending
-    ).all()
-    
-    outgoing_pending_requests = FriendRequest.query.filter_by(
+    )
+    incoming_pending_requests = db.session.execute(incoming_pending_requests_query, bind_arguments={'bind_key': 'readonly'}).scalars().all()
+
+    outgoing_pending_requests_query = db.select(FriendRequest).filter_by(
         sender_id=user.user_id,
         status=FriendRequestStatus.pending
-    ).all()
+    )
+    outgoing_pending_requests = db.session.execute(outgoing_pending_requests_query, bind_arguments={'bind_key': 'readonly'}).scalars().all()
 
     incoming_requests_data = []
     for req in incoming_pending_requests:
-        sender = User.query.filter_by(user_id=req.sender_id).first()
+        sender_query = db.select(User).filter_by(user_id=req.sender_id)
+        sender = db.session.execute(sender_query, bind_arguments={'bind_key': 'readonly'}).scalar_one_or_none()
         if sender:
             incoming_requests_data.append({
                 "request_id": str(req.request_id),
@@ -174,7 +180,8 @@ def get_pending_requests():
 
     outgoing_requests_data = []
     for req in outgoing_pending_requests:
-        receiver = User.query.filter_by(user_id=req.receiver_id).first()
+        receiver_query = db.select(User).filter_by(user_id=req.receiver_id)
+        receiver = db.session.execute(receiver_query, bind_arguments={'bind_key': 'readonly'}).scalar_one_or_none()
         if receiver:
             outgoing_requests_data.append({
                 "request_id": str(req.request_id),
@@ -199,12 +206,14 @@ def get_friends_list():
     user= get_current_user()
     
     try:
-        friendships = Friendship.query.filter(
+        friendships_query = db.select(Friendship).filter(
             or_(
                 Friendship.user_id == user.user_id,
                 Friendship.friend_id == user.user_id
             )
-        ).all()
+        )
+        friendships = db.session.execute(friendships_query, bind_arguments={'bind_key': 'readonly'}).scalars().all()
+
         if not friendships:
             return make_api_response(ResponseTypes.SUCCESS, message="Empty friends list", data={"friends": []})
 
@@ -214,7 +223,8 @@ def get_friends_list():
                 friends_id.append(friendship.friend_id)
             else:
                 friends_id.append(friendship.user_id)
-        friends = User.query.filter(User.user_id.in_(friends_id)).all()
+        friends_query = db.select(User).filter(User.user_id.in_(friends_id))
+        friends = db.session.execute(friends_query, bind_arguments={'bind_key': 'readonly'}).scalars().all()
 
         friends_data = []
         for friend in friends:

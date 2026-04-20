@@ -13,10 +13,12 @@ def app():
     app = create_app(test_mode=True)
 
     with app.app_context():
-        db.create_all()
+        migrator_engine = db.create_engine(app.config['MIGRATOR_URI'])
+        db.metadata.create_all(bind=migrator_engine)
+
         yield app
+        db.metadata.drop_all(bind=migrator_engine)
         db.session.remove()
-        db.drop_all()  
 
 @pytest.fixture
 def client(app):

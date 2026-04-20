@@ -173,7 +173,11 @@ def get_comments_list(event_id):
     if not e_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid event ID")
     
-    event = db.session.get(Event, e_uuid)
+    event = db.session.execute(
+        db.select(Event).filter_by(event_id=e_uuid), 
+        bind_arguments={'bind_key': 'readonly'}
+    ).scalar_one_or_none()
+
     if not event:
         return make_api_response(ResponseTypes.NOT_FOUND)
     
@@ -181,13 +185,15 @@ def get_comments_list(event_id):
         return make_api_response(ResponseTypes.FORBIDDEN, message="You do not have access to this event")
 
     try:
-        comments = Comment.query.filter_by(event_id=event_id).order_by(Comment.created_at.asc()).all()
+        comments_query = db.select(Comment).filter_by(event_id=event_id).order_by(Comment.created_at.asc())
+        comments = db.session.execute(comments_query, bind_arguments={'bind_key': 'readonly'}).scalars().all()
 
         if not comments:
             return make_api_response(ResponseTypes.SUCCESS, message="Empty comments list", data={"comments": []})
 
         user_ids = {c.user_id for c in comments if c.user_id is not None and not c.deleted}
-        users = User.query.filter(User.user_id.in_(user_ids)).all() if user_ids else []
+        user_query = db.select(User).filter(User.user_id.in_(user_ids))
+        users = db.session.execute(user_query, bind_arguments={'bind_key': 'readonly'}).scalars().all() if user_ids else []
         usernames_by_id = {str(user.user_id): user.display_name for user in users}
 
         top_level_comments = [c for c in comments if c.parent_comment_id is None]

@@ -1,7 +1,7 @@
 from flask import Blueprint, request, current_app
 from backend.models import Notification
 from backend.models.notification import NotificationTag
-from backend.extensions import limiter
+from backend.extensions import limiter, db
 from backend.constants import Constants
 from backend.responses import ResponseTypes, make_api_response
 from flask_jwt_extended import jwt_required, get_current_user
@@ -39,7 +39,8 @@ def get_notifications():
         if limit > Constants.MAX_PAGINATION_LIMIT:
             limit = Constants.MAX_PAGINATION_LIMIT
 
-        query = Notification.query.filter(Notification.user_id == user_id)
+        help_query = db.select(Notification).filter(Notification.user_id == user_id)
+        query = db.session.execute(help_query, bind_arguments={'bind_key': 'readonly'}).scalars().all()
 
         if q:
             search_filter = f"%{q}%"

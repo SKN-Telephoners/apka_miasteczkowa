@@ -6,6 +6,10 @@ load_dotenv()
 
 class Config:
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL")
+    SQLALCHEMY_BINDS = {
+        "readonly": os.getenv("DATABASE_URL_RO")
+    }
+
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     BCRYPT_LOG_ROUNDS = 12
@@ -40,10 +44,22 @@ class TestConfig(Config):
     MAIL_SUPPRESS_SEND = True
     MAIL_BACKEND = 'flask_mail.backends.locmem.EmailBackend'
     TESTING = True
+
+    SQLALCHEMY_DATABASE_URI = os.getenv(
+        "TEST_DATABASE_URL", 
+        "postgresql://app_user_rw:haslo_app@localhost/apka_miasteczkowa_test"
+    )
+    SQLALCHEMY_BINDS = {
+        "readonly": "postgresql://app_user_ro:haslo_read_only@localhost/apka_miasteczkowa_test"
+    }
+
+    MIGRATOR_URI = "postgresql://app_migrator:haslo_migracje@localhost/apka_miasteczkowa_test"
+
     SQLALCHEMY_DATABASE_URI = os.getenv(
         "TEST_DATABASE_URL", 
         "postgresql://postgres:postgres@localhost/apka_miasteczkowa_test?sslmode=require"
-    ) #jeżeli się nie uda z .env to i tak będzie
+    ) 
+
     CELERY = dict(
         broker_url="memory://",
         result_backend="cache+memory://",
