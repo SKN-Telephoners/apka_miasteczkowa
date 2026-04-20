@@ -629,7 +629,7 @@ def test_map_events_returns_only_future_events(client, logged_in_user, app):
 
         past_event_id = uuid.uuid4()
         db.session.execute(
-            insert(Event).values(
+            db.insert(Event).values(
                 event_id=past_event_id,
                 event_name="past map event",
                 description="old",
@@ -649,6 +649,7 @@ def test_map_events_returns_only_future_events(client, logged_in_user, app):
             creator_id=user.user_id,
             is_private=False,
         )
+        db.session.add_all([future_event])
         db.session.add_all([future_event])
         db.session.commit()
 

@@ -44,7 +44,8 @@ Output: 200 OK (or 404 on error)
 @users_bp.route("/profile/<user_id>", methods=["GET"])
 @jwt_required()
 def get_user_info(user_id):
-    user = User.query.filter_by(user_id=user_id).first()
+    user_query = db.select(User).filter_by(user_id=user_id)
+    user = db.session.execute(user_query, bind_arguments={'bind_key': 'readonly'}).scalar_one_or_none()
 
     if not user:
         return make_api_response(ResponseTypes.NOT_FOUND, message="User not found")
@@ -57,12 +58,13 @@ def get_user_info(user_id):
             "url": url
         }
 
-    friend_count = Friendship.query.filter(
+    friend_count_query = db.select(db.func.count(Friendship.friendship_id)).filter(
         or_(
             Friendship.user_id == user.user_id,
             Friendship.friend_id == user.user_id
         )
-    ).count()
+    ).execution_options(bind_key="readonly") 
+    friend_count = db.session.execute(friend_count_query).scalar() or 0
 
     user_data = {
         "user_id": str(user.user_id),
@@ -494,6 +496,7 @@ def get_users_list():
 
     query = query.order_by(friend_priority.desc(), User.username.asc())
 
+    query = query.execution_options(bind_key="readonly")
     pagination = query.paginate(page=page, per_page=limit, error_out=False)
 
     users_list = []

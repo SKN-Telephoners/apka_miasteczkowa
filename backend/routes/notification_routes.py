@@ -69,7 +69,8 @@ def get_notifications():
         if limit > Constants.MAX_PAGINATION_LIMIT:
             limit = Constants.MAX_PAGINATION_LIMIT
 
-        query = Notification.query.filter(Notification.user_id == user_id)
+        help_query = db.select(Notification).filter(Notification.user_id == user_id)
+        query = db.session.execute(help_query, bind_arguments={'bind_key': 'readonly'}).scalars().all()
 
         if q:
             search_filter = f"%{q}%"

@@ -635,6 +635,7 @@ def feed():
     try:
         user = get_current_user()
         user_id = user.user_id
+        engine_ro = db.engines['readonly']
 
         page = request.args.get("page", default=1, type=int)
         limit = request.args.get("limit", default=Constants.PAGINATION_DEFAULT_LIMIT, type=int)
@@ -654,24 +655,24 @@ def feed():
         if limit > Constants.MAX_PAGINATION_LIMIT:
             limit = Constants.MAX_PAGINATION_LIMIT
 
-        visibility_subquery = db.session.query(Event_visibility.event_id).filter(
+        visibility_subquery = db.select(Event_visibility.event_id).filter(
             Event_visibility.event_id == Event.event_id,
             Event_visibility.shared_with == user_id
         )
 
-        participation_subquery = db.session.query(Event_participants.event_id).filter(
+        participation_subquery = db.select(Event_participants.event_id).filter(
             Event_participants.event_id == Event.event_id,
             Event_participants.user_id == user_id,
         )
 
-        query = Event.query.filter(
+        query = db.select(Event).filter(
             or_(
                 Event.is_private == False,
                 Event.creator_id == user_id,
                 visibility_subquery.exists(),
                 participation_subquery.exists(),
             )
-        )
+        ).distinct()
 
         if q:
             search_filter = f"%{q}%"
@@ -719,46 +720,43 @@ def feed():
         else:
             query = query.order_by(Event.date_and_time.asc())
         
-        pagination = query.distinct().paginate(page=page, per_page=limit, error_out=False)
-
-        event_ids = [str(e.event_id) for e in pagination.items]
-
-        if event_ids:
-            part_query = db.select(Event_participants.event_id).filter(
-                Event_participants.user_id == user_id,
-                Event_participants.event_id.in_(event_ids)
-            )
-            participating_event_ids = {str(r[0]) for r in
-                                       db.session.execute(part_query, bind_arguments={'bind_key': 'readonly'}).all()}
-        else:
-            participating_event_ids = set()
-
-        final_event_list = []
+        query = query.execution_options(bind_key="readonly")
+        pagination = db.paginate(
+            query, 
+            page=page, 
+            per_page=limit, 
+            error_out=False,
+        )
 
         creator_ids = {e.creator_id for e in pagination.items if e.creator_id}
         user_query = db.select(User).filter(User.user_id.in_(creator_ids))
         creator_users = db.session.execute(user_query, bind_arguments={'bind_key': 'readonly'}).scalars().all() if creator_ids else []
         creator_lookup = {str(u.user_id): u for u in creator_users}
 
-        for event in pagination.items:
-            eid_str = str(event.event_id)
-            cached_val = redis_client.get(get_event_cache_key(eid_str))
+        event_ids = [event.event_id for event in pagination.items]
+        if event_ids:
 
-            if cached_val:
-                event_data = json.loads(cached_val)
-            else:
-                event_data = serialize_event_payload(event, None, creator_lookup, set())
-                cache_event_data(eid_str, event_data)
+            query_participants = db.select(Event_participants.event_id).filter(
+                Event_participants.user_id == user_id,
+                Event_participants.event_id.in_(event_ids)
+            )
             
-            is_joined = (str(event.creator_id) == str(user_id)) or (eid_str in participating_event_ids)
-            event_data["is_participating"] = is_joined
-            event_data["is_joined"] = is_joined
-            
-            final_event_list.append(event_data)
+            participant_rows = db.session.execute(
+                query_participants, 
+                bind_arguments={'bind_key': 'readonly'}
+            ).all()
+        else:
+            participant_rows = []
 
-        current_app.logger.info(f"INFO: /feed, user {user_id} successfully fetched events feed page {page}")
+        participating_event_ids = {event_id for (event_id,) in participant_rows}
+
+        event_list = [
+            serialize_event_payload(event, user_id, creator_lookup, participating_event_ids)
+            for event in pagination.items
+        ]
+
         return make_api_response(ResponseTypes.SUCCESS, data={
-            "data": final_event_list,
+            "data": event_list,
             "pagination": {
                 "page": pagination.page,
                 "limit": limit,
@@ -784,17 +782,21 @@ def participation_status(event_id):
     user = get_current_user()
     e_uuid = validate_uuid(event_id)
 
+    engine_ro = db.engines['readonly']
+
     if not e_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Event ID")
 
-    event = db.session.get(Event, e_uuid)
+    event_query = db.select(Event).filter_by(event_id=e_uuid)
+    event = db.session.execute(event_query, bind_arguments={'bind_key': 'readonly'}).scalar_one_or_none()
     if event is None:
         return make_api_response(ResponseTypes.NOT_FOUND, message="This event does not exist")
     
     if event.creator_id == user.user_id:
         is_participating = True
     else:
-        is_participating = db.session.query(Event_participants).filter_by(event_id=e_uuid, user_id=user.user_id).first() is not None
+        is_participating_query = db.select(Event_participants).filter_by(event_id=e_uuid, user_id=user.user_id)
+        is_participating = db.session.execute(is_participating_query, bind_arguments={'bind_key': 'readonly'}).scalar_one_or_none() is not None
 
     current_app.logger.info(f"INFO: /participation_status, user {user.user_id} checked participation status for event {event_id}")
     return make_api_response(ResponseTypes.SUCCESS, data={
@@ -814,6 +816,7 @@ Output: 200 OK (or 400/403/404/409/500 on error)
 def join_event(event_id):
     user = get_current_user()
     e_uuid = validate_uuid(event_id)
+    engine_ro = db.engines['readonly']
 
     if not e_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Event ID")
@@ -831,7 +834,9 @@ def join_event(event_id):
             current_app.logger.warning(f"WARNING: /join, user {user.user_id} tried to join private event {event_id} without access")
             return make_api_response(ResponseTypes.FORBIDDEN, message="This event is private")
 
-    existing = db.session.query(Event_participants).filter_by(event_id=e_uuid, user_id=user.user_id).first()
+    existing_query = db.select(Event_participants).filter_by(event_id=e_uuid, user_id=user.user_id)
+    existing = db.session.execute(existing_query, bind_arguments={'bind_key': 'readonly'}).scalar_one_or_none()
+    
     if existing:
         return make_api_response(ResponseTypes.CONFLICT, message="You are already participating in this event")
 
@@ -944,12 +949,17 @@ def invite_to_event(event_id):
         current_app.logger.warning(f"WARNING: /invite_to_event, user {user.user_id} tried to send invite to a non existant event")
         return make_api_response(ResponseTypes.NOT_FOUND, message="This event does not exist")
 
-    is_friend = db.session.query(Friendship).filter(
-        or_(
-            and_(Friendship.user_id == u_uuid, Friendship.friend_id == i_uuid),
-            and_(Friendship.user_id == i_uuid, Friendship.friend_id == u_uuid)
+    query_friend = db.select(Friendship).filter(
+    or_(
+        and_(Friendship.user_id == u_uuid, Friendship.friend_id == i_uuid),
+        and_(Friendship.user_id == i_uuid, Friendship.friend_id == u_uuid)
         )
-    ).first()
+    )
+
+    is_friend = db.session.execute(
+        query_friend, 
+        bind_arguments={'bind_key': 'readonly'}
+    ).scalars().first()
 
     if not is_friend: 
         current_app.logger.warning(f"WARNING: /invite_to_event, user {user.user_id} tried to invite a user that is not their friend")
@@ -961,16 +971,19 @@ def invite_to_event(event_id):
             current_app.logger.warning(f"WARNING: /invite_to_event, user {user.user_id} tried to send invite for an event that is not his")
             return make_api_response(ResponseTypes.FORBIDDEN, message="Only creator of the private event can invite")
         
-        has_visibility = db.session.query(Event_visibility).filter_by(event_id=e_uuid, shared_with=i_uuid).first()
+        has_visibility_query = db.select(Event_visibility).filter_by(event_id=e_uuid, shared_with=i_uuid)
+        has_visibility = db.session.execute(has_visibility_query, bind_arguments={'bind_key': 'readonly'}).scalar_one_or_none()
+
         if not has_visibility:
             current_app.logger.warning(f"WARNING: /invite_to_event, user {user.user_id} tried to send invite to user that does not have priviledges to view this event")
             return make_api_response(ResponseTypes.FORBIDDEN, message=f"User does not have priviledges to view this event")
 
-    is_already_participant = db.session.query(Event_participants).filter_by(event_id=e_uuid, user_id=i_uuid).first()
+    is_already_participant_query = db.select(Event_participants).filter_by(event_id=e_uuid, user_id=i_uuid)
+    is_already_participant = db.session.execute(is_already_participant_query, bind_arguments={'bind_key': 'readonly'}).scalar_one_or_none()
     if is_already_participant:
         return make_api_response(ResponseTypes.CONFLICT, message="User is already participating in this event")
-        
-    existing_invite = db.session.query(Invites).filter_by(event_id=e_uuid, inviter_id=u_uuid, invited_id=i_uuid).first()
+    existing_invite_query = db.select(Invites).filter_by(event_id=e_uuid, inviter_id=u_uuid, invited_id=i_uuid)
+    existing_invite = db.session.execute(existing_invite_query, bind_arguments={'bind_key': 'readonly'}).scalar_one_or_none()
     if existing_invite:
         current_app.logger.warning(f"WARNING: /invite_to_event, user {user.user_id} tried to send invite that already exists")
         return make_api_response(ResponseTypes.CONFLICT, message="Invite already sent")
@@ -1022,7 +1035,9 @@ def get_sent_invites(event_id):
     if not e_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid event ID")
 
-    event = db.session.get(Event, e_uuid)
+    event_query = db.select(Event).filter_by(event_id=e_uuid)
+    event = db.session.execute(event_query, bind_arguments={'bind_key': 'readonly'}).scalar_one_or_none()
+    
     if event is None:
         return make_api_response(ResponseTypes.NOT_FOUND, message="This event does not exist")
 
@@ -1031,7 +1046,8 @@ def get_sent_invites(event_id):
         return make_api_response(ResponseTypes.FORBIDDEN, message="Only the event creator can view sent invites")
 
     try:
-        invites = db.session.query(Invites).filter_by(event_id=e_uuid).all()
+        invites_query = db.select(Invites).filter_by(event_id=e_uuid)
+        invites = db.session.execute(invites_query, bind_arguments={'bind_key': 'readonly'}).scalars().all()
         invited_ids = [str(invite.invited_id) for invite in invites]
         current_app.logger.info(f"INFO: /invites, user {u_uuid} successfully fetched invites for event {e_uuid}")
         return make_api_response(ResponseTypes.SUCCESS, data={"invited_ids": invited_ids})
@@ -1113,8 +1129,9 @@ def change_invite_status(invite_id):
 
     try:
         if new_status == "accepted":
-            invite.status  = InviteRequestStatus.accepted
-            already_in = db.session.query(Event_participants).filter_by(event_id=invite.event_id, user_id=u_uuid).first()
+            invite.status = InviteRequestStatus.accepted
+            already_in_query = db.select(Event_participants).filter_by(event_id=invite.event_id, user_id=u_uuid)
+            already_in = db.session.execute(already_in_query, bind_arguments={'bind_key': 'readonly'}).scalar_one_or_none()
             if not already_in:
                 participant = Event_participants(
                     event_id=invite.event_id,
@@ -1181,8 +1198,11 @@ def get_user_events_creator(user_id):
     if not u_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid user ID")
 
-    user = db.session.get(User, u_uuid)
-    created_events = Event.query.filter_by(creator_id=user.user_id).all()
+    user_query = db.select(User).filter_by(user_id=u_uuid)
+    user = db.session.execute(user_query, bind_arguments={'bind_key': 'readonly'}).scalar_one_or_none()
+
+    created_events_query = db.select(Event).filter_by(creator_id=user.user_id)
+    created_events = db.session.execute(created_events_query, bind_arguments={'bind_key': 'readonly'}).scalars().all()
     
     created_data=[
             {
@@ -1228,11 +1248,16 @@ def get_user_events_participand(user_id):
     if not u_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid user ID")
 
-    user = db.session.get(User, u_uuid)
+    user_query = db.select(User).filter_by(user_id=u_uuid)
+    user = db.session.execute(user_query, bind_arguments={'bind_key': 'readonly'}).scalar_one_or_none()
     
-    participating_events = db.session.query(Event).join(
+    participating_events_query = db.select(Event).join(
         Event_participants, Event.event_id == Event_participants.event_id
-    ).filter(Event_participants.user_id == user.user_id).all()
+    ).filter(
+        Event_participants.user_id == user.user_id
+    ).execution_options(bind_key="readonly")
+
+    participating_events = db.session.execute(participating_events_query).scalars().all()
 
     participating_data=[
             {
@@ -1282,7 +1307,8 @@ def get_coordinates():
     if len(location_name) > Constants.MAX_LOCATION_LEN:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Location name too long")
 
-    query = db.session.query(Location).filter_by(location_name=location_name).first()    
+    location_query = db.select(Location).filter_by(location_name=location_name)
+    query = db.session.execute(location_query, bind_arguments={'bind_key': 'readonly'}).scalar_one_or_none()  
     
     if not query:
         return make_api_response(ResponseTypes.NOT_FOUND, message="Location of that name not found")
@@ -1321,8 +1347,9 @@ def map_events():
             )
         )
 
-        events = db.session.query(Event, User.username).join(
-            User, Event.creator_id == User.user_id
+
+        events_query = db.select(Event).options(
+            joinedload(Event.pictures)
         ).filter(
             Event.date_and_time >= now_utc,
             or_(
@@ -1330,32 +1357,43 @@ def map_events():
                 Event.creator_id == user_id,
                 visibility_exists,
             )
-        ).order_by(Event.date_and_time.asc()).all()
+        ).order_by(
+            Event.date_and_time.asc(), 
+            Event.event_id.asc()
+        ).execution_options(bind_key="readonly") 
+        events = db.session.execute(events_query).scalars().unique().all()
 
-        final_map_data = []
+        events = [event for event in events if parse_location_coordinates(event.location) is not None]
 
-        for event, creator_name in events:
-            coords = parse_location_coordinates(event.location)
-            if coords is None:
-                continue
+        creator_ids = {event.creator_id for event in events if event.creator_id is not None}
 
-            local_dt = event.date_and_time.astimezone(local_tz)
+        creator_users_query = db.select(User).filter(User.user_id.in_(creator_ids))
+        creator_users = db.session.execute(creator_users_query, bind_arguments={'bind_key': 'readonly'}).scalars().all() if creator_ids else []
 
-            final_map_data.append({
-                "event_id": str(event.event_id),
-                "name": event.event_name,
-                "date": local_dt.strftime("%d.%m.%Y"),
-                "time": local_dt.strftime("%H:%M"),
-                "location": event.location,
-                "location_coordinates": coords,
-                "creator_username": creator_name,
-                "is_private": event.is_private
-            })
+        creator_lookup = {str(user.user_id): user for user in creator_users}
+
+        event_ids = [event.event_id for event in events]
+
+        if event_ids:
+            participant_rows_query = db.select(Event_participants.event_id).filter(
+                Event_participants.user_id == user_id,
+                Event_participants.event_id.in_(event_ids)
+            ).execution_options(bind_key="readonly")
+            participant_rows = db.session.execute(participant_rows_query).all()
+        else:
+            participant_rows = []
+            
+        participating_event_ids = {event_id for (event_id,) in participant_rows}
 
         return make_api_response(
             ResponseTypes.SUCCESS,
-            data={"data": final_map_data},
+            data={
+                "data": [
+                    serialize_event_payload(event, user_id, creator_lookup, participating_event_ids)
+                    for event in events
+                ]
+            },
         )
     except Exception as e:
-        current_app.logger.error(f"ERROR: /map, exception occured: {e}")
+        current_app.logger.error(f"Error in map_events: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
