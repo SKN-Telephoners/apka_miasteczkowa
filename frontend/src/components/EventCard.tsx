@@ -72,6 +72,7 @@ const formatCreatedAt = (createdAt?: string): string => {
 
 
 const META_ICON_SIZE = 18;
+const USERNAME_ICON_SIZE = 22;
 const MAP_INLINE_ICON_SIZE = 14;
 const TRAILING_ICON_SIZE = 24;
 
