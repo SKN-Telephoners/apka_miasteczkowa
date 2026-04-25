@@ -324,14 +324,54 @@ export const getSentInvitesForEvent = async (eventId: string): Promise<string[]>
 
 export const getIncomingEventInvites = async (): Promise<EventInviteNotification[]> => {
     try {
-        const response = await api.get<{ incomingInvites?: EventInviteNotification[] }>("/api/events/invites/incoming");
-        const incomingInvites = response.data?.incomingInvites;
-        return Array.isArray(incomingInvites) ? incomingInvites : [];
+        const response = await api.get<{ 
+            data?: Array<{
+                notification_id: string;
+                type: string;
+                payload: {
+                    invite_id: string;
+                    sender_id: string;
+                    sender_name: string;
+                    event_id: string;
+                    event_name: string;
+                    message: string;
+                };
+                date: string;
+                time: string;
+            }>
+        }>("/api/notifications/?type=event_invite&status=all");
+
+        const notifications = response.data?.data;
+        if (!Array.isArray(notifications)) return [];
+
+        return notifications.map(notif => ({
+            id: notif.payload.invite_id,
+            createdAt: `${notif.date} ${notif.time}`,
+            inviter: {
+                id: notif.payload.sender_id,
+                username: notif.payload.sender_name,
+                academy: undefined,
+                course: undefined,
+            },
+            event: {
+                id: notif.payload.event_id,
+                name: notif.payload.event_name,
+                description: "",
+                location: "",
+                date: notif.date,
+                time: notif.time,
+                creator_id: notif.payload.sender_id,
+                is_private: false,
+                comment_count: 0,
+                participant_count: 0,
+            }
+        }));
     } catch (err: any) {
         const msg = err?.response?.data?.message || err?.message || "Network error";
         throw new Error(msg);
     }
 };
+
 
 export const changeInviteStatus = async (inviteId: string, status: "accepted" | "declined"): Promise<string> => {
     try {
