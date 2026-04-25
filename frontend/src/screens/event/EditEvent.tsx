@@ -15,7 +15,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
 import { EventPicture } from "../../types";
 import { buildEventPreview } from "../../utils/eventPreview";
-import SvgSpriteIcon from "../../components/SvgSpriteIcon";
+import AppIcon from "../../components/AppIcon";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useUser } from "../../contexts/UserContext";
 import InputField from "../../components/InputField";
@@ -34,7 +34,6 @@ const EditEvent = () => {
     const { colors } = useTheme();
     const { user: currentUser } = useUser();
     const PREVIEW_ICON_SIZE = 22;
-    const PREVIEW_ICON_OFFSET = { x: 0, y: -60 };
 
     const parseBoolean = (value: unknown): boolean => {
         if (typeof value === "boolean") return value;
@@ -119,7 +118,7 @@ const EditEvent = () => {
                     activeOpacity={0.8}
                     accessibilityLabel="Podgląd"
                 >
-                    <SvgSpriteIcon set={2} size={PREVIEW_ICON_SIZE} offsetX={PREVIEW_ICON_OFFSET.x} offsetY={PREVIEW_ICON_OFFSET.y} />
+                    <AppIcon name="Preview" size={PREVIEW_ICON_SIZE} />
                 </TouchableOpacity>
             ),
         });

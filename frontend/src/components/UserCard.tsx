@@ -4,7 +4,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import Avatar from "./Avatar";
 import { THEME } from "../utils/constants";
-import SvgSpriteIcon from "./SvgSpriteIcon";
+import AppIcon from "./AppIcon";
 
 type UserCardProps = {
     creatorDisplayName: string;
@@ -24,10 +24,8 @@ type UserCardProps = {
     metaTextColor?: string;
 };
 
-const BASE_TILE_SIZE = 30;
 const META_ICON_SIZE = 18;
 const USERNAME_ICON_SIZE = 22;
-const USERNAME_ICON_OFFSET = { x: -BASE_TILE_SIZE * 2, y: -BASE_TILE_SIZE };
 
 const UserCard = ({
     creatorDisplayName,
@@ -84,7 +82,7 @@ const UserCard = ({
                                 disabled={!onUsernameIconPress}
                                 activeOpacity={0.8}
                             >
-                                <SvgSpriteIcon set={1} size={USERNAME_ICON_SIZE} offsetX={USERNAME_ICON_OFFSET.x} offsetY={USERNAME_ICON_OFFSET.y} />
+                                <AppIcon name="AddUser" size={USERNAME_ICON_SIZE} />
                             </TouchableOpacity>
                         )}
                     </View>
@@ -126,7 +124,7 @@ const UserCard = ({
                                     disabled={!onMetaIconPress}
                                     activeOpacity={0.8}
                                 >
-                                    <SvgSpriteIcon set={2} size={META_ICON_SIZE} />
+                                    <AppIcon name="MoreVertical" size={META_ICON_SIZE} />
                                 </TouchableOpacity>
                             )}
                         </View>
