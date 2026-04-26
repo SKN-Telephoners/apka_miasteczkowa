@@ -1,19 +1,21 @@
 import React, { useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
   Alert,
+  Dimensions,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
-import { authService } from "../../services/api";
-import InputField from "../../components/InputField";
 import Button from "../../components/Button";
+import InputField from "../../components/InputField";
 import { useTheme } from "../../contexts/ThemeContext";
+import { authService } from "../../services/api";
 import { MESSAGES, THEME } from "../../utils/constants";
+
+const { height } = Dimensions.get("window");
 
 const RegisterScreen = ({ navigation }: { navigation: any }) => {
   const [username, setUsername] = useState("");
@@ -31,7 +33,6 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
 
   const { colors } = useTheme();
 
-  // Field-specific validation functions
   const validateUsername = (text: string): string | null => {
     if (!text) {
       return "Pole jest wymagane";
@@ -43,7 +44,7 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
 
   const validateEmail = (text: string): string | null => {
     const email_pattern = new RegExp(
-      /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+      /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
     );
     if (!text) {
       return "Pole jest wymagane";
@@ -54,11 +55,10 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
   };
 
   const validatePassword = (text: string): string | null => {
-
     // TODO: add password upper limit 32 chars
 
     const password_pattern = new RegExp(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/,
     );
     if (!text) {
       return "Pole jest wymagane";
@@ -109,26 +109,29 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
       Alert.alert(
         "Rejestracja przebiegła pomyślnie!",
         "Konto zostało utworzone. Potwierdź swoje konto przez link, który dostaniesz na maila.",
-        [{
-          text: "Przejdź do logowania",
-          onPress: () => {
-            navigation.reset({
-              index: 0,
-              routes: [{ name: "Login" }],
-            });
-          }
-        }]
+        [
+          {
+            text: "Przejdź do logowania",
+            onPress: () => {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: "Login" }],
+              });
+            },
+          },
+        ],
       );
     } catch (error: any) {
       if (error.response) {
         Alert.alert(
           "Błąd rejestracji",
-          error.response.data.message || "Taki użytkownik lub email już istnieje."
+          error.response.data.message ||
+            "Taki użytkownik lub email już istnieje.",
         );
       } else {
         Alert.alert(
           "Błąd rejestracji",
-          "Wystąpił nieoczekiwany błąd. Spróbuj ponownie."
+          "Wystąpił nieoczekiwany błąd. Spróbuj ponownie.",
         );
       }
     } finally {
@@ -145,7 +148,9 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={[styles.title, { color: colors.text }]}>{MESSAGES.APP.REGISTER_TITLE}</Text>
+        <Text style={[styles.title, { color: colors.text }]}>
+          {"MESSAGES.APP.REGISTER_TITLE"}
+        </Text>
 
         <View style={styles.inputContainer}>
           <InputField
@@ -216,8 +221,15 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
 
 const styles = StyleSheet.create({
   container: {
+    flexGrow: 1,
+    minHeight: height,
+    display: "flex",
+    flexDirection: "column",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "space-between",
+    paddingTop: 90,
+    paddingBottom: 50,
+    paddingHorizontal: 20,
   },
   title: {
     ...THEME.typography.title,
@@ -227,12 +239,13 @@ const styles = StyleSheet.create({
   inputContainer: {
     flex: 2,
     width: "80%",
+    gap: 10,
     marginBottom: 40,
   },
   buttonContainer: {
-    width: "80%",
+    width: "60%",
     alignItems: "center",
-    gap: 15,
+    gap: 5,
   },
 });
 

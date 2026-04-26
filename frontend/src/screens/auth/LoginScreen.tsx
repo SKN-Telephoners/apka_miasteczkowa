@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   },
   title: {
     ...THEME.typography.title,
-    marginBottom: 60,
+    marginVertical: 30,
     textAlign: "center",
   },
   inputContainer: {
