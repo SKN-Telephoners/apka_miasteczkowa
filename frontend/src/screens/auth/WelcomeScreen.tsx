@@ -53,42 +53,44 @@ const WelcomeScreen = ({ navigation }: { navigation: any }) => {
           style={styles.backgroundImage}
           resizeMode="contain"
         />
-        <Svg height="250" width="350">
-          <Text
-            stroke="white"
-            strokeWidth={30}
-            strokeLinejoin="round"
-            fontSize={40}
-            fontWeight="bold"
-            textAnchor="middle"
-            x="175"
-            y="80"
-          >
-            <TSpan x="175" dy="0">
-              Aplikacja
-            </TSpan>
-            <TSpan x="175" dy="55">
-              Miasteczkowa
-            </TSpan>
-          </Text>
+        <View style={styles.svgContainer}>
+          <Svg width="100%" height="100%" viewBox="0 0 350 250">
+            <Text
+              stroke="white"
+              strokeWidth={30}
+              strokeLinejoin="round"
+              fontSize={45}
+              fontWeight="bold"
+              textAnchor="middle"
+              x="175"
+              y="80"
+            >
+              <TSpan x="175" dy="0">
+                Aplikacja
+              </TSpan>
+              <TSpan x="175" dy="55">
+                Miasteczkowa
+              </TSpan>
+            </Text>
 
-          <Text
-            fill="black"
-            fontSize={40}
-            fontWeight="bold"
-            textAnchor="middle"
-            x="175"
-            y="80"
-          >
-            <TSpan x="175" dy="0">
-              Aplikacja
-            </TSpan>
-            <TSpan x="175" dy="55">
-              Miasteczkowa
-            </TSpan>
-          </Text>
-        </Svg>
-          <Text>{MESSAGES.WELCOME.QUOTE}</Text>
+            <Text
+              fill="black"
+              fontSize={45}
+              fontWeight="bold"
+              textAnchor="middle"
+              x="175"
+              y="80"
+            >
+              <TSpan x="175" dy="0">
+                Aplikacja
+              </TSpan>
+              <TSpan x="175" dy="55">
+                Miasteczkowa
+              </TSpan>
+            </Text>
+          </Svg>
+        </View>
+        <Text>{MESSAGES.WELCOME.QUOTE}</Text>
         <View style={styles.buttonContainer}>
           <Button
             type="primary"
@@ -115,6 +117,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: 50,
     paddingHorizontal: 20,
+  },
+  svgContainer: {
+    width: "100%",
+    maxWidth: 400, 
+    aspectRatio: 350 / 250,
   },
   backgroundImage: {
     position: "absolute",
