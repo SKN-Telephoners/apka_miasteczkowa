@@ -176,14 +176,13 @@ export const MESSAGES = {
     SUBMIT: "Wyślij",
   },
 
-  // App Specific Messages
-  APP: {
-    WELCOME_TITLE: "Aplikacja Miasteczkowa",
-    WELCOME_QUOTE: "Bo życie studenckie to coś więcej niż nauka",
-    LOGIN_TITLE: "Zaloguj się",
-    REGISTER_TITLE: "Załóż konto",
-    RESET_PASSWORD_TITLE: "Zresetuj hasło",
-    HOME_TITLE: "Strona główna",
+  // Welcom Screen Messages
+  WELCOME: {
+    TITLE: "Aplikacja\n Miasteczkowa",
+    QUOTE: "Bo życie studenckie to coś więcej niż nauka",
+    LOGIN: "ZALOGUJ",
+    SIGN_UP: "Załóż konto",
+    RESET_PASSWORD: "Zresetuj hasło",
   },
 
   // Placeholder Messages

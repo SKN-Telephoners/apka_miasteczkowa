@@ -1,20 +1,18 @@
 import React, { useState } from "react";
 import {
-  View,
-  Alert,
   KeyboardAvoidingView,
+  Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  ActivityIndicator,
-  ScrollView,
-  Platform,
+  View,
 } from "react-native";
-import { useAuth } from "../../contexts/AuthContext";
-import { authService } from "../../services/api";
-import InputField from "../../components/InputField";
 import Button from "../../components/Button";
+import InputField from "../../components/InputField";
+import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
+import { authService } from "../../services/api";
 import { MESSAGES, THEME } from "../../utils/constants";
 
 const LoginScreen = ({ navigation }: { navigation: any }) => {
@@ -31,14 +29,14 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
 
   const validateUsername = (text: string): string | null => {
     if (!text) {
-      return "Nazwa użytkownika jest wymagana.";
+      return MESSAGES.VALIDATION.REQUIRED_FIELD;
     }
     return null;
   };
 
   const validatePassword = (text: string): string | null => {
     if (!text) {
-      return "Hasło jest wymagane.";
+      return MESSAGES.VALIDATION.REQUIRED_FIELD;
     }
     return null;
   };
@@ -60,7 +58,6 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
     try {
       const response = await authService.login(username, password);
       await login(response.access_token, response.refresh_token);
-      console.log("login success");
     } catch (error: any) {
       setUsernameError(MESSAGES.VALIDATION.CHECK_USERNAME);
       setPasswordError(MESSAGES.VALIDATION.CHECK_PASSWORD);
@@ -78,7 +75,9 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={[styles.title, { color: colors.text }]}>{MESSAGES.APP.LOGIN_TITLE}</Text>
+        <Text style={[styles.title, { color: colors.text }]}>
+          {"MESSAGES.APP.LOGIN_TITLE"}
+        </Text>
 
         <View style={styles.inputContainer}>
           <InputField
@@ -142,8 +141,13 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "space-between",
+    paddingVertical: 50,
+    paddingHorizontal: 20,
   },
   title: {
     ...THEME.typography.title,
@@ -153,12 +157,13 @@ const styles = StyleSheet.create({
   inputContainer: {
     flex: 2,
     width: "80%",
+    gap: 15,
     marginBottom: 40,
   },
   buttonContainer: {
-    width: "80%",
+    width: "60%",
     alignItems: "center",
-    gap: 15,
+    gap: 5,
   },
   forgotPasswordButton: {
     alignSelf: "flex-start",

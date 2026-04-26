@@ -173,7 +173,7 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     height: 40,
     borderWidth: 2,
     borderColor: colors.searchWord,
-    backgroundColor: colors.border,
+    backgroundColor: colors.background,
   },
   inputBoxError: {
     borderColor: colors.aghRed,
@@ -196,7 +196,7 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
   },
   legend: {
     position: "absolute",
-    top: -10,
+    top: -12,
     left: 18,
     paddingHorizontal: 5,
   },
