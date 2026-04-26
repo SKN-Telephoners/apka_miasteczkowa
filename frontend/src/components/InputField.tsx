@@ -12,7 +12,7 @@ import {
 import { useMemo } from "react";
 import { useTheme } from "../contexts/ThemeContext";
 import { THEME } from '../utils/constants';
-import SvgSpriteIcon from "./SvgSpriteIcon";
+import AppIcon from "./AppIcon";
 
 interface InputFieldProps {
   placeholder: string;
@@ -34,7 +34,6 @@ interface InputFieldProps {
   leadingElement?: React.ReactNode;
 }
 
-const BASE_TILE_SIZE = 30;
 const ICON_SIZE = 18;
 
 const InputField: React.FC<InputFieldProps> = ({
@@ -144,7 +143,7 @@ const InputField: React.FC<InputFieldProps> = ({
         )}
         {!toggleSecure && showSearchSpriteIcon && (
           <View style={styles.searchIconContainer}>
-            <SvgSpriteIcon set={1} size={ICON_SIZE} />
+            <AppIcon name="Search" size={ICON_SIZE} />
           </View>
         )}
       </View>

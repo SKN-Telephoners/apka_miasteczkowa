@@ -7,7 +7,7 @@ import Button from "./Button";
 import { tokenStorage } from "../utils/storage";
 import { joinEvent, leaveEvent } from "../services/events";
 import UserCard from "./UserCard";
-import SvgSpriteIcon from "./SvgSpriteIcon";
+import AppIcon from "./AppIcon";
 import { useTheme } from "../contexts/ThemeContext";
 import { useFriends } from "../contexts/FriendsContext";
 
@@ -70,18 +70,11 @@ const formatCreatedAt = (createdAt?: string): string => {
     return `${years} lat temu`;
 };
 
-const BASE_TILE_SIZE = 30;
+
 const META_ICON_SIZE = 18;
 const USERNAME_ICON_SIZE = 22;
-const USERNAME_ICON_OFFSET = { x: -BASE_TILE_SIZE * 2, y: -BASE_TILE_SIZE };
 const MAP_INLINE_ICON_SIZE = 14;
-const MAP_INLINE_ICON_OFFSET = { x: 0, y: -BASE_TILE_SIZE };
 const TRAILING_ICON_SIZE = 24;
-const HEART_ICON_OFFSET = { x: 0, y: -BASE_TILE_SIZE * 2 };
-const COMMENT_ICON_OFFSET = { x: -BASE_TILE_SIZE, y: -BASE_TILE_SIZE * 2 };
-const SHARE_ICON_OFFSET = { x: -BASE_TILE_SIZE * 2, y: -BASE_TILE_SIZE * 2 };
-const EDIT_MENU_ICON_OFFSET = { x: -BASE_TILE_SIZE * 2, y: -BASE_TILE_SIZE };
-
 
 const EventCard = ({
     item,
@@ -254,7 +247,7 @@ const EventCard = ({
                             activeOpacity={0.8}
                         >
                             <View style={styles.metaIconContainer}>
-                                <SvgSpriteIcon set={2} size={META_ICON_SIZE} offsetX={EDIT_MENU_ICON_OFFSET.x} offsetY={EDIT_MENU_ICON_OFFSET.y} />
+                                <AppIcon name="Edit" size={META_ICON_SIZE} />
                             </View>
                         </TouchableOpacity>
                     )}
@@ -282,7 +275,7 @@ const EventCard = ({
                         <TouchableOpacity style={styles.mapLabelRow} onPress={handleOpenOnMap} activeOpacity={0.8}>
                             <Text style={[styles.textHighlight, isPastEvent && styles.pastMetaText]}>• MAPA</Text>
                             <View style={styles.mapInlineIconContainer}>
-                                <SvgSpriteIcon set={1} size={MAP_INLINE_ICON_SIZE} offsetX={MAP_INLINE_ICON_OFFSET.x} offsetY={MAP_INLINE_ICON_OFFSET.y} />
+                                <AppIcon name="Map" size={MAP_INLINE_ICON_SIZE} />
                             </View>
                         </TouchableOpacity>
                     </View>
@@ -317,7 +310,7 @@ const EventCard = ({
                     <View style={styles.trailingIconsRow}>
                         <View style={styles.trailingActionItem}>
                             <View style={styles.trailingIconContainer}>
-                                <SvgSpriteIcon set={1} size={TRAILING_ICON_SIZE} offsetX={HEART_ICON_OFFSET.x} offsetY={HEART_ICON_OFFSET.y} />
+                                <AppIcon name="Heart" size={TRAILING_ICON_SIZE} />
                             </View>
                             <Text style={styles.trailingCountText}>{participantCount}</Text>
                         </View>
@@ -327,7 +320,7 @@ const EventCard = ({
                             activeOpacity={0.8}
                         >
                             <View style={styles.trailingIconContainer}>
-                                <SvgSpriteIcon set={1} size={TRAILING_ICON_SIZE} offsetX={COMMENT_ICON_OFFSET.x} offsetY={COMMENT_ICON_OFFSET.y} />
+                                <AppIcon name="Comment" size={TRAILING_ICON_SIZE} />
                             </View>
                             <Text style={styles.trailingCountText}>{Number(item.comment_count ?? 0)}</Text>
                         </TouchableOpacity>
@@ -344,7 +337,7 @@ const EventCard = ({
                                     disabled={!canInviteFromCard}
                                     activeOpacity={0.8}
                                 >
-                                    <SvgSpriteIcon set={1} size={TRAILING_ICON_SIZE} offsetX={SHARE_ICON_OFFSET.x} offsetY={SHARE_ICON_OFFSET.y} />
+                                    <AppIcon name="Share" size={TRAILING_ICON_SIZE} />
                                 </TouchableOpacity>
                             </View>
                         )}

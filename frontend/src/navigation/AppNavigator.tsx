@@ -16,7 +16,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../contexts/AuthContext";
 import { ActivityIndicator, View, TouchableOpacity } from "react-native";
 import AppIcon from "../components/AppIcon";
-import SvgSpriteIcon from "../components/SvgSpriteIcon";
 import { useTheme } from "../contexts/ThemeContext";
 import { useUser } from "../contexts/UserContext";
 import { useFriends } from "../contexts/FriendsContext";
@@ -38,7 +37,6 @@ const AuthStack = () => {
 };
 
 const ICON_SIZE = 30;
-const SEARCH_ICON_OFFSET = { x: -ICON_SIZE * 2, y: 0 };
 const SearchScreen = require("../screens/user/SearchScreen").default;
 
 const ROUTE_ICON_MAP: Record<string, string> = {
@@ -119,7 +117,7 @@ const MainTabs = () => {
                 style={{ marginHorizontal: 20 }}
                 onPress={() => navigation.navigate('Wydarzenia', { screen: 'AddEvent' })}
               >
-                <SvgSpriteIcon set={2} size={ICON_SIZE} offsetX={SEARCH_ICON_OFFSET.x} offsetY={SEARCH_ICON_OFFSET.y} />
+                <AppIcon name="Plus" size={ICON_SIZE} />
               </TouchableOpacity>
               <TouchableOpacity style={{ marginHorizontal: 20 }} onPress={() => navigation.navigate('Search')}>
                 <AppIcon name="Search" size={28} />
