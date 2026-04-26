@@ -55,17 +55,15 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
   };
 
   const validatePassword = (text: string): string | null => {
-    // TODO: add password upper limit 32 chars
-
     const password_pattern = new RegExp(
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/,
     );
     if (!text) {
       return "Pole jest wymagane";
-    } else if (text.length < 8) {
-      return "Hasło musi mieć co najmniej 8 znaków";
+    } else if (text.length < 8 || text.length > 32) {
+      return "Hasło musi mieć pomiędzy 8 a 32 znaki";
     } else if (!password_pattern.test(text)) {
-      return "Hasło musi zawierać co najmniej jedną wielką literę, jedną małą literę i jedną cyfrę";
+      return "Hasło musi zawierać co najmniej jedną wielką, małą literę i cyfrę";
     }
     return null;
   };
