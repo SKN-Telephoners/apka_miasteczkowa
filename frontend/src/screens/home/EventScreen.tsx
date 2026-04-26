@@ -17,12 +17,10 @@ import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/nativ
 import { THEME } from "../../utils/constants";
 import ItemSeparator from "../../components/ItemSeparator"
 import { useInfiniteQuery } from "@tanstack/react-query"
-import SvgSpriteIcon from "../../components/SvgSpriteIcon";
+import AppIcon from "../../components/AppIcon";
 import { useTheme } from "../../contexts/ThemeContext";
 
-const BASE_TILE_SIZE = 30;
 const FILTER_ICON_SIZE = 30;
-const FILTER_ICON_OFFSET = { x: -BASE_TILE_SIZE, y: 0 };
 const PAGE_SIZE = 20;
 
 const mergeUniqueEventsById = (events: Event[]): Event[] => {
@@ -175,7 +173,7 @@ const EventScreen = () => {
                     activeOpacity={0.8}
                 >
                     <View style={styles.filterIconContainer}>
-                        <SvgSpriteIcon set={1} size={FILTER_ICON_SIZE} offsetX={FILTER_ICON_OFFSET.x} offsetY={FILTER_ICON_OFFSET.y} />
+                        <AppIcon name="Sliders" size={FILTER_ICON_SIZE} />
                     </View>
                 </TouchableOpacity>
             </View>

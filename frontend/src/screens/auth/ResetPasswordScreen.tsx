@@ -1,45 +1,58 @@
 import React, { useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
   Alert,
+  Dimensions,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  TouchableOpacity,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
-import { useTheme } from "../../contexts/ThemeContext";
-import { THEME, MESSAGES } from "../../utils/constants";
-import InputField from "../../components/InputField";
 import Button from "../../components/Button";
+import InputField from "../../components/InputField";
+import { useTheme } from "../../contexts/ThemeContext";
+import { MESSAGES, THEME } from "../../utils/constants";
+
+const { height } = Dimensions.get("window");
 
 const ResetPasswordScreen = ({ navigation }: { navigation: any }) => {
   const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState("");
   const { colors } = useTheme();
 
+  const validateEmail = (text: string): string | null => {
+    const email_pattern = new RegExp(
+      /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+    );
+    if (!email_pattern.test(text)) {
+      return "Nieprawidłowy adres e-mail";
+    }
+    return null;
+  };
+
   const handleResetPassword = () => {
-    if (!email) {
-      Alert.alert("Błąd", "Podaj swój adres email");
+    const error = validateEmail(email);
+    if (error) {
+      setEmailError(error);
       return;
     }
+    setEmailError("");
 
-    console.log("Wysyłanie linku resetowania hasła na adres:", email);
     Alert.alert("Sukces", "Link do resetowania hasła został wysłany!");
   };
 
   return (
     <KeyboardAvoidingView
-      style={[styles.screen, { backgroundColor: colors.background }]}
+      style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
       >
         <Text style={[styles.title, { color: colors.text }]}>
-          {MESSAGES.APP.RESET_PASSWORD_TITLE}
+          {"MESSAGES.APP.RESET_PASSWORD_TITLE"}
         </Text>
 
         <View style={styles.inputContainer}>
@@ -52,12 +65,10 @@ const ResetPasswordScreen = ({ navigation }: { navigation: any }) => {
             textContentType="emailAddress"
             importantForAutofill="yes"
             showFloatingLabel={false}
-            reserveErrorSpace={false}
+            reserveErrorSpace={true}
             floatingLabelColor={colors.text}
             floatingLabelBackgroundColor={colors.background}
-            leadingElement={
-              <Text style={[styles.emoji, { color: colors.highlight }]}>✉️</Text>
-            }
+            errorMessage={emailError}
           />
         </View>
 
@@ -67,50 +78,45 @@ const ResetPasswordScreen = ({ navigation }: { navigation: any }) => {
             onPress={handleResetPassword}
             type="primary"
           />
-        </View>
 
-        <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.8}>
-          <Text style={[styles.backText, { color: colors.highlight }]}>
-            Wróć do logowania
-          </Text>
-        </TouchableOpacity>
+          <Button
+            title={MESSAGES.BUTTONS.BACK_TO_LOGIN}
+            onPress={() => navigation.navigate("Login")}
+            type="outline"
+          />
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
   container: {
     flexGrow: 1,
-    justifyContent: "center",
+    minHeight: height,
+    display: "flex",
+    flexDirection: "column",
     alignItems: "center",
-    padding: THEME.spacing.m,
+    justifyContent: "center",
+    paddingTop: 180,
+    paddingBottom: 50,
+    paddingHorizontal: 20,
   },
   title: {
     ...THEME.typography.title,
+    marginVertical: 30,
     textAlign: "center",
-    marginBottom: THEME.spacing.xl,
   },
   inputContainer: {
+    flex: 2,
     width: "80%",
-    marginBottom: THEME.spacing.l,
+    gap: 10,
+    marginBottom: 40,
   },
   buttonContainer: {
-    width: "80%",
+    width: "60%",
     alignItems: "center",
-    marginBottom: THEME.spacing.m,
-  },
-  emoji: {
-    fontSize: 18,
-  },
-  backText: {
-    ...THEME.typography.text,
-    fontSize: 13,
-    textAlign: "center",
-    marginTop: THEME.spacing.s,
+    gap: 5,
   },
 });
 

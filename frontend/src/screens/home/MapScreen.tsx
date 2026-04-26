@@ -4,8 +4,13 @@ import {
   MapView,
   ShapeSource,
 } from "@maplibre/maplibre-react-native";
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+} from "@react-navigation/native";
 import Constants from "expo-constants";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -15,10 +20,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
+import Button from "../../components/Button";
+import { useTheme } from "../../contexts/ThemeContext";
 import { getMapEvents } from "../../services/events";
 import { Event } from "../../types";
-import { useCallback, useRef } from "react";
+
 
 const DEFAULT_CAMERA = {
   centerCoordinate: [19.9061, 50.0686] as [number, number],
@@ -26,7 +32,7 @@ const DEFAULT_CAMERA = {
   heading: 13,
 };
 
-const MAP_REFRESH_COOLDOWN_MS = 30_000;
+const MAP_REFRESH_COOLDOWN_MS = 60_000;
 
 export default function MapScreen() {
   const navigation = useNavigation<any>();
@@ -43,8 +49,13 @@ export default function MapScreen() {
   const lastFetchedAtRef = useRef(0);
   const inFlightRef = useRef<Promise<void> | null>(null);
 
+  const { colors } = useTheme();
+
   const fetchMapEvents = useCallback(
-    async ({ force = false, userInitiated = false }: { force?: boolean; userInitiated?: boolean } = {}) => {
+    async ({
+      force = false,
+      userInitiated = false,
+    }: { force?: boolean; userInitiated?: boolean } = {}) => {
       if (inFlightRef.current) {
         return inFlightRef.current;
       }
@@ -112,34 +123,39 @@ export default function MapScreen() {
     setCameraPosition(DEFAULT_CAMERA);
   };
 
-  const focusEventOnMap = useCallback((eventId: string, location: string) => {
-    try {
-      const coords = JSON.parse(location) as [number, number];
-      if (!Array.isArray(coords) || coords.length !== 2) {
-        return;
+  const focusEventOnMap = useCallback(
+    (eventId: string, location: string) => {
+      try {
+        const coords = JSON.parse(location) as [number, number];
+        if (!Array.isArray(coords) || coords.length !== 2) {
+          return;
+        }
+
+        setSelectedEventId(eventId);
+        cameraRef.current?.setCamera?.({
+          centerCoordinate: coords,
+          zoomLevel: 20,
+          heading: cameraPosition.heading,
+          animationDuration: 1200,
+          animationMode: "flyTo",
+        });
+
+        setCameraPosition((prev) => ({
+          ...prev,
+          centerCoordinate: coords,
+          zoomLevel: 20,
+        }));
+      } catch {
+        // Ignore invalid location payload.
       }
-
-      setSelectedEventId(eventId);
-      cameraRef.current?.setCamera?.({
-        centerCoordinate: coords,
-        zoomLevel: 20,
-        heading: cameraPosition.heading,
-        animationDuration: 1200,
-        animationMode: "flyTo",
-      });
-
-      setCameraPosition((prev) => ({
-        ...prev,
-        centerCoordinate: coords,
-        zoomLevel: 20,
-      }));
-    } catch {
-      // Ignore invalid location payload.
-    }
-  }, [cameraPosition.heading]);
+    },
+    [cameraPosition.heading],
+  );
 
   useEffect(() => {
-    const focusEvent = route.params?.focusEvent as { id?: string; location?: string } | undefined;
+    const focusEvent = route.params?.focusEvent as
+      | { id?: string; location?: string }
+      | undefined;
     if (!focusEvent?.id || !focusEvent?.location) {
       return;
     }
@@ -179,13 +195,16 @@ export default function MapScreen() {
             return null;
           }
         })
-        .filter((feature): feature is NonNullable<typeof feature> => Boolean(feature)),
+        .filter((feature): feature is NonNullable<typeof feature> =>
+          Boolean(feature),
+        ),
     }),
     [events],
   );
 
   const handleShapePress = (event: any) => {
-    const feature = event?.features?.[0] ?? event?.nativeEvent?.payload?.features?.[0];
+    const feature =
+      event?.features?.[0] ?? event?.nativeEvent?.payload?.features?.[0];
     const eventId = feature?.properties?.id;
 
     if (!eventId) {
@@ -216,7 +235,11 @@ export default function MapScreen() {
             heading={cameraPosition.heading}
             minZoomLevel={16.5}
           />
-          <ShapeSource id="events" shape={eventsGeoJSON} onPress={handleShapePress}>
+          <ShapeSource
+            id="events"
+            shape={eventsGeoJSON}
+            onPress={handleShapePress}
+          >
             <CircleLayer
               id="event-circles"
               style={{
@@ -230,15 +253,15 @@ export default function MapScreen() {
         {/* Events List Panel */}
         {showEventsList && (
           <View style={styles.eventsPanel}>
-            <View style={styles.eventsPanelHeader}>
-              <Text style={styles.eventsPanelTitle}>Wydarzenia</Text>
+            <View style={[styles.eventsPanelHeader, {backgroundColor: colors.highlight }]}>
+              <Text style={[styles.eventsPanelTitle, {color: colors.background }]}>Wydarzenia</Text>
               <TouchableOpacity onPress={() => setShowEventsList(false)}>
-                <Text style={styles.closePanelButton}>✕</Text>
+                <Text style={[styles.closePanelButton, {color: colors.background }]}>✕</Text>
               </TouchableOpacity>
             </View>
             {isLoading && events.length === 0 ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#007AFF" />
+                <ActivityIndicator size="large" color={colors.highlight} />
               </View>
             ) : (
               <ScrollView
@@ -246,8 +269,10 @@ export default function MapScreen() {
                 refreshControl={
                   <RefreshControl
                     refreshing={isRefreshing}
-                    onRefresh={() => fetchMapEvents({ force: true, userInitiated: true })}
-                    tintColor="#007AFF"
+                    onRefresh={() =>
+                      fetchMapEvents({ force: true, userInitiated: true })
+                    }
+                    tintColor={colors.highlight}
                   />
                 }
               >
@@ -290,17 +315,18 @@ export default function MapScreen() {
 
         {/* Events List Button */}
         {!showEventsList && (
-          <TouchableOpacity
+          <Button
             style={styles.toggleListButton}
             onPress={() => setShowEventsList(true)}
-          >
-            <Text style={styles.toggleListButtonText}>☰</Text>
-          </TouchableOpacity>
+            title="☰"
+          />
         )}
 
-        <TouchableOpacity style={styles.resetButton} onPress={resetCamera}>
-          <Text style={styles.resetButtonText}>Zresetuj lokalizację</Text>
-        </TouchableOpacity>
+        <Button
+          style={styles.resetButton}
+          onPress={resetCamera}
+          title="Reset"
+        />
       </View>
     </View>
   );
@@ -315,15 +341,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 20,
     right: 5,
-    backgroundColor: "#007AFF",
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-  },
-  resetButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
+    maxWidth: 80,
   },
   eventsPanel: {
     position: "absolute",
@@ -331,7 +349,6 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 280,
-    backgroundColor: "#fff",
     borderRightWidth: 1,
     borderRightColor: "#e0e0e0",
   },
@@ -343,7 +360,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#e0e0e0",
-    backgroundColor: "#f5f5f5",
   },
   eventsPanelTitle: {
     fontSize: 16,
@@ -387,14 +403,6 @@ const styles = StyleSheet.create({
     top: 10,
     width: 40,
     height: 40,
-    backgroundColor: "#007AFF",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3,
-    elevation: 5,
   },
   toggleListButtonText: {
     fontSize: 20,
