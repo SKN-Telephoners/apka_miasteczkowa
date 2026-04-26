@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import {
+  Dimensions,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -14,6 +15,8 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { authService } from "../../services/api";
 import { MESSAGES, THEME } from "../../utils/constants";
+
+const { height } = Dimensions.get("window");
 
 const LoginScreen = ({ navigation }: { navigation: any }) => {
   const [username, setUsername] = useState("");
@@ -75,9 +78,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={[styles.title, { color: colors.text }]}>
-          {"MESSAGES.APP.LOGIN_TITLE"}
-        </Text>
+        <Text style={styles.title}>{"MESSAGES.APP.LOGIN_TITLE"}</Text>
 
         <View style={styles.inputContainer}>
           <InputField
@@ -141,23 +142,25 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
+    minHeight: height,
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 50,
+    paddingTop: 120,
+    paddingBottom: 50,
     paddingHorizontal: 20,
   },
   title: {
     ...THEME.typography.title,
-    marginVertical: 30,
+    marginBottom: 60,
     textAlign: "center",
   },
   inputContainer: {
     flex: 2,
     width: "80%",
-    gap: 15,
+    gap: 10,
     marginBottom: 40,
   },
   buttonContainer: {
