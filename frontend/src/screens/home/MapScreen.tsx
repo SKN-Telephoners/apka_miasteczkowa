@@ -25,7 +25,6 @@ import { useTheme } from "../../contexts/ThemeContext";
 import { getMapEvents } from "../../services/events";
 import { Event } from "../../types";
 
-
 const DEFAULT_CAMERA = {
   centerCoordinate: [19.9061, 50.0686] as [number, number],
   zoomLevel: 17.5,
@@ -143,8 +142,10 @@ export default function MapScreen() {
         setCameraPosition((prev) => ({
           ...prev,
           centerCoordinate: coords,
-          zoomLevel: 20,
+          zoomLevel: 22,
         }));
+
+        
       } catch {
         // Ignore invalid location payload.
       }
@@ -243,8 +244,10 @@ export default function MapScreen() {
             <CircleLayer
               id="event-circles"
               style={{
-                circleRadius: 5,
-                circleColor: "#007AFF",
+                circleRadius: 10,
+                circleStrokeColor: colors.highlight,
+                circleStrokeWidth: 5,
+                circleColor: colors.background,
               }}
             />
           </ShapeSource>
