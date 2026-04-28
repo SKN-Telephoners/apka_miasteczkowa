@@ -6,6 +6,10 @@ from backend.models.event import Event_visibility
 from sqlalchemy.exc import NoResultFound
 import uuid
 import bleach
+from backend.extensions import redis_client
+import json
+from backend.constants import Constants
+from flask import current_app
 
 def add_token_to_db(encoded_token):
     decoded_token = decode_token(encoded_token)
@@ -96,3 +100,35 @@ def has_event_access(user_id, event):
     ).first()
     
     return access is not None
+
+def get_event_cache_key(event_id):
+    return f"event:v1:{event_id}"
+
+def cache_event_data(event_id, data):
+    try:
+        cache_ready_data = data.copy()
+        cache_ready_data.pop("is_participating", None)
+        cache_ready_data.pop("is_joined", None)
+        cache_ready_data.pop("participation_count", None)
+        redis_client.setex(
+            get_event_cache_key(event_id),
+            Constants.CACHE_TTL,
+            json.dumps(cache_ready_data)
+        )
+    except Exception as e:
+        current_app.logger.error(f"Redis Set Error: {e}")
+
+def invalidate_event_cache(event_id):
+    try:
+        redis_client.delete(get_event_cache_key(event_id))
+
+    except Exception as e:
+        current_app.logger.error(f"Redis Delete Error: {e}")
+
+def get_cached_event(event_id):
+    try:
+        cached = redis_client.get(get_event_cache_key(event_id))
+        return json.loads(cached) if cached else None
+    except Exception as e:
+        current_app.logger.error(f"Redis Get Error: {e}")
+        return None

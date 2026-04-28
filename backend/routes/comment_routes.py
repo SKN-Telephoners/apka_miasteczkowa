@@ -4,7 +4,7 @@ from backend.extensions import db, limiter
 from backend.constants import Constants
 from backend.responses import ResponseTypes, make_api_response
 from flask_jwt_extended import jwt_required, get_current_user
-from backend.helpers import validate_uuid, sanitize_input, has_event_access
+from backend.helpers import validate_uuid, sanitize_input, has_event_access,  get_event_cache_key, invalidate_event_cache, get_cached_event, cache_event_data
 from sqlalchemy.exc import SQLAlchemyError
 
 comments_bp = Blueprint("comments", __name__, url_prefix="/api/comments")
@@ -40,6 +40,7 @@ def create_comment(event_id):
 
         db.session.add(new_comment)
         db.session.commit()
+        invalidate_event_cache(str(event_id))
     except SQLAlchemyError as e:
         db.session.rollback()
         current_app.logger.error(f"Database error create_commnet: {e}")
@@ -90,6 +91,7 @@ def reply_to_comment(parent_comment_id):
 
         db.session.add(new_comment)
         db.session.commit()
+        invalidate_event_cache(str(parent_comment.event_id))
     except SQLAlchemyError as e:
         db.session.rollback()
         current_app.logger.error(f"Database error reply_to_comment: {e}")
@@ -118,6 +120,7 @@ def delete_comment(comment_id):
     try: 
         comment.soft_delete()
         db.session.commit()
+        invalidate_event_cache(str(comment.event_id))
     except SQLAlchemyError as e:
         db.session.rollback()
         current_app.logger.error(f"Database error delete_comment: {e}")

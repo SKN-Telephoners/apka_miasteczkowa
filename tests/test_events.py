@@ -7,6 +7,7 @@ from backend.models import Event, User
 from backend.models.event import Event_visibility, Pictures
 from zoneinfo import ZoneInfo
 from unittest.mock import patch
+from sqlalchemy import insert
 
 local_tz = ZoneInfo("Europe/Warsaw")
 TINY_JPG = base64.b64decode(
@@ -623,13 +624,19 @@ def test_map_events_returns_only_future_events(client, logged_in_user, app):
     with app.app_context():
         user, token = logged_in_user
 
-        past_event = Event(
-            event_name="past map event",
-            description="old",
-            date_and_time=datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc),
-            location="[19.900000,50.060000]",
-            creator_id=user.user_id,
-            is_private=False,
+        past_event_id = uuid.uuid4()
+        db.session.execute(
+            insert(Event).values(
+                event_id=past_event_id,
+                event_name="past map event",
+                description="old",
+                date_and_time=datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc),
+                location="[19.900000,50.060000]",
+                creator_id=user.user_id,
+                is_private=False,
+                comment_count=0,
+                participant_count=0
+            )
         )
         future_event = Event(
             event_name="future map event",
@@ -639,7 +646,7 @@ def test_map_events_returns_only_future_events(client, logged_in_user, app):
             creator_id=user.user_id,
             is_private=False,
         )
-        db.session.add_all([past_event, future_event])
+        db.session.add_all([future_event])
         db.session.commit()
 
         response = client.get(
