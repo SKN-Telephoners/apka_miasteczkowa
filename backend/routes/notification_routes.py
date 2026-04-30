@@ -96,6 +96,7 @@ def get_notifications():
             for notif in pagination.items
         ]
 
+        current_app.logger.info(f"INFO: /get_notifications, retrieved notifications for user: {user_id}")
         return make_api_response(ResponseTypes.SUCCESS, data={
             "data": notification_list,
             "pagination": {
@@ -108,5 +109,5 @@ def get_notifications():
             }
         })
     except Exception as e:
-        current_app.logger.error(f"Error in get_notifications: {e}")
+        current_app.logger.error(f"ERROR: /get_notifications, DB exception occured: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)

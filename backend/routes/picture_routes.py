@@ -1,7 +1,7 @@
 from flask import Blueprint, request, current_app, jsonify
 from backend.extensions import limiter
 from backend.responses import ResponseTypes, make_api_response
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_current_user
 import cloudinary.uploader
 
 pictures_bp = Blueprint("pictures", __name__, url_prefix="/api/pictures")
@@ -13,6 +13,7 @@ def upload_file():
     if 'file' not in request.files:
         return make_api_response(ResponseTypes.BAD_REQUEST, message="No file provided")
 
+    user_id = get_current_user()
     file = request.files['file']
     
     # Get manual tags from the request body
@@ -32,6 +33,7 @@ def upload_file():
         picture_url = response.get('eager')[0].get('secure_url') if response.get('eager') else response.get('secure_url')
         picture_id = response.get('public_id') or response.get('cloud_id')
 
+        current_app.logger.info(f"INFO: /upload_file, success in uploading and tagging file for user: {user_id.user_id}")
         return make_api_response(ResponseTypes.CREATED, data={
             "picture_url": picture_url,
             "cloud_id": picture_id,
@@ -40,6 +42,7 @@ def upload_file():
         }, message="Picture uploaded and tagged successfully") # Returns the tags as a Python list
 
     except Exception as e:
+        current_app.logger.error(f"ERROR: /upload_file, DB exception occured: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @pictures_bp.route("/upload-batch", methods=["POST"])
@@ -50,6 +53,7 @@ def upload_multiple_files():
         return make_api_response(ResponseTypes.BAD_REQUEST, message="No files provided")
 
     files = request.files.getlist('files')
+    user_id = get_current_user()
     
     if len(files) == 0:
         return make_api_response(ResponseTypes.BAD_REQUEST, message="File list is empty")
@@ -86,16 +90,18 @@ def upload_multiple_files():
             })
 
         except Exception as e:
-            current_app.logger.error(f"Cloudinary upload error for {file.filename}: {e}")
+            current_app.logger.error(f"ERROR: /upload_multiple_files, Cloudinary upload error for {file.filename}: {e}")
             errors.append({"filename": file.filename, "error": str(e)})
 
     # If all uploads failed
     if not uploaded_data and errors:
+        current_app.logger.error(f"ERROR: /upload_multiple_files, Cloudinary upload error for all files: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR, message="Failed to upload pictures", data={"errors": errors})
 
     # Return partial or full success
     message = "All pictures uploaded successfully" if not errors else "Some pictures failed to upload"
     
+    current_app.logger.info(f"INFO: /upload_multiple_files, success in uploading files for user: {user_id.user_id}")
     return make_api_response(ResponseTypes.CREATED, data={
         "pictures": uploaded_data,
         "errors": errors 

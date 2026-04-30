@@ -145,7 +145,7 @@ def create_event():
     required_keys = {"name", "description", "date", "time", "location", "is_private"}
 
     if not required_keys.issubset(event_data.keys()):
-        current_app.logger.error("dupa")
+        current_app.logger.warning(f"WARNING: /create_event, user {user.user_id} tried to create event with missing fields")
         return make_api_response(ResponseTypes.BAD_REQUEST, message="Missing fields")
     
     name = sanitize_input(str(event_data.get("name", ""))).strip()
@@ -154,6 +154,7 @@ def create_event():
     time_str = str(event_data.get("time", "")).strip()
     location, location_error = normalize_location_input(event_data.get("location"))
     if location_error:
+        current_app.logger.warning(f"WARNING: /create_event, for user {user.user_id} location error: {location_error}")
         return make_api_response(ResponseTypes.INVALID_DATA, message=location_error)
     is_private_raw = event_data.get("is_private", False)
     is_private = str(is_private_raw).strip().lower() in ['true', '1', 't', 'y', 'yes']
@@ -179,9 +180,11 @@ def create_event():
         date_and_time = local_dt.astimezone(timezone.utc)
         
         if date_and_time <= datetime.now(timezone.utc):
+            current_app.logger.warning(f"WARNING: /create_event, user {user.user_id} tried to create event with date in past")
             return make_api_response(ResponseTypes.BAD_REQUEST, message="Event date must be in the future")
              
     except ValueError:
+        current_app.logger.error(f"ERROR: /create_event, user {user.user_id} tried to create event with invalid date format")
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid date format. Use DD.MM.YYYY and HH:MM")
 
     # IMPORTANT: Before calling create/event endpoint frontend needs to call /upload and upload pictures to the cloud one by one
@@ -244,12 +247,14 @@ def create_event():
                 db.session.add(new_event_visibility)
         db.session.commit() 
         creator_lookup = {str(user.user_id): user}
-        event_data = serialize_event_payload(new_event, user.user_id, creator_lookup, set())
-        cache_event_data(str(new_event.event_id), event_data)
+        ser_event_data = serialize_event_payload(new_event, user.user_id, creator_lookup, set())
+        cache_event_data(str(new_event.event_id), ser_event_data)
         
+        current_app.logger.info(f"INFO: /create_event, user {user.user_id} created event {new_event.event_id}")
+
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"Database error: {e}")
+        current_app.logger.error(f"ERROR: /create_event, DB exception occured: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
     return make_api_response(ResponseTypes.CREATED, message="Event created successfully", data={"event_id": str(new_event.event_id)})
 
@@ -269,21 +274,22 @@ def delete_event(event_id):
         return make_api_response(ResponseTypes.NOT_FOUND, message="Event doesn't exist")
 
     if user.user_id != event.creator_id:
-        current_app.logger.warning(f"Użytkownik {user.user_id} próbował usunąć event {event_id} bez uprawnień do niego")
+        current_app.logger.warning(f"WARNING: /delete_event, user {user.user_id} tried to delete event {event_id} without permissions")
         return make_api_response(ResponseTypes.FORBIDDEN, message="You can delete your own events only")
     try:
         for picture in event.pictures:
             try:
                 cloudinary.uploader.destroy(picture.cloud_id)
             except Exception as cloud_err:
-                current_app.logger.error(f"Failed to delete picture {picture.cloud_id} from Cloudinary: {cloud_err}")
+                current_app.logger.error(f"ERROR: /delete_event, failed to delete picture {picture.cloud_id} from Cloudinary: {cloud_err}")
 
         db.session.delete(event)
         db.session.commit()
         invalidate_event_cache(str(e_uuid))
+        current_app.logger.info(f"INFO: /delete_event, user {user.user_id} deleted event {event_id}")
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"Database error: {e}")
+        current_app.logger.error(f"ERROR: /delete_event, DB exception occured: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
     return make_api_response(ResponseTypes.SUCCESS, message="Event deleted successfully")
@@ -303,7 +309,7 @@ def edit_event(event_id):
         return make_api_response(ResponseTypes.NOT_FOUND, message="This event does not exist")
 
     if user.user_id != event.creator_id:
-        current_app.logger.warning(f"SECURITY: User {user.user_id} attempted to edit event {event_id} without permissions.")
+        current_app.logger.warning(f"WARNING: /edit_event, user {user.user_id} attempted to edit event {event_id} without permissions")
         return make_api_response(ResponseTypes.FORBIDDEN, message="You can edit your own events only")
     
     event_data = request.get_json(silent=True)
@@ -336,7 +342,7 @@ def edit_event(event_id):
     raw_is_private = event_data.get("is_private")
     if raw_is_private is not None:
         new_is_private = str(raw_is_private).strip().lower() in ['true', '1', 't', 'y', 'yes']
-        if event.is_private and not new_is_private: # private -> public 
+        if event.is_private and not new_is_private: 
             Event_visibility.query.filter_by(event_id=event.event_id).delete()
         event.is_private = new_is_private
     
@@ -388,6 +394,7 @@ def edit_event(event_id):
                 return make_api_response(ResponseTypes.BAD_REQUEST, message="Event date must be in the future")
             event.date_and_time = date_and_time
         except ValueError:
+            current_app.logger.error(f"ERROR: /edit_event, user {user.user_id} tried to create event with invalid date format")
             return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid date format. Use DD.MM.YYYY and HH:MM")
 
     raw_pictures = event_data.get("pictures", [])
@@ -416,7 +423,7 @@ def edit_event(event_id):
             try:
                 cloudinary.uploader.destroy(pic_id)
             except Exception as cloud_err:
-                current_app.logger.error(f"Failed to delete picture {pic_id} from Cloudinary: {cloud_err}")
+                current_app.logger.error(f"ERROR: /edit_event, Cloudinary delete error: {cloud_err}")
 
             event.pictures.remove(pic_to_remove)
 
@@ -428,9 +435,10 @@ def edit_event(event_id):
         event.is_edited = True
         db.session.commit()
         invalidate_event_cache(str(event.event_id))
+        current_app.logger.info(f"INFO: /edit_event, user {user.user_id} successfully edited event {event_id}")
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"Database error in edit_event: {e}")
+        current_app.logger.error(f"ERROR: /edit_event, DB exception occured: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
     return make_api_response(ResponseTypes.SUCCESS, message="Event edited successfully")
@@ -563,6 +571,7 @@ def feed():
             
             final_event_list.append(event_data)
 
+        current_app.logger.info(f"INFO: /feed, user {user_id} successfully fetched events feed page {page}")
         return make_api_response(ResponseTypes.SUCCESS, data={
             "data": final_event_list,
             "pagination": {
@@ -574,7 +583,7 @@ def feed():
             }
         })
     except Exception as e:
-        current_app.logger.error(f"Error in feed: {e}")
+        current_app.logger.error(f"ERROR: /feed, exception occured: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
 @events_bp.route("/participation/<event_id>", methods=["GET"])
@@ -596,6 +605,7 @@ def participation_status(event_id):
     else:
         is_participating = db.session.query(Event_participants).filter_by(event_id=e_uuid, user_id=user.user_id).first() is not None
 
+    current_app.logger.info(f"INFO: /participation_status, user {user.user_id} checked participation status for event {event_id}")
     return make_api_response(ResponseTypes.SUCCESS, data={
         "is_participating": is_participating,
         "participant_count": int(event.participant_count or 0),
@@ -621,7 +631,8 @@ def join_event(event_id):
     if event.is_private:
         has_access = db.session.query(Event_visibility).filter_by(event_id=e_uuid, shared_with=user.user_id).first()
         if not has_access:
-            return make_api_response(ResponseTypes.FORBIDDEN, message="This event is private and has not been shared with you lol")
+            current_app.logger.warning(f"WARNING: /join, user {user.user_id} tried to join private event {event_id} without access")
+            return make_api_response(ResponseTypes.FORBIDDEN, message="This event is private")
 
     existing = db.session.query(Event_participants).filter_by(event_id=e_uuid, user_id=user.user_id).first()
     if existing:
@@ -633,10 +644,11 @@ def join_event(event_id):
         event.participant_count = Event.participant_count + 1
         db.session.commit()
         invalidate_event_cache(str(e_uuid))
-        db.session.refresh(event) # pobranie aktualnego stanu licznika, ochrona przed race condition
+        db.session.refresh(event)
+        current_app.logger.info(f"INFO: /join, user {user.user_id} successfully joined event {event_id}")
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"Database error in join_event: {e}")
+        current_app.logger.error(f"ERROR: /join, DB exception occured: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
     return make_api_response(ResponseTypes.SUCCESS, message="Joined event successfully", data={
@@ -658,10 +670,12 @@ def leave_event(event_id):
         return make_api_response(ResponseTypes.NOT_FOUND, message="This event does not exist")
 
     if event.creator_id == user.user_id:
+        current_app.logger.warning(f"WARNING: /leave_event, user {user.user_id} tried to leave their own event")
         return make_api_response(ResponseTypes.BAD_REQUEST, message="Creator cannot leave their own event")
 
     participant = db.session.query(Event_participants).filter_by(event_id=e_uuid, user_id=user.user_id).first()
     if not participant:
+        current_app.logger.warning(f"WARNING: /leave_event, user {user.user_id} tried to leave event which he is not participating in")
         return make_api_response(ResponseTypes.NOT_FOUND, message="You are not participating in this event")
 
     try:
@@ -670,9 +684,10 @@ def leave_event(event_id):
         db.session.commit()
         invalidate_event_cache(str(e_uuid))
         db.session.refresh(event)
+        current_app.logger.info(f"INFO: /leave_event, user {user.user_id} successfully left event {event_id}")
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"Database error in leave_event: {e}")
+        current_app.logger.error(f"ERROR: /leave_event, DB exception occured: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
     return make_api_response(ResponseTypes.SUCCESS, message="Left event successfully", data={
@@ -702,10 +717,12 @@ def invite_to_event(event_id):
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Invited ID")
     
     if u_uuid == i_uuid:
+        current_app.logger.warning(f"WARNING: /invite_to_event, user {user.user_id} tried to invite himself for an event")
         return make_api_response(ResponseTypes.BAD_REQUEST, message="You cannot invite yourself")
     
     event = db.session.get(Event, e_uuid)
     if event is None:
+        current_app.logger.warning(f"WARNING: /invite_to_event, user {user.user_id} tried to send invite to a non existant event")
         return make_api_response(ResponseTypes.NOT_FOUND, message="This event does not exist")
 
     is_friend = db.session.query(Friendship).filter(
@@ -716,15 +733,18 @@ def invite_to_event(event_id):
     ).first()
 
     if not is_friend: 
+        current_app.logger.warning(f"WARNING: /invite_to_event, user {user.user_id} tried to invite a user that is not their friend")
         return make_api_response(ResponseTypes.FORBIDDEN, message="You can only invite your friends")
     
     if event.is_private:
         # na razie tylko autor ma możliwość zapraszania na swój event osoby, którym udostępnił do wyświetlania
         if event.creator_id != u_uuid:
+            current_app.logger.warning(f"WARNING: /invite_to_event, user {user.user_id} tried to send invite for an event that is not his")
             return make_api_response(ResponseTypes.FORBIDDEN, message="Only creator of the private event can invite")
         
         has_visibility = db.session.query(Event_visibility).filter_by(event_id=e_uuid, shared_with=i_uuid).first()
         if not has_visibility:
+            current_app.logger.warning(f"WARNING: /invite_to_event, user {user.user_id} tried to send invite to user that does not have priviledges to view this event")
             return make_api_response(ResponseTypes.FORBIDDEN, message=f"User does not have priviledges to view this event")
 
     is_already_participant = db.session.query(Event_participants).filter_by(event_id=e_uuid, user_id=i_uuid).first()
@@ -733,6 +753,7 @@ def invite_to_event(event_id):
         
     existing_invite = db.session.query(Invites).filter_by(event_id=e_uuid, inviter_id=u_uuid, invited_id=i_uuid).first()
     if existing_invite:
+        current_app.logger.warning(f"WARNING: /invite_to_event, user {user.user_id} tried to send invite that already exists")
         return make_api_response(ResponseTypes.CONFLICT, message="Invite already sent")
         
     try:
@@ -753,10 +774,11 @@ def invite_to_event(event_id):
             event_id=e_uuid,
             event_name=event.event_name
         )
+        current_app.logger.info(f"INFO: /invite, user {u_uuid} invited user {i_uuid} to event {e_uuid}")
         
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"Database error in invite_to_event: {e}")
+        current_app.logger.error(f"ERROR: /invite, DB exception occured: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
     
     return make_api_response(ResponseTypes.CREATED, message="Invite created successfully")
@@ -785,10 +807,10 @@ def get_sent_invites(event_id):
     try:
         invites = db.session.query(Invites).filter_by(event_id=e_uuid).all()
         invited_ids = [str(invite.invited_id) for invite in invites]
-    
+        current_app.logger.info(f"INFO: /invites, user {u_uuid} successfully fetched invites for event {e_uuid}")
         return make_api_response(ResponseTypes.SUCCESS, data={"invited_ids": invited_ids})
     except SQLAlchemyError as e:
-        current_app.logger.error(f"Database error in get_sent_invites: {e}")
+        current_app.logger.error(f"ERROR: /invites, DB exception occured: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
    
 @events_bp.route("/delete_invite/<event_id>", methods=["DELETE"])
@@ -816,9 +838,10 @@ def delete_invite(event_id):
     try:
         db.session.delete(invite)
         db.session.commit()
+        current_app.logger.info(f"INFO: /delete_invite, user {u_uuid} successfully deleted invite for user {i_uuid}")
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"Database error in delete_invite: {e}")
+        current_app.logger.error(f"ERROR: /delete_invite, DB exception occured: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
     
     return make_api_response(ResponseTypes.SUCCESS, message="Invite deleted successfully")
@@ -841,6 +864,7 @@ def change_invite_status(invite_id):
         return make_api_response(ResponseTypes.NOT_FOUND, message="This invite does not exist")
 
     if invite.invited_id != u_uuid:
+        current_app.logger.warning(f"WARNING: /change_invite_status, user {u_uuid} tried to change status of invite {invite_id} not meant for him")
         return make_api_response(ResponseTypes.FORBIDDEN, message="You can only change status of the invites meant to you")
     
     if invite.status != InviteRequestStatus.pending:
@@ -865,11 +889,12 @@ def change_invite_status(invite_id):
         elif new_status == "declined":
             invite.status = InviteRequestStatus.declined
         else:
-            return make_api_response(ResponseTypes.INVALID_DATA, message="Incorrect status, choose declined/accepted")
+            return make_api_response(ResponseTypes.INVALID_DATA, message="Incorrect status")
         db.session.commit()
+        current_app.logger.info(f"INFO: /change_invite_status, user {u_uuid} successfully set status to {new_status} for invite {invite_id}")
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"Error in change_invite_status: {e}")
+        current_app.logger.error(f"ERROR: /change_invite_status, DB exception occured: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
     
     return make_api_response(ResponseTypes.SUCCESS, message="Invite status changed successfully")
@@ -909,6 +934,7 @@ def get_user_events_creator(user_id):
             for event in created_events
         ]
     
+    current_app.logger.info(f"INFO: /user/creator, successfully fetched created events for user {u_uuid}")
     return make_api_response(
         ResponseTypes.SUCCESS, 
         data={"data": created_data}
@@ -953,6 +979,7 @@ def get_user_events_participand(user_id):
             for event in participating_events
         ]
     
+    current_app.logger.info(f"INFO: /user/participant, successfully fetched participating events for user {u_uuid}")
     return make_api_response(
         ResponseTypes.SUCCESS, 
         data={"data": participating_data}
@@ -977,7 +1004,7 @@ def get_coordinates():
         return make_api_response(ResponseTypes.NOT_FOUND, message="Location of that name not found")
     
     coordinates = query.coordinates
-
+    current_app.logger.info(f"INFO: /get_coordinates, successfully fetched coordinates for {location_name}")
     return make_api_response(ResponseTypes.SUCCESS, data={"coordinates": str(coordinates)})
 
 @events_bp.route("/map", methods=["GET"])
@@ -1050,10 +1077,11 @@ def map_events():
 
             final_map_data.append(event_data)
 
+        current_app.logger.info(f"INFO: /map, successfully fetched map events for user {user_id}")
         return make_api_response(
             ResponseTypes.SUCCESS,
             data={"data": final_map_data},
         )
     except Exception as e:
-        current_app.logger.error(f"Error in map_events: {e}")
+        current_app.logger.error(f"ERROR: /map, exception occured: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)

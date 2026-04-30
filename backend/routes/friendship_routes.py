@@ -19,12 +19,15 @@ def create_friend_request(friend_id):
     user = get_current_user()
     friend_id = validate_uuid(friend_id)
     if friend_id is None:
+        current_app.logger.warning(f"WARNING: /create_friend_request, user of ID {friend_id} does not exist")
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid friend ID format")
     
     if User.query.filter_by(user_id=friend_id).first() is None:
+        current_app.logger.warning(f"WARNING: /create_friend_request, user of ID {friend_id} does not exist")
         return make_api_response(ResponseTypes.NOT_FOUND, message="Friend does not exist")
     
     if user.user_id == friend_id:
+        current_app.logger.warning(f"WARNING: /create_friend_request, user of ID {friend_id} tried to befriend himself")
         return make_api_response(ResponseTypes.BAD_REQUEST, message="You can't befriend yourself")
     
     existing_friend_request = FriendRequest.query.filter(
@@ -35,6 +38,7 @@ def create_friend_request(friend_id):
     ).first()
 
     if existing_friend_request is not None:
+        current_app.logger.warning(f"WARNING: /create_friend_request, user of ID {user.user_id} tried to sent friend request that already exists")
         return make_api_response(ResponseTypes.CONFLICT, message="Request already exists")
     existing_friendship = Friendship.query.filter(
         or_(
@@ -44,6 +48,7 @@ def create_friend_request(friend_id):
     ).first()
 
     if existing_friendship is not None:
+        current_app.logger.warning(f"WARNING: /create_friend_request, user of ID {user.user_id} tried to befriend a user that is his friend already")
         return make_api_response(ResponseTypes.CONFLICT, message="Friendship already exists")
 
     try:
@@ -60,12 +65,14 @@ def create_friend_request(friend_id):
 
     except IntegrityError:
         db.session.rollback()
+        current_app.logger.warning(f"WARNING: /create_friend_request, user of ID {user.user_id} tried to sent friend request that already exists")
         return make_api_response(ResponseTypes.CONFLICT, message="Request already exists")
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"Database error: {e}")
+        current_app.logger.error(f"ERROR: /create_friend_request, DB exception occured: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
     
+    current_app.logger.info(f"INFO: /create_friend_request, user of ID {user.user_id} created friend request for user: {friend_id}")
     return make_api_response(ResponseTypes.CREATED, message="Friend request created")
 
 @friends_bp.route("/request/<friend_id>/cancel", methods=["POST"])
@@ -75,11 +82,13 @@ def cancel_friend_request(friend_id):
     user = get_current_user()
     friend_id = validate_uuid(friend_id)
     if friend_id is None:
+        current_app.logger.warning(f"WARNING: /cancel_friend_request, user of ID {user.user_id} tried to cancel request for non existant user: {friend_id}")
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid friend ID format")
 
     request = FriendRequest.query.filter_by(sender_id=user.user_id, receiver_id=friend_id).first()
 
     if request is None:
+        current_app.logger.warning(f"WARNING: /cancel_friend_request, user of ID {user.user_id} tried to cancel request that does not exist")
         return make_api_response(ResponseTypes.NOT_FOUND, message="Such request doesn't exist")
 
     try:
@@ -87,8 +96,9 @@ def cancel_friend_request(friend_id):
         db.session.commit()
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"Database error: {e}")
+        current_app.logger.error(f"ERROR: /cancel_friend_request, DB exception occured {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
+    current_app.logger.info(f"INFO: /cancel_friend_request, friend request {user.user_id} -> {friend_id} cancelled")
     return make_api_response(ResponseTypes.SUCCESS, message="Friend request cancelled", data={"friend_id": str(friend_id)})
 
 @friends_bp.route("/request/<friend_id>/accept", methods=["POST"])
@@ -98,11 +108,13 @@ def accept_friend_request(friend_id):
     user = get_current_user()
     friend_id = validate_uuid(friend_id)
     if friend_id is None:
+        current_app.logger.warning(f"WARNING: /accept_friend_request, user of ID {user.user_id} tried to accept friend request from non existant user: {friend_id}")
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid friend ID format")
 
     request = FriendRequest.query.filter_by(sender_id=friend_id, receiver_id=user.user_id).first()
 
     if request is None:
+        current_app.logger.warning(f"WARNING: /accept_friend_request, user of ID {user.user_id} tried to accept friend request that does not exist")
         return make_api_response(ResponseTypes.NOT_FOUND, message="Such request doesn't exist")
 
     if user.user_id < friend_id:
@@ -116,11 +128,13 @@ def accept_friend_request(friend_id):
         db.session.commit()
     except IntegrityError:
         db.session.rollback()
+        current_app.logger.warning(f"WARNING: /accept_friend_request, user of ID {user.user_id} tried to accept friend request for friendship that already exist")
         return make_api_response(ResponseTypes.CONFLICT, message="Friendship already exists")
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"Database error: {e}")
+        current_app.logger.error(f"ERROR: /accept_friend_request, DB exception occured: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
+    current_app.logger.info(f"INFO: /accept_friend_request, user {user.user_id} accepted friend request")
     return make_api_response(ResponseTypes.SUCCESS, message="Friend request accepted", data={"friend_id": str(friend_id)})
 
 @friends_bp.route("/request/<friend_id>/decline", methods=["POST"])
@@ -130,10 +144,12 @@ def decline_friend_request(friend_id):
     user = get_current_user()
     friend_id = validate_uuid(friend_id)
     if friend_id is None:
+        current_app.logger.warning(f"WARNING: /decline_friend_request, user of ID {user.user_id} tried to decline friend request from non existant user: {friend_id}")
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid friend ID format")
     request = FriendRequest.query.filter_by(sender_id=friend_id, receiver_id=user.user_id).first()
 
     if request is None:
+        current_app.logger.warning(f"WARNING: /decline_friend_request, user of ID {user.user_id} tried to decline friend request that does not exist")
         return make_api_response(ResponseTypes.NOT_FOUND, message="Such request doesn't exist")
     
     try:
@@ -141,8 +157,9 @@ def decline_friend_request(friend_id):
         db.session.commit()
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"Database error: {e}")
+        current_app.logger.error(f"ERROR: /decline_friend_request, DB exception occured: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
+    current_app.logger.info(f"INFO: /decline_friend_request, user {user.user_id} declined friend request")
     return make_api_response(ResponseTypes.SUCCESS, message="Friend request declined")
 
 
@@ -183,6 +200,7 @@ def get_pending_requests():
                 "requested_at": req.requested_at.isoformat()
             })
 
+    current_app.logger.info(f"INFO: /get_pending_friend_requests, success in retrieving pending friend requests")
     return make_api_response(
         ResponseTypes.SUCCESS, 
         message="Pending requests retrieved", 
@@ -206,6 +224,7 @@ def get_friends_list():
             )
         ).all()
         if not friendships:
+            current_app.logger.info(f"INFO: /get_friends_list, success in retrieving friends list - no friends :( ")
             return make_api_response(ResponseTypes.SUCCESS, message="Empty friends list", data={"friends": []})
 
         friends_id=[]
@@ -222,7 +241,8 @@ def get_friends_list():
                 "id": str(friend.user_id),
                 "username": friend.display_name
             })
+        current_app.logger.info(f"INFO: /get_friends_list, success in retrieving friends list")
         return make_api_response(ResponseTypes.SUCCESS, message="Friends list", data={"friends": friends_data})
     except SQLAlchemyError as e:
-        current_app.logger.error(f"Database error: {e}")
+        current_app.logger.error(f"ERROR: /get_friends_list, DB exception occured {e} ")
         return make_api_response(ResponseTypes.SERVER_ERROR)
