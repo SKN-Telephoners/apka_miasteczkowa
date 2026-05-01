@@ -989,13 +989,6 @@ def map_events():
         user_id = user.user_id
         now_utc = datetime.now(timezone.utc)
 
-        participant_exists = exists().where(
-            and_(
-                Event_participants.event_id == Event.event_id,
-                Event_participants.user_id == user_id,
-            )
-        )
-
         visibility_exists = exists().where(
             and_(
                 Event_visibility.event_id == Event.event_id,
@@ -1003,52 +996,35 @@ def map_events():
             )
         )
 
-        events = Event.query.options(joinedload(Event.pictures)).filter(
+        events = db.session.query(Event, User.username).join(
+            User, Event.creator_id == User.user_id
+        ).filter(
             Event.date_and_time >= now_utc,
             or_(
-                Event.is_private.is_(False),
+                Event.is_private == False,
                 Event.creator_id == user_id,
-                participant_exists,
                 visibility_exists,
             )
-        ).order_by(Event.date_and_time.asc(), Event.event_id.asc()).all()
-
-        events = [event for event in events if parse_location_coordinates(event.location) is not None]
-
-        event_ids = [str(event.event_id) for event in events]
-        participating_event_ids = set()
-        if event_ids:
-            participant_rows_query = db.select(Event_participants.event_id).filter(
-                Event_participants.user_id == user_id,
-                Event_participants.event_id.in_(event_ids)
-            ).execution_options(bind_key="readonly")
-            participant_rows = db.session.execute(participant_rows_query).all()
-            participating_event_ids = {str(row[0]) for row in participant_rows}
-        else:
-            participant_rows = []
-
-        creator_ids = {event.creator_id for event in events if event.creator_id is not None}
-
-        creator_users_query = db.select(User).filter(User.user_id.in_(creator_ids))
-        creator_users = db.session.execute(creator_users_query, bind_arguments={'bind_key': 'readonly'}).scalars().all() if creator_ids else []
-
-        creator_lookup = {str(user.user_id): user for user in creator_users}
+        ).order_by(Event.date_and_time.asc()).all()
 
         final_map_data = []
-        for event in events:
-            eid_str = str(event.event_id)
-            cached_val = redis_client.get(get_event_cache_key(eid_str))
 
-            if cached_val:
-                event_data = json.loads(cached_val)
-            else:
-                event_data = serialize_event_payload(event, None, creator_lookup, set())
-                cache_event_data(eid_str, event_data)
-            is_joined = (str(event.creator_id) == str(user_id)) or (eid_str in participating_event_ids)
-            event_data["is_participating"] = is_joined
-            event_data["is_joined"] = is_joined
+        for event, creator_name in events:
+            coords = parse_location_coordinates(event.location)
+            if coords is None:
+                continue
 
-            final_map_data.append(event_data)
+            local_dt = event.date_and_time.astimezone(local_tz)
+
+            final_map_data.append({
+                "event_id": str(event.event_id),
+                "name": event.event_name,
+                "date": local_dt.strftime("%d.%m.%Y"),
+                "time": local_dt.strftime("%H:%M"),
+                "location": event.location,
+                "location_coordinates": coords,
+                "creator_username": creator_name
+            })
 
         return make_api_response(
             ResponseTypes.SUCCESS,
