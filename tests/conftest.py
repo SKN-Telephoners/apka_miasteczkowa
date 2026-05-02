@@ -6,6 +6,7 @@ from backend.helpers import add_token_to_db
 from flask_jwt_extended import create_access_token
 from datetime import datetime, timezone, timedelta
 from re import search
+from backend.extensions import redis_client
 
 @pytest.fixture(scope="session")
 def app():
@@ -36,6 +37,24 @@ def rollback_db(app):
     for model in [User, TokenBlocklist, Friendship, FriendRequest, Event]:
         db.session.query(model).delete() 
     db.session.commit()
+    try:
+        redis_client.flushdb()
+    except Exception:
+        pass
+
+@pytest.fixture(autouse=True)
+def cleanup_all(app):
+    """Czyści bazę SQL oraz Redis przed każdym testem."""
+    yield
+    with app.app_context():
+        db.session.rollback()
+        for model in [User, TokenBlocklist, Friendship, FriendRequest, Event]:
+            db.session.query(model).delete()
+        db.session.commit()
+        try:
+            redis_client.flushdb()
+        except Exception as e:
+            print(f"Błąd podczas czyszczenia Redisa: {e}")
 
 @pytest.fixture
 def registered_user(app):

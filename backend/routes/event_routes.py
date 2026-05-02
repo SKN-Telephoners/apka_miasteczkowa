@@ -1,11 +1,11 @@
 from flask import Blueprint, request, current_app
 from backend.models.event import Event, Event_visibility, Event_participants, Invites, InviteRequestStatus, Pictures, Location
 from backend.models import User, Friendship
-from backend.extensions import db, limiter
+from backend.extensions import db, limiter, redis_client
 from backend.constants import Constants
 from backend.responses import ResponseTypes, make_api_response
 from flask_jwt_extended import jwt_required, get_current_user
-from backend.helpers import validate_uuid, sanitize_input
+from backend.helpers import validate_uuid, sanitize_input, get_event_cache_key, invalidate_event_cache, get_cached_event, cache_event_data
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from sqlalchemy.exc import SQLAlchemyError
@@ -242,7 +242,10 @@ def create_event():
                     shared_with=u_uuid
                 )
                 db.session.add(new_event_visibility)
-        db.session.commit()        
+        db.session.commit() 
+        creator_lookup = {str(user.user_id): user}
+        event_data = serialize_event_payload(new_event, user.user_id, creator_lookup, set())
+        cache_event_data(str(new_event.event_id), event_data)
         
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -277,6 +280,7 @@ def delete_event(event_id):
 
         db.session.delete(event)
         db.session.commit()
+        invalidate_event_cache(str(e_uuid))
     except SQLAlchemyError as e:
         db.session.rollback()
         current_app.logger.error(f"Database error: {e}")
@@ -423,6 +427,7 @@ def edit_event(event_id):
     try:
         event.is_edited = True
         db.session.commit()
+        invalidate_event_cache(str(event.event_id))
     except SQLAlchemyError as e:
         db.session.rollback()
         current_app.logger.error(f"Database error in edit_event: {e}")
@@ -523,28 +528,43 @@ def feed():
         
         pagination = query.distinct().paginate(page=page, per_page=limit, error_out=False)
 
+        event_ids = [str(e.event_id) for e in pagination.items]
+
+        if event_ids:
+            part_query = db.select(Event_participants.event_id).filter(
+                Event_participants.user_id == user_id,
+                Event_participants.event_id.in_(event_ids)
+            )
+            participating_event_ids = {str(r[0]) for r in
+                                       db.session.execute(part_query, bind_arguments={'bind_key': 'readonly'}).all()}
+        else:
+            participating_event_ids = set()
+
+        final_event_list = []
+
         creator_ids = {e.creator_id for e in pagination.items if e.creator_id}
-        creator_users = User.query.filter(User.user_id.in_(creator_ids)).all() if creator_ids else []
+        user_query = db.select(User).filter(User.user_id.in_(creator_ids))
+        creator_users = db.session.execute(user_query, bind_arguments={'bind_key': 'readonly'}).scalars().all() if creator_ids else []
         creator_lookup = {str(u.user_id): u for u in creator_users}
 
-        event_ids = [event.event_id for event in pagination.items]
-        participant_rows = (
-            db.session.query(Event_participants.event_id)
-            .filter(
-                Event_participants.user_id == user_id,
-                Event_participants.event_id.in_(event_ids),
-            )
-            .all()
-        ) if event_ids else []
-        participating_event_ids = {event_id for (event_id,) in participant_rows}
+        for event in pagination.items:
+            eid_str = str(event.event_id)
+            cached_val = redis_client.get(get_event_cache_key(eid_str))
 
-        event_list = [
-            serialize_event_payload(event, user_id, creator_lookup, participating_event_ids)
-            for event in pagination.items
-        ]
+            if cached_val:
+                event_data = json.loads(cached_val)
+            else:
+                event_data = serialize_event_payload(event, None, creator_lookup, set())
+                cache_event_data(eid_str, event_data)
+            
+            is_joined = (str(event.creator_id) == str(user_id)) or (eid_str in participating_event_ids)
+            event_data["is_participating"] = is_joined
+            event_data["is_joined"] = is_joined
+            
+            final_event_list.append(event_data)
 
         return make_api_response(ResponseTypes.SUCCESS, data={
-            "data": event_list,
+            "data": final_event_list,
             "pagination": {
                 "page": pagination.page,
                 "limit": limit,
@@ -612,6 +632,7 @@ def join_event(event_id):
         db.session.add(participant)
         event.participant_count = Event.participant_count + 1
         db.session.commit()
+        invalidate_event_cache(str(e_uuid))
         db.session.refresh(event) # pobranie aktualnego stanu licznika, ochrona przed race condition
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -647,6 +668,7 @@ def leave_event(event_id):
         db.session.delete(participant)
         event.participant_count = Event.participant_count - 1
         db.session.commit()
+        invalidate_event_cache(str(e_uuid))
         db.session.refresh(event)
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -967,13 +989,6 @@ def map_events():
         user_id = user.user_id
         now_utc = datetime.now(timezone.utc)
 
-        participant_exists = exists().where(
-            and_(
-                Event_participants.event_id == Event.event_id,
-                Event_participants.user_id == user_id,
-            )
-        )
-
         visibility_exists = exists().where(
             and_(
                 Event_visibility.event_id == Event.event_id,
@@ -981,41 +996,39 @@ def map_events():
             )
         )
 
-        events = Event.query.options(joinedload(Event.pictures)).filter(
+        events = db.session.query(Event, User.username).join(
+            User, Event.creator_id == User.user_id
+        ).filter(
             Event.date_and_time >= now_utc,
             or_(
-                Event.is_private.is_(False),
+                Event.is_private == False,
                 Event.creator_id == user_id,
-                participant_exists,
                 visibility_exists,
             )
-        ).order_by(Event.date_and_time.asc(), Event.event_id.asc()).all()
+        ).order_by(Event.date_and_time.asc()).all()
 
-        events = [event for event in events if parse_location_coordinates(event.location) is not None]
+        final_map_data = []
 
-        creator_ids = {event.creator_id for event in events if event.creator_id is not None}
-        creator_users = User.query.filter(User.user_id.in_(creator_ids)).all() if creator_ids else []
-        creator_lookup = {str(user.user_id): user for user in creator_users}
+        for event, creator_name in events:
+            coords = parse_location_coordinates(event.location)
+            if coords is None:
+                continue
 
-        event_ids = [event.event_id for event in events]
-        participant_rows = (
-            db.session.query(Event_participants.event_id)
-            .filter(
-                Event_participants.user_id == user_id,
-                Event_participants.event_id.in_(event_ids),
-            )
-            .all()
-        ) if event_ids else []
-        participating_event_ids = {event_id for (event_id,) in participant_rows}
+            local_dt = event.date_and_time.astimezone(local_tz)
+
+            final_map_data.append({
+                "event_id": str(event.event_id),
+                "name": event.event_name,
+                "date": local_dt.strftime("%d.%m.%Y"),
+                "time": local_dt.strftime("%H:%M"),
+                "location": event.location,
+                "location_coordinates": coords,
+                "creator_username": creator_name
+            })
 
         return make_api_response(
             ResponseTypes.SUCCESS,
-            data={
-                "data": [
-                    serialize_event_payload(event, user_id, creator_lookup, participating_event_ids)
-                    for event in events
-                ]
-            },
+            data={"data": final_map_data},
         )
     except Exception as e:
         current_app.logger.error(f"Error in map_events: {e}")
