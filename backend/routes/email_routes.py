@@ -16,6 +16,7 @@ email_bp = Blueprint("email", __name__, url_prefix="/api/email")
 def verify_request():
     user_data = request.get_json(silent=True)    
     if not user_data or not "email" in user_data.keys():
+        current_app.logger.warning(f"WARNING: /verify_request, no user_data or no email in user_data")
         return make_api_response(ResponseTypes.BAD_REQUEST)
     
     email=user_data["email"]
@@ -39,8 +40,9 @@ def verify_request():
             )
             mail.send(msg)
         except Exception as e:
-            current_app.logger.error(f"Mail send error: {e}")
+            current_app.logger.error(f"ERROR: /verify_request, DB exception occured: {e}")
 
+    current_app.logger.info(f"INFO: /verify_request, sending email for user: {user.user_id}")
     return make_api_response(ResponseTypes.SUCCESS, message="If the account exists and is not verified, an email has been sent")
 
 @email_bp.route("/verify/<token>", methods=["POST"])
@@ -49,16 +51,20 @@ def verify(token):
     try:
         decoded = decode_token(token)
         if decoded.get("type") != "email_verification":
+            current_app.logger.warning(f"WARNING: /verify, type of token is {decoded.get("type")} not email_verification")
             return make_api_response(ResponseTypes.INCORRECT_TOKEN)
         if is_token_revoked(decoded):
+            current_app.logger.warning(f"WARNING: /verify, token already verified/expired")
             return make_api_response(ResponseTypes.BAD_REQUEST, message="Link already used or expired")
         user_id = decoded["sub"]
         user = db.session.get(User, user_id)
 
         if not user:
+            current_app.logger.warning(f"WARNING: /verify, no user found for token")
             return make_api_response(ResponseTypes.NOT_FOUND, message="Verification failed")
 
         if user.is_confirmed:
+            current_app.logger.warning(f"WARNING: /verify, user: {user_id} tried to verify account that is already verified")
             return make_api_response(ResponseTypes.BAD_REQUEST, message="Account already varified")
     
         user.is_confirmed=True
@@ -67,9 +73,10 @@ def verify(token):
         revoke_all_user_tokens(user.user_id, token_type="email_verification")
         db.session.commit()
 
+        current_app.logger.info(f"INFO: /verify, user: {user_id} successfully verified their account")
         return make_api_response(ResponseTypes.SUCCESS, message="Verification succesful")
     except Exception as e:
-        current_app.logger.error(f"Mail auth token error: {e}")
+        current_app.logger.error(f"ERROR: /verify, mail auth token exception occured: {e}")
         return make_api_response(ResponseTypes.BAD_REQUEST, message="Invalid or expired link")
     
 @email_bp.route("/reset_password_request", methods=["POST"])
@@ -82,6 +89,7 @@ def reset_password_request():
         return make_api_response(ResponseTypes.BAD_REQUEST)
 
     if not re.match(Constants.EMAIL_PATTERN, email):
+        current_app.logger.warning(f"WARNING: /reset_password_request, email invalid: {email}")
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid email format")
         
     user = User.query.filter_by(email=email).first()  
@@ -97,7 +105,7 @@ def reset_password_request():
         try:
             add_token_to_db(reset_token)
         except Exception as e:
-            current_app.logger.error(f"Failed to log reset token for user {user.user_id}: {e}")
+            current_app.logger.error(f"ERROR: /reset_password_request, failed to add (to DB) reset token for user {user.user_id}: {e}")
 
         reset_url = url_for("email.reset_password", token=reset_token, _external=True) #this will have to be changed into deep link for app
 
@@ -105,8 +113,9 @@ def reset_password_request():
         
         try:
             send_email_async.delay('Reset password', email, email_body)
+            current_app.logger.info(f"INFO: /reset_password_request, sent password reset mail for user: {user.user_id}")
         except Exception as e:
-            current_app.logger.error(f"Error sending email with password reset: {e}")
+            current_app.logger.error(f"ERROR: /reset_password_request, DB exception occured: {e}")
 
     return make_api_response(ResponseTypes.SUCCESS, message="If user with that email is present in the database the mail with password reset will be sent")
 
@@ -119,19 +128,23 @@ def reset_password(token):
         is_revoked = is_token_revoked(decoded) 
 
         if is_revoked:
+            current_app.logger.warning(f"WARNING: /reset_password, attempt to use expired link")
             return make_api_response(ResponseTypes.BAD_REQUEST, message="Link has already been used or expired")
         
         if decoded.get("type") != "password_reset":
+            current_app.logger.warning(f"WARNING: /reset_password, type of token is {decoded.get("type")} not password_reset")
             return make_api_response(ResponseTypes.INCORRECT_TOKEN)
         
         user_id = decoded["sub"]
 
-    except Exception:
+    except Exception as e:
+        current_app.logger.error(f"ERROR: /reset_password, exception occured: {e}")
         return make_api_response(ResponseTypes.UNAUTHORIZED)
     
     user = db.session.get(User, user_id)
 
     if not user:
+        current_app.logger.warning(f"WARNING: /reset_password, user: {user_id} was not found")
         return make_api_response(ResponseTypes.NOT_FOUND, message="User not found")
     
     data = request.get_json()
@@ -151,8 +164,9 @@ def reset_password(token):
         revoke_all_user_tokens(user.user_id, token_type="access")
         revoke_all_user_tokens(user.user_id, token_type="refresh")
     except Exception as e:
-        current_app.logger.error(f"Failed to revoke all tokens after password reset: {e}")
+        current_app.logger.error(f"ERROR: /reset_password, DB exception occured: {e}")
 
+    current_app.logger.info(f"INFO: /reset_password, password changed for user: {user_id}")
     return make_api_response(ResponseTypes.SUCCESS, message="Password changed successfully")
 
 @email_bp.route("/confirm_change/<token>", methods=["POST"])
@@ -161,13 +175,16 @@ def confirm_change(token):
     try:
         decoded = decode_token(token)
         if decoded.get("type") != "email_change":
+            current_app.logger.warning(f"WARNING: /confirm_change, type of token is {decoded.get("type")} not email_change")
             return make_api_response(ResponseTypes.INCORRECT_TOKEN)
         if is_token_revoked(decoded):
+            current_app.logger.warning(f"WARNING: /confirm_change, attempt to use expired link")
             return make_api_response(ResponseTypes.BAD_REQUEST, message="Link already used or expired")
         user_id = decoded["sub"]
         user = db.session.get(User, user_id)
 
         if not user:
+            current_app.logger.warning(f"WARNING: /confirm_change, user: {user_id} was not found")
             return make_api_response(ResponseTypes.NOT_FOUND, message="Email change failed")
     
         user.email = user.pending_email
@@ -176,7 +193,8 @@ def confirm_change(token):
         revoke_all_user_tokens(user.user_id, token_type="email_change")
         db.session.commit()
 
+        current_app.logger.info(f"INFO: /confirm_change, user: {user_id} changed their email")
         return make_api_response(ResponseTypes.SUCCESS, message="Email changed succesfully")
     except Exception as e:
-        current_app.logger.error(f"Mail email change token error: {e}")
+        current_app.logger.error(f"ERROR: /confirm_change, DB exception occured {e}")
         return make_api_response(ResponseTypes.BAD_REQUEST, message="Invalid or expired link")

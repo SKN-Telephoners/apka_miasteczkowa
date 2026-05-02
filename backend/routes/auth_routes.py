@@ -43,6 +43,7 @@ def register_user():
 
     db.session.add(new_user)
     db.session.flush()
+    current_app.logger.info(f"INFO: /register, added new user to DB, user_id: {new_user.user_id}")
     #send auth email
     auth_token = create_access_token(
         identity=new_user.user_id,
@@ -62,14 +63,15 @@ def register_user():
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"Registration db commit error: {e}")
+        current_app.logger.error(f"ERROR: /register, DB commit error: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR, message="Registration failed")
 
     try:
         mail.send(msg)
+        current_app.logger.info(f"INFO: /register, sent authentication email to user_id: {new_user.user_id}")
     except Exception as e:
         # Registration is already committed; do not fail with 500 just because email delivery failed.
-        current_app.logger.error(f"Registration mail send error for {email}: {e}")
+        current_app.logger.error(f"ERROR: /register, registration mail send error for {new_user.user_id}: {e}")
         return make_api_response(
             ResponseTypes.CREATED,
             message="Registration successful. Verification email could not be sent, please request it again."
@@ -99,12 +101,13 @@ def login_user():
 
     user = User.query.filter_by(username=username).first()
     if not user or not user.validate_password(password) or user.deleted:
+        current_app.logger.warning(f"WARNING: /login, user does not exist/password is incorrect/user is deleted, username: {username}")
         return make_api_response(ResponseTypes.INVALID_CREDENTIALS)
     if not user.is_confirmed:
+       current_app.logger.warning(f"WARNING: /login, this user did not confirm their email, username: {username}")
        return make_api_response(ResponseTypes.ACCOUNT_NOT_VERIFIED)
     
     limiter.reset()
-
 
     access_token = create_access_token(identity=user.user_id)
     refresh_token = create_refresh_token(identity=user.user_id)
@@ -112,6 +115,7 @@ def login_user():
     add_token_to_db(access_token)
     add_token_to_db(refresh_token)
 
+    current_app.logger.info(f"INFO: /login, login correct for user_id: {user.user_id}")
     return make_api_response(ResponseTypes.LOGIN_SUCCESS, data={
         "user": {"username": user.username},
         "access_token": access_token,
@@ -132,6 +136,7 @@ def refresh():
     add_token_to_db(new_access_token)
     add_token_to_db(new_refresh_token)
     
+    current_app.logger.info(f"INFO: /refresh, token refreshed for user_id: {identity}")
     return make_api_response(ResponseTypes.SUCCESS, data={
         "access_token": new_access_token,
         "refresh_token": new_refresh_token
@@ -153,9 +158,10 @@ def logout():
             if access_payload["sub"] == user_id:
                 access_jti = access_payload["jti"]
                 revoke_token(access_jti, user_id)
-        except Exception:
+        except Exception as e:
+            current_app.logger.warning(f"WARNING: /logout, Exception occured: {e}")
             pass
-            
+    current_app.logger.info(f"INFO: /logout, success in logging out user_id: {user_id}")
     return make_api_response(ResponseTypes.LOGOUT_SUCCESS)
 
 @auth_bp.route("/revoke_access", methods=["DELETE"])
@@ -166,6 +172,7 @@ def revoke_access_token():
     revoked = revoke_token(jti, user_id)
     if not revoked:
         pass
+    current_app.logger.info(f"INFO: /revoke_access, access token revoked for user_id: {user_id}")
     return make_api_response(ResponseTypes.TOKEN_REVOKED, message="Access token revoked")
 
 @auth_bp.route("/revoke_refresh", methods=["DELETE"])
@@ -174,4 +181,5 @@ def revoke_refresh_token():
     jti = get_jwt()["jti"]
     user_id = get_jwt_identity()
     revoke_token(jti, user_id)
+    current_app.logger.info(f"INFO: /revoke_refresh, refresh token revoked for user_id: {user_id}")
     return make_api_response(ResponseTypes.TOKEN_REVOKED, message="Refresh token revoked")

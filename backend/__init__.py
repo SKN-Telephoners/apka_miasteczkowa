@@ -7,6 +7,7 @@ import logging
 from backend.routes import register_blueprints
 import cloudinary
 import os
+from logging.handlers import RotatingFileHandler
 
 def create_app(test_mode=False, dev_mode=False):
     app = Flask(__name__)
@@ -16,6 +17,21 @@ def create_app(test_mode=False, dev_mode=False):
         app.config.from_object(TestConfig)
     else:
         app.config.from_object(Config)
+
+    #log level setting
+    if not app.debug: 
+        app.logger.setLevel(logging.INFO)
+    else:
+        app.logger.setLevel(logging.DEBUG)
+
+    # SAVING TO FILE WITH TIME
+    #if not os.path.exists('logs'):
+    #    os.mkdir('logs')
+    #file_handler = RotatingFileHandler('logs/backend.log', maxBytes=10240, backupCount=10)
+    #file_handler.setFormatter(logging.Formatter(
+    #'%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+    #))
+    #app.logger.addHandler(file_handler)
 
     load_static_data(app)
 

@@ -9,7 +9,7 @@ from .notification_routes import notifications_bp
 from . import tokens
 
 __all__ = [
-    "tokens"
+    "tokens",
     "auth_bp",
     "users_bp",
     "friends_bp",
