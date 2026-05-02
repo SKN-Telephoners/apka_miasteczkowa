@@ -2,13 +2,13 @@ import { Platform } from "react-native";
 
 export const API_BASE_URL = __DEV__
   ? Platform.select({
-    android: "http://10.0.2.2:5000",
-    ios: "http://10.0.2.2:5000",
-    default: "http://10.0.2.2:5000",
-  })
+      android: "http://10.0.2.2:5000",
+      ios: "http://10.0.2.2:5000",
+      default: "http://10.0.2.2:5000",
+    })
   : "https://production-api.com";
 
-if (!__DEV__ && !API_BASE_URL.startsWith('https://')) {
+if (!__DEV__ && !API_BASE_URL.startsWith("https://")) {
   throw new Error("App has to use HTTPS protocol");
 }
 
@@ -23,7 +23,6 @@ export const TIMEOUTS = {
   REQUEST_TIMEOUT: 10000,
   RETRY_DELAY: 1000,
 } as const;
-
 
 export const THEME = {
   colors: {
@@ -65,7 +64,7 @@ export const THEME = {
       // additional
       phoneUiBg: "#000000",
       phoneUiIcons: "#D9D9D9",
-    }
+    },
   },
 
   spacing: {
@@ -175,6 +174,7 @@ export const MESSAGES = {
     BACK: "Wstecz",
     NEXT: "Dalej",
     SUBMIT: "Wyślij",
+    DONE: "Zastosuj",
   },
 
   // Welcom Screen Messages
@@ -193,6 +193,7 @@ export const MESSAGES = {
     PASSWORD: "Hasło",
     CONFIRM_PASSWORD: "Potwierdź hasło",
     SEARCH: "Szukaj...",
+    FILTER_AUTHOR: "Filtruj po autorze...",
   },
 
   // Button Labels
@@ -211,6 +212,11 @@ export const MESSAGES = {
   MAP: {
     EVENTS: "Wydarzenia",
     NO_EVENTS: "Brak wydarzeń do wyświetlenia",
+    FILTERS: "Filtry",
+    AUTHOR: "Autor",
+    TIME_RANGE: "Zakres czasowy (HH:mm)",
+    PRIVACY: "Prywatność",
+    CLEAR_FILTERS: "Wyczyść filtry",
   },
 } as const;
 
@@ -223,14 +229,8 @@ export const APP_CONFIG = {
 } as const;
 
 export const MOCKS = {
-  AVATAR: "https://www.hollywoodreporter.com/wp-content/uploads/2011/06/drive_primary.jpg?w=1440&h=810&crop=1",
+  AVATAR:
+    "https://www.hollywoodreporter.com/wp-content/uploads/2011/06/drive_primary.jpg?w=1440&h=810&crop=1",
 } as const;
 
-export const ACADEMIES = [
-  "AGH",
-  "UJ",
-  "UEK",
-  "PK",
-  "UR",
-  "INNA"
-] as const;
+export const ACADEMIES = ["AGH", "UJ", "UEK", "PK", "UR", "INNA"] as const;
