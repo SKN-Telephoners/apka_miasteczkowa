@@ -25,6 +25,7 @@ import Button from "../../components/Button";
 import { useTheme } from "../../contexts/ThemeContext";
 import { getMapEvents } from "../../services/events";
 import { Event } from "../../types";
+import { MESSAGES, THEME } from "../../utils/constants";
 
 const DEFAULT_CAMERA = {
   centerCoordinate: [19.9061, 50.0686] as [number, number],
@@ -33,6 +34,107 @@ const DEFAULT_CAMERA = {
 };
 
 const MAP_REFRESH_COOLDOWN_MS = 60_000;
+
+function useMapStyles() {
+  const { colors } = useTheme();
+
+  return useMemo(
+    () =>
+      StyleSheet.create({
+        container: { flex: 1, justifyContent: "center", alignItems: "center" },
+        mapcontainer: { width: "100%", height: "100%", position: "relative" },
+        map: { flex: 1 },
+        resetButton: {
+          position: "absolute",
+          bottom: 0,
+          right: 5,
+          maxWidth: 80,
+        },
+        eventsPanel: {
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 280,
+        },
+        eventsPanelHeader: {
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+          paddingHorizontal: 15,
+          paddingVertical: 12,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+        },
+        eventsPanelTitle: {
+          fontSize: 16,
+          fontWeight: "700",
+          color: colors.textSecondary,
+        },
+        closePanelButton: {
+          fontSize: 20,
+          fontWeight: "bold",
+          color: colors.textSecondary,
+        },
+        eventsListContent: {
+          flex: 1,
+        },
+        eventListItem: {
+          paddingHorizontal: 15,
+          paddingVertical: 12,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+        },
+        eventListItemSelected: {
+          backgroundColor: colors.transparentHighlight,
+          borderLeftWidth: 4,
+          borderLeftColor: colors.highlight,
+          paddingLeft: 11,
+        },
+        eventListItemName: {
+          fontSize: 14,
+          fontWeight: "600",
+          color: colors.text,
+          marginBottom: 4,
+        },
+        eventListItemNameSelected: {
+          color: colors.textSecondary,
+        },
+        eventListItemTime: {
+          fontSize: 12,
+          color: colors.searchWord,
+        },
+        toggleListButton: {
+          position: "absolute",
+          left: 10,
+          top: 10,
+          width: 40,
+          height: 40,
+        },
+        toggleListButtonText: {
+          fontSize: 20,
+          color: colors.textSecondary,
+        },
+        loadingContainer: {
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+        },
+        emptyState: {
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          paddingHorizontal: 15,
+        },
+        emptyStateText: {
+          fontSize: 14,
+          color: colors.searchWord,
+          textAlign: "center",
+        },
+      }),
+    [colors],
+  );
+}
 
 export default function MapScreen() {
   const navigation = useNavigation<any>();
@@ -49,6 +151,7 @@ export default function MapScreen() {
   const lastFetchedAtRef = useRef(0);
   const inFlightRef = useRef<Promise<void> | null>(null);
 
+  const styles = useMapStyles();
   const { colors } = useTheme();
 
   const fetchMapEvents = useCallback(
@@ -321,7 +424,7 @@ export default function MapScreen() {
                       colors.highlight, // when selected
                       colors.background, // default
                     ]
-                  :colors.background,
+                  : colors.background,
               }}
             />
           </ShapeSource>
@@ -336,20 +439,9 @@ export default function MapScreen() {
                 { backgroundColor: colors.highlight },
               ]}
             >
-              <Text
-                style={[styles.eventsPanelTitle, { color: colors.background }]}
-              >
-                Wydarzenia
-              </Text>
+              <Text style={styles.eventsPanelTitle}>{MESSAGES.MAP.EVENTS}</Text>
               <TouchableOpacity onPress={() => setShowEventsList(false)}>
-                <Text
-                  style={[
-                    styles.closePanelButton,
-                    { color: colors.background },
-                  ]}
-                >
-                  ✕
-                </Text>
+                <Text style={styles.closePanelButton}>✕</Text>
               </TouchableOpacity>
             </View>
             {isLoading && events.length === 0 ? (
@@ -372,7 +464,7 @@ export default function MapScreen() {
                 {events.length === 0 ? (
                   <View style={styles.emptyState}>
                     <Text style={styles.emptyStateText}>
-                      No events available
+                      {MESSAGES.MAP.NO_EVENTS}
                     </Text>
                   </View>
                 ) : (
@@ -395,6 +487,7 @@ export default function MapScreen() {
                       >
                         {event.name}
                       </Text>
+                      <Text>{event.description}</Text>
                       <Text style={styles.eventListItemTime}>
                         {event.date} {event.time}
                       </Text>
@@ -424,97 +517,3 @@ export default function MapScreen() {
     </View>
   );
 }
-
-// needs unified styles
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", alignItems: "center" },
-  mapcontainer: { width: "100%", height: "100%", position: "relative" },
-  map: { flex: 1 },
-  resetButton: {
-    position: "absolute",
-    bottom: 0,
-    right: 5,
-    maxWidth: 80,
-  },
-  eventsPanel: {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 280,
-    borderRightWidth: 1,
-    borderRightColor: "#e0e0e0",
-  },
-  eventsPanelHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
-  },
-  eventsPanelTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  closePanelButton: {
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  eventsListContent: {
-    flex: 1,
-  },
-  eventListItem: {
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
-  eventListItemSelected: {
-    backgroundColor: "#e3f2fd",
-    borderLeftWidth: 4,
-    borderLeftColor: "#007AFF",
-    paddingLeft: 11,
-  },
-  eventListItemName: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 4,
-  },
-  eventListItemNameSelected: {
-    color: "#007AFF",
-  },
-  eventListItemTime: {
-    fontSize: 12,
-    color: "#999",
-  },
-  toggleListButton: {
-    position: "absolute",
-    left: 10,
-    top: 10,
-    width: 40,
-    height: 40,
-  },
-  toggleListButtonText: {
-    fontSize: 20,
-    color: "#fff",
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 15,
-  },
-  emptyStateText: {
-    fontSize: 14,
-    color: "#999",
-    textAlign: "center",
-  },
-});

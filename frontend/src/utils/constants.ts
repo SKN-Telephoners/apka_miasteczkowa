@@ -30,6 +30,7 @@ export const THEME = {
     light: {
       background: "#FFFFFF",
       text: "#000000",
+      textSecondary: "#F8F8F8",
       navIcons: "#202020",
       highlight: "#CF6F02",
       icon: "#7F7F7F",
@@ -204,6 +205,12 @@ export const MESSAGES = {
     SEND_RESET_LINK: "Wyślij link",
     BACK_TO_LOGIN: "Powrót do logowania",
     UPDATE_PROFILE: "Zaktualizuj profil",
+  },
+
+  // Map Screen
+  MAP: {
+    EVENTS: "Wydarzenia",
+    NO_EVENTS: "Brak wydarzeń do wyświetlenia",
   },
 } as const;
 
