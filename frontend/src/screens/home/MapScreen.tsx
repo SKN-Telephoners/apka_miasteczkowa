@@ -3,6 +3,7 @@ import {
   CircleLayer,
   MapView,
   ShapeSource,
+  SymbolLayer,
 } from "@maplibre/maplibre-react-native";
 import {
   useFocusEffect,
@@ -144,8 +145,6 @@ export default function MapScreen() {
           centerCoordinate: coords,
           zoomLevel: 22,
         }));
-
-        
       } catch {
         // Ignore invalid location payload.
       }
@@ -206,8 +205,32 @@ export default function MapScreen() {
   const handleShapePress = (event: any) => {
     const feature =
       event?.features?.[0] ?? event?.nativeEvent?.payload?.features?.[0];
-    const eventId = feature?.properties?.id;
 
+    if (!feature) {
+      return;
+    }
+
+    if (feature.properties?.cluster) {
+      const coords = feature.geometry?.coordinates as [number, number];
+
+      const targetZoom = Math.min(cameraPosition.zoomLevel + 3, 22);
+
+      cameraRef.current?.setCamera?.({
+        centerCoordinate: coords,
+        zoomLevel: targetZoom,
+        animationDuration: 400,
+        animationMode: "flyTo",
+      });
+
+      setCameraPosition((prev) => ({
+        ...prev,
+        centerCoordinate: coords,
+        zoomLevel: targetZoom,
+      }));
+      return;
+    }
+
+    const eventId = feature?.properties?.id;
     if (!eventId) {
       return;
     }
@@ -235,14 +258,51 @@ export default function MapScreen() {
             animationDuration={1500}
             heading={cameraPosition.heading}
             minZoomLevel={16.5}
+            maxZoomLevel={23}
           />
           <ShapeSource
             id="events"
-            shape={eventsGeoJSON}
+            shape={eventsGeoJSON} // Use your ORIGINAL exact-coordinate GeoJSON
             onPress={handleShapePress}
+            cluster={true}
+            clusterRadius={35}
+            clusterMaxZoomLevel={21}
+            maxZoomLevel={24}
           >
             <CircleLayer
+              id="clusters"
+              filter={["has", "point_count"]}
+              style={{
+                circleColor: colors.background,
+                circleRadius: [
+                  "step",
+                  ["get", "point_count"],
+                  18, // Base radius
+                  5, // If 5 or more points
+                  22, // Radius becomes 22
+                  50, // If 50 or more points
+                  28, // Radius becomes 28
+                ],
+                circleStrokeColor: colors.highlight,
+                circleStrokeWidth: 2,
+                circleOpacityTransition: { duration: 0, delay: 0 },
+              }}
+            />
+            <SymbolLayer
+              id="cluster-count"
+              filter={["has", "point_count"]}
+              style={{
+                textField: "{point_count_abbreviated}",
+                textSize: 14,
+                textColor: colors.highlight,
+                textPitchAlignment: "map",
+                textAllowOverlap: true,
+                textOpacityTransition: { duration: 0, delay: 0 },
+              }}
+            />
+            <CircleLayer
               id="event-circles"
+              filter={["!", ["has", "point_count"]]}
               style={{
                 circleRadius: 10,
                 circleStrokeColor: colors.highlight,
@@ -256,10 +316,26 @@ export default function MapScreen() {
         {/* Events List Panel */}
         {showEventsList && (
           <View style={styles.eventsPanel}>
-            <View style={[styles.eventsPanelHeader, {backgroundColor: colors.highlight }]}>
-              <Text style={[styles.eventsPanelTitle, {color: colors.background }]}>Wydarzenia</Text>
+            <View
+              style={[
+                styles.eventsPanelHeader,
+                { backgroundColor: colors.highlight },
+              ]}
+            >
+              <Text
+                style={[styles.eventsPanelTitle, { color: colors.background }]}
+              >
+                Wydarzenia
+              </Text>
               <TouchableOpacity onPress={() => setShowEventsList(false)}>
-                <Text style={[styles.closePanelButton, {color: colors.background }]}>✕</Text>
+                <Text
+                  style={[
+                    styles.closePanelButton,
+                    { color: colors.background },
+                  ]}
+                >
+                  ✕
+                </Text>
               </TouchableOpacity>
             </View>
             {isLoading && events.length === 0 ? (
@@ -342,7 +418,7 @@ const styles = StyleSheet.create({
   map: { flex: 1 },
   resetButton: {
     position: "absolute",
-    bottom: 20,
+    bottom: 0,
     right: 5,
     maxWidth: 80,
   },

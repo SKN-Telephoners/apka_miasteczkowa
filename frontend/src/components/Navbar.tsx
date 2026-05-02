@@ -4,7 +4,7 @@ import AppIcon from "./AppIcon";
 
 interface NavbarProps {
   hasNotifications: boolean;
-  screenType?: "events" | "map";
+  screenType?: string;
   onPress?: () => void;
 }
 
