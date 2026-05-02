@@ -262,7 +262,7 @@ export default function MapScreen() {
           />
           <ShapeSource
             id="events"
-            shape={eventsGeoJSON} // Use your ORIGINAL exact-coordinate GeoJSON
+            shape={eventsGeoJSON}
             onPress={handleShapePress}
             cluster={true}
             clusterRadius={35}
@@ -304,10 +304,24 @@ export default function MapScreen() {
               id="event-circles"
               filter={["!", ["has", "point_count"]]}
               style={{
-                circleRadius: 10,
+                circleRadius: selectedEventId
+                  ? [
+                      "case",
+                      ["==", ["get", "id"], selectedEventId],
+                      13, // when selected
+                      10, // default
+                    ]
+                  : 10,
                 circleStrokeColor: colors.highlight,
                 circleStrokeWidth: 5,
-                circleColor: colors.background,
+                circleColor: selectedEventId
+                  ? [
+                      "case",
+                      ["==", ["get", "id"], selectedEventId],
+                      colors.highlight, // when selected
+                      colors.background, // default
+                    ]
+                  :colors.background,
               }}
             />
           </ShapeSource>
