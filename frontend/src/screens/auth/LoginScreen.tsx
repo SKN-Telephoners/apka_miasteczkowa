@@ -78,7 +78,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>{"MESSAGES.APP.LOGIN_TITLE"}</Text>
+        <Text style={styles.title}>{MESSAGES.APP.LOGIN_TITLE}</Text>
 
         <View style={styles.inputContainer}>
           <InputField

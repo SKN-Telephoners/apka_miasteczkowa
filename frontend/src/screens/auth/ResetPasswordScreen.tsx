@@ -52,7 +52,7 @@ const ResetPasswordScreen = ({ navigation }: { navigation: any }) => {
         keyboardShouldPersistTaps="handled"
       >
         <Text style={[styles.title, { color: colors.text }]}>
-          {"MESSAGES.APP.RESET_PASSWORD_TITLE"}
+          {MESSAGES.APP.RESET_PASSWORD_TITLE}
         </Text>
 
         <View style={styles.inputContainer}>
