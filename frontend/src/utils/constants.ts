@@ -2,10 +2,10 @@ import { Platform } from "react-native";
 
 export const API_BASE_URL = __DEV__
   ? Platform.select({
-      android: "http://10.0.2.2:5000",
-      ios: "http://10.0.2.2:5000",
-      default: "http://10.0.2.2:5000",
-    })
+    android: "http://10.0.2.2:5000",
+    ios: "http://10.0.2.2:5000",
+    default: "http://10.0.2.2:5000",
+  })
   : "https://production-api.com";
 
 if (!__DEV__ && !API_BASE_URL.startsWith("https://")) {
@@ -185,6 +185,13 @@ export const MESSAGES = {
     SIGN_UP: "Załóż konto",
     RESET_PASSWORD: "Zresetuj hasło",
   },
+
+  // APP Messages
+  APP: {
+    LOGIN_TITLE: "LOGOWANIE",
+    REGISTER_TITLE: "REJESTRACJA",
+    RESET_PASSWORD_TITLE: "RESETOWANIE HASŁA",
+  }
 
   // Placeholder Messages
   PLACEHOLDERS: {
