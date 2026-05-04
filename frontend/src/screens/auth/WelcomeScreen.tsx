@@ -90,16 +90,16 @@ const WelcomeScreen = ({ navigation }: { navigation: any }) => {
             </Text>
           </Svg>
         </View>
-        <Text>{MESSAGES.WELCOME.QUOTE}</Text>
+        <Text>{"MESSAGES.WELCOME.QUOTE"}</Text>
         <View style={styles.buttonContainer}>
           <Button
             type="primary"
-            title={MESSAGES.WELCOME.LOGIN}
+            title={"MESSAGES.WELCOME.LOGIN"}
             onPress={() => navigation.navigate("Login")}
           />
           <Button
             type="outline"
-            title={MESSAGES.WELCOME.SIGN_UP}
+            title={"MESSAGES.WELCOME.SIGN_UP"}
             onPress={() => navigation.navigate("Register")}
           />
         </View>
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
   },
   svgContainer: {
     width: "100%",
-    maxWidth: 400, 
+    maxWidth: 400,
     aspectRatio: 350 / 250,
   },
   backgroundImage: {
