@@ -191,7 +191,7 @@ export const MESSAGES = {
     LOGIN_TITLE: "LOGOWANIE",
     REGISTER_TITLE: "REJESTRACJA",
     RESET_PASSWORD_TITLE: "RESETOWANIE HASŁA",
-  }
+  },
 
   // Placeholder Messages
   PLACEHOLDERS: {
