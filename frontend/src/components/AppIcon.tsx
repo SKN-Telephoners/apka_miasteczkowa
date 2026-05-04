@@ -42,10 +42,11 @@ interface BaseSpriteCropperProps {
   size: number;
   focused?: boolean;
   style?: StyleProp<ViewStyle>;
+  color?: string;
 }
 
 const BaseSpriteCropper: React.FC<BaseSpriteCropperProps> = ({
-  Component, cols, rows, colIndex, rowIndex, size, focused = true, style
+  Component, cols, rows, colIndex, rowIndex, size, focused = true, style, color
 }) => {
   // SVG iconsety zawsze mają viewport bazy 788x788, z której liczymy proporcje maskowania.
   const nativeWidth = 788;
@@ -62,10 +63,11 @@ const BaseSpriteCropper: React.FC<BaseSpriteCropperProps> = ({
       },
       style
     ]}>
-      <Component 
-        width="100%" 
-        height="100%" 
-        viewBox={`${colIndex * colWidth} ${rowIndex * rowHeight} ${colWidth} ${rowHeight}`} 
+      <Component
+        width="100%"
+        height="100%"
+        viewBox={`${colIndex * colWidth} ${rowIndex * rowHeight} ${colWidth} ${rowHeight}`}
+        color={color}
       />
     </View>
   );
@@ -76,9 +78,10 @@ interface AppIconProps {
   size?: number;
   focused?: boolean;
   style?: StyleProp<ViewStyle>;
+  color?: string;
 }
 
-const AppIcon: React.FC<AppIconProps> = ({ name, size = 30, focused = true, style }) => {
+const AppIcon: React.FC<AppIconProps> = ({ name, size = 30, focused = true, style, color }) => {
   const config = ICON_REGISTRY[name as IconName];
 
   if (!config) {
@@ -96,6 +99,7 @@ const AppIcon: React.FC<AppIconProps> = ({ name, size = 30, focused = true, styl
       size={size}
       focused={focused}
       style={style}
+      color={color || '#7F7F7F'}
     />
   );
 };
