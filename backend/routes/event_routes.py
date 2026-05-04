@@ -1050,10 +1050,10 @@ def map_events():
                 "time": local_dt.strftime("%H:%M"),
                 "location": event.location,
                 "location_coordinates": coords,
-                "creator_username": creator_name
+                "creator_username": creator_name,
+                "is_private": event.is_private
             })
 
-        current_app.logger.info(f"INFO: /map, successfully fetched map events for user {user_id}")
         return make_api_response(
             ResponseTypes.SUCCESS,
             data={"data": final_map_data},

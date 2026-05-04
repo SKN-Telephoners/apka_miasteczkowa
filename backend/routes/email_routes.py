@@ -42,7 +42,7 @@ def verify_request():
         except Exception as e:
             current_app.logger.error(f"ERROR: /verify_request, DB exception occured: {e}")
 
-    current_app.logger.info(f"INFO: /verify_request, sending email for user: {user.user_id}")
+    current_app.logger.info(f"INFO: /verify_request, sending email for user: {email}")
     return make_api_response(ResponseTypes.SUCCESS, message="If the account exists and is not verified, an email has been sent")
 
 @email_bp.route("/verify/<token>", methods=["POST"])
