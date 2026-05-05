@@ -93,3 +93,12 @@ export const getPublicUserProfile = async (userId: string) => {
     throw new Error(msg);
   }
 };
+
+export const deleteAccount = async (): Promise<void> => {
+  try {
+    await api.delete("/api/users/settings/delete_account");
+  } catch (err: any) {
+    const msg = err?.response?.data?.message || err?.message || "Błąd podczas usuwania konta";
+    throw new Error(msg);
+  }
+};

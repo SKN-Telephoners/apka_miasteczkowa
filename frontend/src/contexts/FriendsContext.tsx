@@ -78,19 +78,30 @@ export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       try {
-        const response = (await friendsService.getFriendsList()) as any;
-        const data = response || {
+        const [friendsRes, pendingRes] = await Promise.all([
+          friendsService.getFriendsList().catch(() => null),
+          friendsService.getPendingRequests().catch(() => null)
+        ]);
+
+        const data = friendsRes || {
           friends: [],
           incomingRequests: [],
           outgoingRequests: [],
         };
 
-        setFriends(data.friends);
-        setIncomingRequests(data.incomingRequests);
-        setOutgoingRequests(data.outgoingRequests);
+        const finalIncoming = pendingRes?.incomingRequests || data.incomingRequests || [];
+        const finalOutgoing = pendingRes?.outgoingRequests || data.outgoingRequests || [];
+
+        setFriends(data.friends || []);
+        setIncomingRequests(finalIncoming);
+        setOutgoingRequests(finalOutgoing);
 
         // Synchronizacja cache po pomyślnym pobraniu
-        await saveCache(data);
+        await saveCache({
+          friends: data.friends || [],
+          incomingRequests: finalIncoming,
+          outgoingRequests: finalOutgoing
+        });
       } catch (err) {
         setError("Nie udało się załadować danych o znajomych.");
         console.error("Error fetching friends data:", err);
@@ -98,7 +109,7 @@ export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({
         setLoading(false);
       }
     },
-    [saveCache],
+    [saveCache]
   );
 
   const sendFriendRequest = useCallback(
@@ -106,6 +117,17 @@ export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({
       try {
         setLoading(true);
         setError(null);
+
+        // Optimistic UI update
+        const tempRequest: Request = {
+            id: `temp_${Date.now()}`,
+            senderId: "", 
+            receiverId: userId,
+            createdAt: new Date().toISOString(),
+            user: { id: userId, username: "Wysyłanie...", email: "" } as User
+        };
+        setOutgoingRequests(prev => [...prev, tempRequest]);
+
         await friendsService.addFriend(userId);
         await fetchFriends(); // Odświeżenie listy po akcji
       } catch (err: any) {

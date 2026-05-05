@@ -5,6 +5,7 @@ import EditProfileScreen from '../screens/user/EditProfileScreen';
 import SettingsScreen from '../screens/user/SettingsScreen';
 import EventPreviewScreen from '../screens/event/EventPreviewScreen';
 import EditEvent from '../screens/event/EditEvent';
+import EventMap from '../screens/event/EventMap';
 import { useTheme } from '../contexts/ThemeContext';
 
 const Stack = createStackNavigator();
@@ -52,6 +53,11 @@ const ProfileStack = () => {
                 name="EditEvent"
                 component={EditEvent}
                 options={{ headerShown: true, title: "Edytuj wydarzenie" }}
+            />
+            <Stack.Screen
+                name="EventMap"
+                component={EventMap}
+                options={{ headerShown: true, title: "Wybierz lokalizację" }}
             />
         </Stack.Navigator>
     );

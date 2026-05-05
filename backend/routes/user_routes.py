@@ -61,40 +61,7 @@ def get_user_info(user_id):
         "deleted": user.deleted
     }
 
-    return make_api_response(ResponseTypes.SUCCESS, data=user_data)
-
-
-@users_bp.route("/public_profile/<user_id>", methods=["GET"])
-@jwt_required()
-def get_public_user_info(user_id):
-    target_user_id = validate_uuid(user_id)
-    if not target_user_id:
-        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid user ID")
-
-    user = User.query.filter_by(user_id=target_user_id).first()
-    if not user or user.deleted is True:
-        return make_api_response(ResponseTypes.NOT_FOUND, message="User not found")
-
-    profile_pic_data = None
-    if user.profile_picture:
-        url, _ = cloudinary_url(user.profile_picture, secure=True)
-        profile_pic_data = {
-            "cloud_id": user.profile_picture,
-            "url": url,
-        }
-
-    user_data = {
-        "user_id": str(user.user_id),
-        "id": str(user.user_id),
-        "username": user.display_name,
-        "academy": user.academy,
-        "faculty": user.faculty,
-        "course": user.course,
-        "year": user.year,
-        "description": user.description,
-        "profile_picture": profile_pic_data,
-    }
-
+    current_app.logger.info(f"INFO: /get_user_info, success in retrieving user info for {user_id}")
     return make_api_response(ResponseTypes.SUCCESS, data=user_data)
 
 
@@ -105,6 +72,7 @@ def update_profile():
     user = get_current_user()
 
     if user.deleted:
+        current_app.logger.warning(f"WARNING: /update_profile, user {user.user_id} tried to update deleted profile")
         return make_api_response(ResponseTypes.FORBIDDEN, message="Account is deleted")
 
     user_data = request.get_json(silent=True)
@@ -160,7 +128,7 @@ def update_profile():
                 try:
                     cloudinary.uploader.destroy(current_pic)
                 except Exception as cloud_err:
-                    current_app.logger.error(f"Cloudinary delete error: {cloud_err}")
+                    current_app.logger.error(f"ERROR: /update_profile, Cloudinary delete error: {cloud_err}")
                 
                 user.profile_picture = None
 
@@ -172,7 +140,7 @@ def update_profile():
                     try:
                         cloudinary.uploader.destroy(current_pic)
                     except Exception as cloud_err:
-                        current_app.logger.error(f"Cloudinary delete error: {cloud_err}")
+                        current_app.logger.error(f"ERROR: /update_profile, Cloudinary delete error: {cloud_err}")
                     
                     user.profile_picture = new_cloud_id
             else:
@@ -182,9 +150,10 @@ def update_profile():
         db.session.commit()
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"Database error in update_profile: {e}")
+        current_app.logger.error(f"ERROR: /update_profile, DB exception occured: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
-
+    
+    current_app.logger.info(f"INFO: /update_profile, success in editing user profile for ID: {user.user_id}")
     return make_api_response(ResponseTypes.SUCCESS, message="Profile updated successfully")
 
 
@@ -198,6 +167,7 @@ def update_academic_details():
         return make_api_response(ResponseTypes.NOT_FOUND, message="User not found")
 
     if user.deleted:
+        current_app.logger.warning(f"WARNING: /update_academic_details, user {user.user_id} tried to update deleted profile")
         return make_api_response(ResponseTypes.FORBIDDEN, message="Account is deleted")
     
     if user.academy != Constants.PRIMARY_ACADEMY:
@@ -253,10 +223,11 @@ def update_academic_details():
 
     try:
         db.session.commit()
+        current_app.logger.info(f"INFO: /update_academic_details, user {user.user_id} updated their profile")
         return make_api_response(ResponseTypes.SUCCESS, message="Academic details updated successfully")
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"Error updating academic details: {e}")
+        current_app.logger.info(f"ERROR: /update_academic_details, DB exception occured: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
 
@@ -273,10 +244,12 @@ def change_password():
         return make_api_response(ResponseTypes.BAD_REQUEST, message="Missing password data")
 
     if not user.validate_password(password_data["old_password"]):
+        current_app.logger.warning(f"WARNING: /settings/password, old password is incorrect for user: {user.user_id}")
         return make_api_response(ResponseTypes.INVALID_CREDENTIALS, message="Old password incorrect")
 
     new_password = password_data["new_password"]
     if not re.match(Constants.PASSWORD_PATTERN, new_password):
+        current_app.logger.warning(f"WARNING: /settings/password, new password is incorrect for user: {user.user_id}")
         return make_api_response(ResponseTypes.INVALID_DATA, message="New password format incorrect")
 
     try:
@@ -287,9 +260,10 @@ def change_password():
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"Error in change_password: {e}")
+        current_app.logger.error(f"ERROR: /settings/password, DB exception occurred: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
+    current_app.logger.info(f"INFO: /settings/password, new password set for user: {user.user_id}")
     return make_api_response(ResponseTypes.SUCCESS, message="Password updated successfully")
 
 @users_bp.route("/settings/change_email", methods=["PUT"])
@@ -307,6 +281,7 @@ def change_email_request():
     if not re.match(Constants.EMAIL_PATTERN, new_email) or len(new_email) > Constants.MAX_EMAIL_LEN:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid email format")
     if User.query.filter_by(email=new_email).first():
+        current_app.logger.warning(f"WARNING: /settings/change_email, new email is already used for user: {user.user_id}")
         return make_api_response(ResponseTypes.CONFLICT, message="Account with this email already exists")
 
     email_change_token = create_access_token(
@@ -318,7 +293,7 @@ def change_email_request():
     try:
         add_token_to_db(email_change_token)
     except Exception as e:
-        current_app.logger.error(f"Failed to log email change token for user {user.user_id}: {e}")
+        current_app.logger.error(f"ERROR: /settings/change_email, exception occurred during token adding: {e}")
 
     email_change_url = url_for("email.confirm_change", token=email_change_token, _external=True)
     
@@ -341,9 +316,10 @@ def change_email_request():
         
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"Email change error: {e}")
+        current_app.logger.error(f"ERROR: /settings/change_email, DB exception occurred: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR, message="Could not send verification email")
 
+    current_app.logger.info(f"INFO: /settings/change_email, link for mail change set to user: {user.user_id}")
     return make_api_response(ResponseTypes.SUCCESS, message="Verification link sent to new email")
 
 
@@ -354,9 +330,10 @@ def logout_from_all_devices():
     
     try:
         revoke_all_user_tokens(user_id)
+        current_app.logger.info(f"INFO: /settings/logout_all, logged out user: {user_id} from all devices")
         return make_api_response(ResponseTypes.SUCCESS, message="Successfully logged out from all devices")
     except Exception as e:
-        current_app.logger.error(f"Logout all error: {e}")
+        current_app.logger.error(f"ERROR: /settings/logout_all, exception occurred: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
     
 
@@ -367,9 +344,11 @@ def delete_account():
     data = request.get_json(silent=True)
     
     if not data or "password" not in data:
+        current_app.logger.warning(f"WARNING: /settings/delete_account, user: {user.user_id} tried to delete account without providing password")
         return make_api_response(ResponseTypes.BAD_REQUEST, message="Password required to delete account")
     
     if not user.validate_password(data["password"]):
+        current_app.logger.warning(f"WARNING: /settings/delete_account, user: {user.user_id} tried to delete account with providing wrong password")
         return make_api_response(ResponseTypes.INVALID_CREDENTIALS, message="Incorrect password")
 
     try:
@@ -388,6 +367,7 @@ def delete_account():
         user.year = None
         user.academic_clubs = None
         
+        # scramble the password (the account can never be logged into again)
         user.update_password(uuid.uuid4().hex)
         
         revoke_all_user_tokens(user.user_id)
@@ -396,15 +376,16 @@ def delete_account():
             try:
                 cloudinary.uploader.destroy(user.profile_picture)
             except Exception as cloud_err:
-                current_app.logger.error(f"Failed to delete profile picture {user.profile_picture} from Cloudinary: {cloud_err}")
+                current_app.logger.error(f"ERROR: /settings/delete_account, failed to delete profile picture {user.profile_picture} from Cloudinary: {cloud_err}")
             user.profile_picture = None
         
         db.session.commit()
+        current_app.logger.info(f"INFO: /settings/delete_account, user: {user.user_id} deleted their account")
         return make_api_response(ResponseTypes.SUCCESS, message="Account successfully deleted")
     
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"Delete account error: {e}")
+        current_app.logger.error(f"ERROR: /settings/delete_account, DB exception occurred: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
     
 @users_bp.route("/users_list", methods=["GET"])
@@ -418,12 +399,11 @@ def get_users_list():
         limit = request.args.get("limit", default=Constants.PAGINATION_DEFAULT_LIMIT, type=int)
         if limit > Constants.MAX_PAGINATION_LIMIT:
             limit = Constants.MAX_PAGINATION_LIMIT
-    except (ValueError, TypeError):
+    except (ValueError, TypeError) as e:
+        current_app.logger.error(f"ERROR: /users_list, exception occurred: {e}")
         return make_api_response(ResponseTypes.INVALID_DATA, message="Pagination must be a positive integer")
 
     search_val = request.args.get("search", default="", type=str).strip()
-    clean_search = ""
-    escaped_search = ""
 
     query = db.session.query(User, Friendship.friend_id).outerjoin(
         Friendship, 
@@ -431,55 +411,37 @@ def get_users_list():
             and_(Friendship.user_id == current_user_id, Friendship.friend_id == User.user_id),
             and_(Friendship.friend_id == current_user_id, Friendship.user_id == User.user_id)
         )
-    ).filter(User.deleted.isnot(True), User.user_id != current_user_id)
+    ).filter(User.deleted == False, User.user_id != current_user_id)
 
     if search_val:
         clean_search = sanitize_input(search_val).strip()[:Constants.MAX_USERNAME_LEN]
         if clean_search:
             escaped_search = clean_search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-            query = query.filter(User.username.ilike(f"%{escaped_search}%", escape="\\"))
+            query = query.filter(User.username.startswith(f"{escaped_search}"))
 
 
     friend_priority = case(
         (Friendship.friendship_id.isnot(None), 1), 
         else_=0
     )
-    if search_val and clean_search:
-        search_priority = case(
-            (User.username.ilike(clean_search), 3),
-            (User.username.ilike(f"{clean_search}%", escape="\\"), 2),
-            else_=1,
-        )
-        query = query.order_by(search_priority.desc(), friend_priority.desc(), User.username.asc())
-    else:
-        query = query.order_by(friend_priority.desc(), User.username.asc())
+
+    query = query.order_by(friend_priority.desc(), User.username.asc())
 
     pagination = query.paginate(page=page, per_page=limit, error_out=False)
 
     users_list = []
     for user, f_id in pagination.items:
         is_friend = f_id is not None
-        profile_pic_data = None
-        if user.profile_picture:
-            url, _ = cloudinary_url(user.profile_picture, secure=True)
-            profile_pic_data = {
-                "cloud_id": user.profile_picture,
-                "url": url
-            }
-
         user_info = {
             "user_id": str(user.user_id),
             "username": user.display_name,
             "academy": user.academy,
-            "faculty": user.faculty,
-            "course": user.course,
-            "year": user.year,
-            "profile_picture": profile_pic_data,
-            "is_friend": is_friend,
-            "is_self": False,
+            "profile_picture": user.profile_picture,
+            "is_friend": is_friend
         }
         users_list.append(user_info)
 
+    current_app.logger.info(f"INFO: /users_list, user list succsessfully send for user {current_user_id}")
     return make_api_response(ResponseTypes.SUCCESS, data={
         "users": users_list,
         "pagination": {

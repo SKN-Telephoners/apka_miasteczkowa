@@ -15,6 +15,7 @@ export const ICON_REGISTRY = {
   Heart: { Component: Iconset1, cols: 3, rows: 3, col: 0, row: 2 },
   Comment: { Component: Iconset1, cols: 3, rows: 3, col: 1, row: 2 },
   Share: { Component: Iconset1, cols: 3, rows: 3, col: 2, row: 2 },
+  AddUser: { Component: Iconset1, cols: 3, rows: 3, col: 2, row: 1 },
 
   // --- ICONSET 2 ---
   MoreVertical: { Component: Iconset2, cols: 3, rows: 3, col: 0, row: 0 },
@@ -26,6 +27,8 @@ export const ICON_REGISTRY = {
   Preview: { Component: Iconset2, cols: 3, rows: 3, col: 0, row: 2 },
   Camera: { Component: Iconset2, cols: 3, rows: 3, col: 1, row: 2 },
   Bell: { Component: Iconset2, cols: 3, rows: 3, col: 2, row: 2 },
+  Trash: { Component: Iconset2, cols: 3, rows: 3, col: 1, row: 0 },
+  Send: { Component: Iconset2, cols: 3, rows: 3, col: 2, row: 0 },
 } as const;
 
 export type IconName = keyof typeof ICON_REGISTRY;

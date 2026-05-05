@@ -9,6 +9,7 @@ from celery import Celery, Task
 from flask import Flask
 import os
 import json
+import redis
 
 db = SQLAlchemy()
 bcrypt = Bcrypt()
@@ -21,6 +22,7 @@ limiter = Limiter(
     retry_after="delta-seconds", 
     storage_uri="redis://localhost:6379"     
 )
+redis_client = redis.from_url("redis://localhost:6379", decode_responses=True)
 
 #celery
 def celery_init_app(app: Flask) -> Celery:

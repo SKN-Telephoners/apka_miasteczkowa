@@ -1,21 +1,20 @@
-import React, { useState, useEffect, useCallback } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ImageBackground,
-} from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import * as SplashScreen from "expo-splash-screen";
 import { Asset } from "expo-asset";
+import * as SplashScreen from "expo-splash-screen";
+import React, { useCallback, useEffect, useState } from "react";
+import { Image, SafeAreaView, StyleSheet, View } from "react-native";
+import Svg, { Text, TSpan } from "react-native-svg";
+import Button from "../../components/Button";
+
+import { useTheme } from "../../contexts/ThemeContext";
+import { MESSAGES, THEME } from "../../utils/constants";
 
 // zapobieganie automatycznemu ukryciu splash screena
 SplashScreen.preventAutoHideAsync();
 
 const WelcomeScreen = ({ navigation }: { navigation: any }) => {
   const [isReady, setIsReady] = useState(false);
-  const imageAsset = require("../../../assets/telephlogo.jpg");
+  const imageAsset = require("../../../assets/logo_light.png");
+  const { colors } = useTheme();
 
   useEffect(() => {
     async function loadResources() {
@@ -23,7 +22,7 @@ const WelcomeScreen = ({ navigation }: { navigation: any }) => {
         // cyk do pamięci podręcznej
         await Asset.loadAsync(imageAsset);
       } catch (error) {
-        console.warn("Błąd ładowania zasobów:", error);
+        console.warn(error);
       } finally {
         setIsReady(true);
       }
@@ -44,89 +43,96 @@ const WelcomeScreen = ({ navigation }: { navigation: any }) => {
   }
 
   return (
-    <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-      <ImageBackground source={imageAsset} style={styles.background}>
-        <LinearGradient
-          colors={["rgba(3, 0, 209, 0.8)", "rgba(207, 111, 2, 0.8)"]}
-          style={styles.overlay}
-        >
-          <View style={styles.container}>
-            <Text style={styles.title}>Aplikacja Miasteczkowa</Text>
-            <TouchableOpacity
-              style={styles.loginButton}
-              onPress={() => navigation.navigate("Login")}
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      onLayout={onLayoutRootView}
+    >
+      <View style={styles.container}>
+        <Image
+          source={imageAsset}
+          style={styles.backgroundImage}
+          resizeMode="contain"
+        />
+        <View style={styles.svgContainer}>
+          <Svg width="100%" height="100%" viewBox="0 0 350 250">
+            <Text
+              stroke="white"
+              strokeWidth={30}
+              strokeLinejoin="round"
+              fontSize={45}
+              fontWeight="bold"
+              textAnchor="middle"
+              x="175"
+              y="80"
             >
-              <Text style={styles.buttonText}>Zaloguj się</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.signUpButton}
-              onPress={() => navigation.navigate("Register")}
-            >
-              <Text style={styles.buttonText}>Załóż konto</Text>
-            </TouchableOpacity>
-            <Text style={styles.quote}>
-              "Bo życie studenckie to coś więcej niż nauka"
+              <TSpan x="175" dy="0">
+                Aplikacja
+              </TSpan>
+              <TSpan x="175" dy="55">
+                Miasteczkowa
+              </TSpan>
             </Text>
-          </View>
-        </LinearGradient>
-      </ImageBackground>
-    </View>
+
+            <Text
+              fill="black"
+              fontSize={45}
+              fontWeight="bold"
+              textAnchor="middle"
+              x="175"
+              y="80"
+            >
+              <TSpan x="175" dy="0">
+                Aplikacja
+              </TSpan>
+              <TSpan x="175" dy="55">
+                Miasteczkowa
+              </TSpan>
+            </Text>
+          </Svg>
+        </View>
+        <Text>{MESSAGES.WELCOME.QUOTE}</Text>
+        <View style={styles.buttonContainer}>
+          <Button
+            type="primary"
+            title={MESSAGES.WELCOME.LOGIN}
+            onPress={() => navigation.navigate("Login")}
+          />
+          <Button
+            type="outline"
+            title={MESSAGES.WELCOME.SIGN_UP}
+            onPress={() => navigation.navigate("Register")}
+          />
+        </View>
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-    resizeMode: "cover",
-  },
-  overlay: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
   container: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
     alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 50,
     paddingHorizontal: 20,
   },
-  title: {
-    fontSize: 50,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 50,
-    textAlign: "center",
+  svgContainer: {
+    width: "100%",
+    maxWidth: 400, 
+    aspectRatio: 350 / 250,
   },
-  quote: {
-    fontSize: 25,
-    fontStyle: "italic",
-    color: "#fff",
+  backgroundImage: {
     position: "absolute",
-    bottom: -200,
-    textAlign: "center",
+    top: 90,
+    width: "205%",
+    height: "100%",
+    opacity: 0.4,
   },
-  loginButton: {
-    backgroundColor: "rgba(74, 145, 226, 0)",
-    borderWidth: 2,
-    borderColor: "#4a90e2",
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 30,
-    marginBottom: 20,
-    width: "80%",
-    alignItems: "center",
-  },
-  signUpButton: {
-    backgroundColor: "rgba(255, 145, 77, 0)",
-    borderWidth: 2,
-    borderColor: "#ff914d",
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 30,
-    width: "80%",
-    alignItems: "center",
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 20,
+  buttonContainer: {
+    width: "60%",
+    gap: 5,
   },
 });
 

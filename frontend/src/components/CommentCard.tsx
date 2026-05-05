@@ -10,21 +10,15 @@ import { Comment } from "../types/comment";
 import { editComment, deleteComment, replyToComment } from "../services/comments";
 import UserCard from "./UserCard";
 import { THEME } from "../utils/constants";
-import SvgSpriteIcon from "./SvgSpriteIcon";
 import AppIcon from "./AppIcon";
 import { useTheme } from "../contexts/ThemeContext";
 import { useMemo } from "react";
 import { useNavigation } from "@react-navigation/native";
 import { useFriends } from "../contexts/FriendsContext";
 
-const BASE_TILE_SIZE = 30;
 const ACTION_ICON_SIZE = 16;
-const HEART_ICON_OFFSET = { x: 0, y: -BASE_TILE_SIZE * 2 };
-const COMMENT_ICON_OFFSET = { x: -BASE_TILE_SIZE, y: -BASE_TILE_SIZE * 2 };
 const REPLY_INDENT = 12;
 const MENU_ICON_SIZE = 14;
-const MENU_EDIT_ICON_OFFSET = { x: -BASE_TILE_SIZE * 2, y: -BASE_TILE_SIZE };
-const MENU_DELETE_ICON_OFFSET = { x: -BASE_TILE_SIZE, y: 0 };
 
 const formatCreatedAt = (createdAt?: string): string => {
     if (!createdAt) return "brak daty dodania";
@@ -280,7 +274,7 @@ const CommentCard = ({
                 <View style={styles.actionsRow}>
                     <View style={styles.actionItem}>
                         <View style={styles.actionIconContainer}>
-                            <SvgSpriteIcon set={1} size={ACTION_ICON_SIZE} offsetX={HEART_ICON_OFFSET.x} offsetY={HEART_ICON_OFFSET.y} />
+                            <AppIcon name="Heart" size={ACTION_ICON_SIZE} />
                         </View>
                         <Text style={styles.actionCount}>0</Text>
                     </View>
@@ -293,7 +287,7 @@ const CommentCard = ({
                         }}
                     >
                         <View style={styles.actionIconContainer}>
-                            <SvgSpriteIcon set={1} size={ACTION_ICON_SIZE} offsetX={COMMENT_ICON_OFFSET.x} offsetY={COMMENT_ICON_OFFSET.y} />
+                            <AppIcon name="Comment" size={ACTION_ICON_SIZE} />
                         </View>
                         <Text style={styles.actionCount}>{item.replies?.length ?? 0}</Text>
                     </TouchableOpacity>
@@ -347,7 +341,7 @@ const CommentCard = ({
                                 }}
                             >
                                 <View style={styles.menuIconContainer}>
-                                    <SvgSpriteIcon set={2} size={MENU_ICON_SIZE} offsetX={MENU_EDIT_ICON_OFFSET.x} offsetY={MENU_EDIT_ICON_OFFSET.y} />
+                                    <AppIcon name="Edit" size={MENU_ICON_SIZE} />
                                 </View>
                                 <Text style={styles.menuEdit}>Edytuj</Text>
                             </TouchableOpacity>
@@ -360,7 +354,7 @@ const CommentCard = ({
                                 }}
                             >
                                 <View style={styles.menuIconContainer}>
-                                    <SvgSpriteIcon set={2} size={MENU_ICON_SIZE} offsetX={MENU_DELETE_ICON_OFFSET.x} offsetY={MENU_DELETE_ICON_OFFSET.y} />
+                                    <AppIcon name="Trash" size={MENU_ICON_SIZE} />
                                 </View>
                                 <Text style={styles.menuDelete}>Usuń</Text>
                             </TouchableOpacity>

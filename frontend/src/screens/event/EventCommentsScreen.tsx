@@ -17,12 +17,10 @@ import { Comment } from "../../types/comment";
 import CommentCard from "../../components/CommentCard";
 import { TextInput } from "react-native-gesture-handler";
 import { THEME } from "../../utils/constants";
-import SvgSpriteIcon from "../../components/SvgSpriteIcon";
+import AppIcon from "../../components/AppIcon";
 import { useTheme } from "../../contexts/ThemeContext";
 
-const BASE_TILE_SIZE = 30;
 const SEND_ICON_SIZE = 28;
-const SEND_ICON_OFFSET = { x: -BASE_TILE_SIZE * 2, y: 0 };
 
 const EventCommentsScreen = () => {
   const route = useRoute<any>();
@@ -183,7 +181,7 @@ const EventCommentsScreen = () => {
 
         <TouchableOpacity onPress={handleAddComment} style={styles.sendButton}>
           <View style={styles.sendIconContainer}>
-            <SvgSpriteIcon set={2} size={SEND_ICON_SIZE} offsetX={SEND_ICON_OFFSET.x} offsetY={SEND_ICON_OFFSET.y} />
+            <AppIcon name="Send" size={SEND_ICON_SIZE} />
           </View>
         </TouchableOpacity>
       </View>

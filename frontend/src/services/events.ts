@@ -1,7 +1,5 @@
 import api from "./api";
 import { Event, EventPicture } from "../types";
-import { API_BASE_URL } from "../utils/constants";
-import { tokenStorage } from "../utils/storage";
 
 type ApiMessage = { message?: string }; //type string insure for backend function response
 type CreateEventResponse = { message: string; event_id: string; creator_id: string };
@@ -50,11 +48,6 @@ export const uploadEventPicture = async (uri: string, fileName = "event-picture.
         const derivedName = fileName || uri.split("/").pop() || "event-picture.jpg";
         const ext = derivedName.split(".").pop()?.toLowerCase();
         const mimeType = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
-        const accessToken = await tokenStorage.getAccessToken();
-
-        if (!accessToken) {
-            throw new Error("Brak tokenu dostępu. Zaloguj się ponownie.");
-        }
 
         const formData = new FormData();
         const filePayload = {
@@ -65,24 +58,9 @@ export const uploadEventPicture = async (uri: string, fileName = "event-picture.
         formData.append("file", filePayload);
         formData.append("tags", "event-picture");
 
-        const response = await fetch(`${API_BASE_URL}/api/pictures/upload`, {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-            },
-            body: formData,
-        });
+        const response = await api.post<UploadPictureResponse>("/api/pictures/upload", formData);
+        const responseData: UploadPictureResponse = response.data || {};
 
-        let responseData: UploadPictureResponse = {};
-        try {
-            responseData = (await response.json()) as UploadPictureResponse;
-        } catch {
-            responseData = {};
-        }
-
-        if (!response.ok) {
-            throw new Error((responseData as any)?.message || `Upload failed (${response.status})`);
-        }
         const uploadedPicture =
             responseData.pictures?.[0]
             ?? responseData.data?.pictures?.[0]
@@ -142,6 +120,10 @@ export interface PaginatedEvents {
         total: number;
         pages: number;
     };
+}
+
+export interface MapEventsResponse {
+    data: Event[];
 }
 
 export interface FeedQueryParams {
@@ -232,6 +214,16 @@ export const getEvents = async (
     }
 };
 
+export const getMapEvents = async (): Promise<Event[]> => {
+    try {
+        const response = await api.get<MapEventsResponse>("/api/events/map");
+        return response.data.data || [];
+    } catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || "Network error";
+        throw new Error(msg);
+    }
+};
+
 export const getParticipationStatus = async (eventId: string): Promise<ParticipationStatusResponse> => {
     try {
         const response = await api.get<ParticipationStatusResponse>(`/api/events/participation/${eventId}`);
@@ -245,17 +237,30 @@ export const getParticipationStatus = async (eventId: string): Promise<Participa
     }
 };
 
-export interface UserEventsInfoResponse {
-    created: Array<{ event_id: string; name: string }>;
-    participating: Array<{ event_id: string; name: string }>;
-}
-
-export const getUserEventsInfo = async (userId: string): Promise<UserEventsInfoResponse> => {
+export const getUserCreatedEvents = async (userId: string): Promise<Event[]> => {
     try {
-        const response = await api.get<UserEventsInfoResponse>(`/api/events/${userId}/info`);
-        return response.data as UserEventsInfoResponse;
+        const response = await api.get<{ data: any[] }>(`/api/events/${userId}/creator`);
+        return (response.data.data || []).map(event => ({
+            ...event,
+            id: event.id || event.event_id,
+            participant_count: event.participant_count ?? event.participation_count
+        })) as Event[];
     } catch (err: any) {
-        const msg = err?.response?.data?.message || err?.message || "Błąd pobierania wydarzeń użytkownika";
+        const msg = err?.response?.data?.message || err?.message || "Błąd pobierania utworzonych wydarzeń użytkownika";
+        throw new Error(msg);
+    }
+};
+
+export const getUserParticipatingEvents = async (userId: string): Promise<Event[]> => {
+    try {
+        const response = await api.get<{ data: any[] }>(`/api/events/${userId}/participant`);
+        return (response.data.data || []).map(event => ({
+            ...event,
+            id: event.id || event.event_id,
+            participant_count: event.participant_count ?? event.participation_count
+        })) as Event[];
+    } catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || "Błąd pobierania wydarzeń, w których użytkownik bierze udział";
         throw new Error(msg);
     }
 };
@@ -319,14 +324,54 @@ export const getSentInvitesForEvent = async (eventId: string): Promise<string[]>
 
 export const getIncomingEventInvites = async (): Promise<EventInviteNotification[]> => {
     try {
-        const response = await api.get<{ incomingInvites?: EventInviteNotification[] }>("/api/events/invites/incoming");
-        const incomingInvites = response.data?.incomingInvites;
-        return Array.isArray(incomingInvites) ? incomingInvites : [];
+        const response = await api.get<{ 
+            data?: Array<{
+                notification_id: string;
+                type: string;
+                payload: {
+                    invite_id: string;
+                    sender_id: string;
+                    sender_name: string;
+                    event_id: string;
+                    event_name: string;
+                    message: string;
+                };
+                date: string;
+                time: string;
+            }>
+        }>("/api/notifications/?type=event_invite&status=all");
+
+        const notifications = response.data?.data;
+        if (!Array.isArray(notifications)) return [];
+
+        return notifications.map(notif => ({
+            id: notif.payload.invite_id,
+            createdAt: `${notif.date} ${notif.time}`,
+            inviter: {
+                id: notif.payload.sender_id,
+                username: notif.payload.sender_name,
+                academy: undefined,
+                course: undefined,
+            },
+            event: {
+                id: notif.payload.event_id,
+                name: notif.payload.event_name,
+                description: "",
+                location: "",
+                date: notif.date,
+                time: notif.time,
+                creator_id: notif.payload.sender_id,
+                is_private: false,
+                comment_count: 0,
+                participant_count: 0,
+            }
+        }));
     } catch (err: any) {
         const msg = err?.response?.data?.message || err?.message || "Network error";
         throw new Error(msg);
     }
 };
+
 
 export const changeInviteStatus = async (inviteId: string, status: "accepted" | "declined"): Promise<string> => {
     try {

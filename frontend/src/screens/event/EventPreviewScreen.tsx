@@ -5,11 +5,8 @@ import EventCard from "../../components/EventCard";
 import { THEME } from "../../utils/constants";
 import { Event } from "../../types";
 import { useTheme } from "../../contexts/ThemeContext";
-import SvgSpriteIcon from "../../components/SvgSpriteIcon";
-
-const BASE_TILE_SIZE = 30;
+import AppIcon from "../../components/AppIcon";
 const META_ICON_SIZE = 18;
-const EDIT_MENU_ICON_OFFSET = { x: -BASE_TILE_SIZE * 2, y: -BASE_TILE_SIZE };
 
 const EventPreviewScreen = () => {
     const { colors } = useTheme();
@@ -35,7 +32,7 @@ const EventPreviewScreen = () => {
                             activeOpacity={0.8}
                             accessibilityLabel="Edytuj wydarzenie"
                         >
-                            <SvgSpriteIcon set={2} size={META_ICON_SIZE} offsetX={EDIT_MENU_ICON_OFFSET.x} offsetY={EDIT_MENU_ICON_OFFSET.y} />
+                            <AppIcon name="Edit" size={META_ICON_SIZE} />
                         </TouchableOpacity>
                     )
                     : undefined,
