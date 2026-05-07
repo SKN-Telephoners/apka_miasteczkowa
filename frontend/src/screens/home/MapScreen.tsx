@@ -12,6 +12,7 @@ import {
 } from "@react-navigation/native";
 import Constants from "expo-constants";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -39,6 +40,7 @@ const MAP_REFRESH_COOLDOWN_MS = 60_000;
 
 function useMapStyles() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return useMemo(
     () =>
@@ -64,8 +66,9 @@ function useMapStyles() {
           justifyContent: "space-between",
           alignItems: "center",
           paddingHorizontal: 15,
+          paddingTop: insets.top,
           // paddingVertical: 12,
-          minHeight: 50,
+          minHeight: 50 + insets.top,
           borderBottomWidth: 1,
           borderBottomColor: colors.border,
           backgroundColor: colors.highlight,
@@ -119,7 +122,7 @@ function useMapStyles() {
         toggleListButton: {
           position: "absolute",
           left: 10,
-          top: 10,
+          top: 10 + insets.top,
           width: 40,
           height: 40,
         },
@@ -198,7 +201,7 @@ function useMapStyles() {
           marginTop: 30,
         },
       }),
-    [colors],
+    [colors, insets.top],
   );
 }
 
@@ -559,7 +562,7 @@ export default function MapScreen() {
                   <>
                     <TouchableOpacity onPress={() => setShowEventsFilter(true)}>
                       <View style={styles.filterPanelButton}>
-                        <AppIcon name="Sliders" size={20} color={colors.background} />
+                        <AppIcon name="Sliders" size={20} color={colors.textSecondary} />
                       </View>
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => setShowEventsList(false)}>
