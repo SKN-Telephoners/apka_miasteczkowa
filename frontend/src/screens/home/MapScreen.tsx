@@ -60,6 +60,8 @@ function useMapStyles() {
           top: 0,
           bottom: 0,
           width: 280,
+          zIndex: 10,
+          elevation: 10,
         },
         eventsPanelHeader: {
           flexDirection: "row",
@@ -553,19 +555,28 @@ export default function MapScreen() {
               </Text>
               <View style={styles.eventsPanelHeaderButtons}>
                 {showEventsFilter ? (
-                  <TouchableOpacity onPress={() => setShowEventsFilter(false)}>
+                  <TouchableOpacity
+                    onPress={() => setShowEventsFilter(false)}
+                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                  >
                     <Text style={[styles.closePanelButton, { fontSize: 16 }]}>
                       {MESSAGES.UI.DONE}
                     </Text>
                   </TouchableOpacity>
                 ) : (
                   <>
-                    <TouchableOpacity onPress={() => setShowEventsFilter(true)}>
+                    <TouchableOpacity
+                      onPress={() => setShowEventsFilter(true)}
+                      hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                    >
                       <View style={styles.filterPanelButton}>
                         <AppIcon name="Sliders" size={20} color={colors.textSecondary} />
                       </View>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setShowEventsList(false)}>
+                    <TouchableOpacity
+                      onPress={() => setShowEventsList(false)}
+                      hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                    >
                       <Text style={styles.closePanelButton}>✕</Text>
                     </TouchableOpacity>
                   </>
