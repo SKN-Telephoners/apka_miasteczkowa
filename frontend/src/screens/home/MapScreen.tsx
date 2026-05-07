@@ -559,7 +559,7 @@ export default function MapScreen() {
                   <>
                     <TouchableOpacity onPress={() => setShowEventsFilter(true)}>
                       <View style={styles.filterPanelButton}>
-                        <AppIcon name="Sliders" size={20} />
+                        <AppIcon name="Sliders" size={20} color={colors.background} />
                       </View>
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => setShowEventsList(false)}>
