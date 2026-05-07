@@ -87,7 +87,6 @@ function useMapStyles() {
         },
         filterPanelButton: {
           marginTop: 3,
-          backgroundColor: colors.textSecondary,
         },
         eventsListContent: {
           flex: 1,
@@ -521,21 +520,21 @@ export default function MapScreen() {
               style={{
                 circleRadius: selectedEventId
                   ? [
-                      "case",
-                      ["==", ["get", "id"], selectedEventId],
-                      13, // when selected
-                      10, // default
-                    ]
+                    "case",
+                    ["==", ["get", "id"], selectedEventId],
+                    13, // when selected
+                    10, // default
+                  ]
                   : 10,
                 circleStrokeColor: colors.highlight,
                 circleStrokeWidth: 5,
                 circleColor: selectedEventId
                   ? [
-                      "case",
-                      ["==", ["get", "id"], selectedEventId],
-                      colors.highlight, // when selected
-                      colors.background, // default
-                    ]
+                    "case",
+                    ["==", ["get", "id"], selectedEventId],
+                    colors.highlight, // when selected
+                    colors.background, // default
+                  ]
                   : colors.background,
               }}
             />
@@ -560,7 +559,7 @@ export default function MapScreen() {
                   <>
                     <TouchableOpacity onPress={() => setShowEventsFilter(true)}>
                       <View style={styles.filterPanelButton}>
-                        <AppIcon name="Sliders" size={20} />
+                        <AppIcon name="Sliders" size={20} color={colors.background} />
                       </View>
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => setShowEventsList(false)}>
@@ -620,7 +619,7 @@ export default function MapScreen() {
                         style={[
                           styles.privacyButtonText,
                           filterPrivacy === type &&
-                            styles.privacyButtonTextActive,
+                          styles.privacyButtonTextActive,
                         ]}
                       >
                         {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -667,7 +666,7 @@ export default function MapScreen() {
                       style={[
                         styles.eventListItem,
                         selectedEventId === event.id &&
-                          styles.eventListItemSelected,
+                        styles.eventListItemSelected,
                       ]}
                       onPress={() => handleEventSelect(event)}
                     >
@@ -675,7 +674,7 @@ export default function MapScreen() {
                         style={[
                           styles.eventListItemName,
                           selectedEventId === event.id &&
-                            styles.eventListItemNameSelected,
+                          styles.eventListItemNameSelected,
                         ]}
                       >
                         {event.name}
