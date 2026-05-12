@@ -19,6 +19,12 @@ import json
 events_bp = Blueprint("events", __name__, url_prefix="/api/events")
 local_tz = ZoneInfo("Europe/Warsaw")
 
+'''
+Input: raw_location: <str> / [<float:lng>, <float:lat>] / <json_str>
+Action: Standardizes location data. It checks if the input is a coordinate pair, a JSON string of coordinates, or a plain text name. It validates that coordinates are within geographical ranges and returns a formatted string like "[lng,lat]" or a sanitized string
+Data sent to the frontend: N/A (Internal use)
+Output: tuple (<str:normalized_val> or None, <str:error_message> or None)
+'''
 def normalize_location_input(raw_location):
     if raw_location is None:
         return None, "Location is required"
@@ -65,6 +71,12 @@ def normalize_location_input(raw_location):
     return normalized, None
 
 
+'''
+Input: raw_location: <str> / <list>
+Action: Specifically attempts to extract numerical longitude and latitude from a database string or list
+Data sent to the frontend: N/A (Internal use)
+Output: [<float:lng>, <float:lat>] or None
+'''
 def parse_location_coordinates(raw_location):
     if raw_location is None:
         return None
@@ -96,6 +108,12 @@ def parse_location_coordinates(raw_location):
     return [lng, lat]
 
 
+'''
+Input: event: <Event_Model>, user_id: <uuid>, creator_lookup: <dict>, participating_event_ids: <set>
+Action: Converts a database Event object into a comprehensive dictionary for the frontend. It calculates timezones (Europe/Warsaw), generates Cloudinary URLs for event pictures and the creator's profile picture, and sets flags for participation status
+Data sent to the frontend: N/A (Internal use - returned to route)
+Output: <dict:Serialized_Event_Object>
+'''
 def serialize_event_payload(event, user_id, creator_lookup, participating_event_ids):
     local_dt = event.date_and_time.astimezone(local_tz) if event.date_and_time else None
     creator = creator_lookup.get(str(event.creator_id))
@@ -132,6 +150,20 @@ def serialize_event_payload(event, user_id, creator_lookup, participating_event_
         "location_coordinates": parse_location_coordinates(event.location),
     }
 
+'''
+Input: JSON { 
+    "name": <str>, 
+    "description": <str>, 
+    "date": "DD.MM.YYYY", 
+    "time": "HH:MM", 
+    "location": <str> OR [<float:lng>, <float:lat>], 
+    "is_private": <bool>, 
+    "shared_list": [<uuid>], 
+    "pictures": [{"cloud_id": <str>}] }
+Action: Creates an event, handles time conversion to UTC, saves location format, and sets privacy visibility.
+Data sent to the frontend: {"event_id": <uuid>, "message": "Event created successfully"}
+Output: 201 Created (or 400/404/500 on error)
+'''
 @events_bp.route("/create", methods=["POST"])
 @limiter.limit("100 per minute")
 @jwt_required()
@@ -258,6 +290,12 @@ def create_event():
         return make_api_response(ResponseTypes.SERVER_ERROR)
     return make_api_response(ResponseTypes.CREATED, message="Event created successfully", data={"event_id": str(new_event.event_id)})
 
+'''
+Input: URL Parameter <uuid:event_id>, Header { "Authorization": "Bearer <Access_Token>" }
+Action: Verifies that the requester is the event creator. Deletes all associated images from Cloudinary, removes the event record from the database, and clears the Redis cache
+Data sent to the frontend: {"message": "Event deleted successfully"}
+Output: 200 OK (or 404/403/400/500 on error)
+'''
 @events_bp.route("/delete/<event_id>", methods=["DELETE"])
 @limiter.limit("100 per minute")
 @jwt_required()
@@ -294,6 +332,21 @@ def delete_event(event_id):
 
     return make_api_response(ResponseTypes.SUCCESS, message="Event deleted successfully")
 
+'''
+Input: URL Parameter <uuid:event_id>, Header { "Authorization": "Bearer <Access_Token>" }, 
+    JSON { 
+        "name": <str>, 
+        "description": <str>, 
+        "location": <str/list>, 
+        "is_private": <bool>, 
+        "shared_list": [<uuid>], 
+        "date": "DD.MM.YYYY", 
+        "time": "HH:MM", 
+        "pictures": [{"cloud_id": <str>}] } (all fields optional).
+Action: Updates event details. It handles synchronization for private event visibility (adding/removing users), updates dates/times in UTC, and manages Cloudinary image cleanup for removed pictures.
+Data sent to the frontend: {"message": "Event edited successfully"}
+Output: 200 OK (or 404/403/400/500 on error)
+'''
 @events_bp.route("/edit/<event_id>", methods=["PUT"])
 @limiter.limit("100 per minute")
 @jwt_required()
@@ -443,6 +496,19 @@ def edit_event(event_id):
 
     return make_api_response(ResponseTypes.SUCCESS, message="Event edited successfully")
 
+'''
+/api/events/feed?page=1&limit=20&visibility=all&participation=all&created_window=all&sort_mode=default
+Input: Query Params { page=<int> & limit=<int> & q=<str> & visibility=all / public / private & participation=all/ joined / not_joined & sort_mode=default / members_desc / ... }
+Action: Returns a paginated list of events the user is permitted to see. Uses Redis for caching
+Data sent to the frontend: {
+    "data": [<Event_Objects>], 
+    "pagination": {
+        "page": <int>, 
+        "pages": <int>, 
+        "total": <int>, 
+        "has_next": <bool>}}
+Output: 200 OK (or 500 on error)
+'''
 @events_bp.route("/feed", methods=["GET"])
 @limiter.limit("600 per minute")
 @jwt_required()
@@ -586,6 +652,12 @@ def feed():
         current_app.logger.error(f"ERROR: /feed, exception occured: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
+'''
+Input: URL Parameter <uuid:event_id>, Header { "Authorization": "Bearer <Access_Token>" }
+Action: Checks the database to see if the current user is a participant or the creator. Retrieves the total participant count
+Data sent to the frontend: {"is_participating": <bool>, "participant_count": <int>}
+Output: 200 OK (or 404/400/500 on error)
+'''
 @events_bp.route("/participation/<event_id>", methods=["GET"])
 @limiter.limit("600 per minute")
 @jwt_required()
@@ -611,6 +683,12 @@ def participation_status(event_id):
         "participant_count": int(event.participant_count or 0),
     })
 
+'''
+Input: URL Parameter <uuid:event_id>
+Action: Adds user as a participant to the event, increments participant_count, and invalidates cache
+Data sent to the frontend: {"message": "Joined event successfully", "participant_count": <int>}
+Output: 200 OK (or 400/403/404/409/500 on error)
+'''
 @events_bp.route("/join/<event_id>", methods=["POST"])
 @limiter.limit("100 per minute")
 @jwt_required()
@@ -655,6 +733,12 @@ def join_event(event_id):
         "participant_count": int(event.participant_count or 0),
     })
 
+'''
+Input: URL Parameter <uuid:event_id>, Header { "Authorization": "Bearer <Access_Token>" }
+Action: Removes the user from the Event_participants table and decrements the event's participant_count. Creators are blocked from leaving their own events
+Data sent to the frontend: {"message": "Left event successfully", "participant_count": <int>}
+Output: 200 OK (or 404/400/500 on error)
+'''
 @events_bp.route("/leave/<event_id>", methods=["DELETE"])
 @limiter.limit("100 per minute")
 @jwt_required()
@@ -694,6 +778,12 @@ def leave_event(event_id):
         "participant_count": int(event.participant_count or 0),
     })
 
+'''
+Input: URL Parameter <uuid:event_id>, Header { "Authorization": "Bearer <Access_Token>" }, JSON { "invited": <uuid> }
+Action: Verifies the inviter and invited are friends. Checks privacy rules (only creators can invite for private events). Creates an invite record and triggers an async notification
+Data sent to the frontend: {"message": "Invite created successfully"}
+Output: 201 Created (or 404/400/403/409/500 on error)
+'''
 @events_bp.route("/invite/<event_id>", methods=["POST"])
 @limiter.limit("100 per minute")
 @jwt_required()
@@ -783,6 +873,12 @@ def invite_to_event(event_id):
     
     return make_api_response(ResponseTypes.CREATED, message="Invite created successfully")
 
+'''
+Input: URL Parameter <uuid:event_id>, Header { "Authorization": "Bearer <Access_Token>" }
+Action: Retrieves all user IDs currently invited to the event. Endpoint restricted to the event creator only
+Data sent to the frontend: {"invited_ids": [<str:uuid>]}
+Output: 200 OK (or 404/403/400/500 on error)
+'''
 @events_bp.route("/invites/<event_id>", methods=["GET"])
 @limiter.limit("100 per minute")
 @jwt_required()
@@ -812,7 +908,13 @@ def get_sent_invites(event_id):
     except SQLAlchemyError as e:
         current_app.logger.error(f"ERROR: /invites, DB exception occured: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
-   
+
+'''
+Input: URL Parameter <uuid:event_id>, Header { "Authorization": "Bearer <Access_Token>" }, JSON { "invited": <uuid> }
+Action: Locates a specific invitation from the inviter to the invited user for the given event and deletes it
+Data sent to the frontend: {"message": "Invite deleted successfully"}
+Output: 200 OK (or 404/400/500 on error)
+''' 
 @events_bp.route("/delete_invite/<event_id>", methods=["DELETE"])
 @limiter.limit("100 per minute")
 @jwt_required()
@@ -846,6 +948,12 @@ def delete_invite(event_id):
     
     return make_api_response(ResponseTypes.SUCCESS, message="Invite deleted successfully")
     
+'''
+Input: URL Parameter <uuid:invite_id>, Header { "Authorization": "Bearer <Access_Token>" }, JSON { "status": "accepted" / "declined" }
+Action: Updates the status of a received invite. If accepted, the user is added to the Event_participants table and the event's count is incremented
+Data sent to the frontend: {"message": "Invite status changed successfully"}
+Output: 200 OK (or 404/400/403/409/500 on error)
+'''
 @events_bp.route("/change_invite_status/<invite_id>", methods=["POST"])
 @limiter.limit("100 per minute")
 @jwt_required()
@@ -899,6 +1007,12 @@ def change_invite_status(invite_id):
     
     return make_api_response(ResponseTypes.SUCCESS, message="Invite status changed successfully")
 
+'''
+Input: URL Parameter <uuid:user_id>, Header { "Authorization": "Bearer <Access_Token>" }
+Action: Fetches all events where the specified user is the creator. Returns a list of serialized event objects
+Data sent to the frontend: {"data": [<Serialized_Event_Object>]}
+Output: 200 OK (or 400/500 on error)
+'''
 @events_bp.route("/<user_id>/creator", methods=["GET"])
 @jwt_required()
 def get_user_events_creator(user_id):
@@ -940,7 +1054,12 @@ def get_user_events_creator(user_id):
         data={"data": created_data}
     )
 
-
+'''
+Input: URL Parameter <uuid:user_id>, Header { "Authorization": "Bearer <Access_Token>" }
+Action: Fetches all events where the specified user is listed as a participant
+Data sent to the frontend: {"data": [<Serialized_Event_Object>]}
+Output: 200 OK (or 400/500 on error)
+'''
 @events_bp.route("/<user_id>/participant", methods=["GET"])
 @jwt_required()
 def get_user_events_participand(user_id):
@@ -985,7 +1104,12 @@ def get_user_events_participand(user_id):
         data={"data": participating_data}
     )
 
-
+'''
+Input: Query Parameter { "location": <str> }, Header { "Authorization": "Bearer <Access_Token>" }
+Action: Searches the Event_location table for a predefined location name and returns its stored coordinates
+Data sent to the frontend: {"coordinates": <str>}
+Output: 200 OK (or 404/400/500 on error)
+'''
 @events_bp.route("/get_coordinates", methods=["GET"])
 @limiter.limit("1000 per second")
 @jwt_required()
@@ -1007,6 +1131,20 @@ def get_coordinates():
     current_app.logger.info(f"INFO: /get_coordinates, successfully fetched coordinates for {location_name}")
     return make_api_response(ResponseTypes.SUCCESS, data={"coordinates": str(coordinates)})
 
+'''
+Input: Header { "Authorization": "Bearer <Access_Token>" }
+Action: Retrieves all upcoming events visible to the user that contain valid coordinate data for map
+Data sent to the frontend: {"data": [{
+    "event_id": <str>, 
+    "name": <str>, 
+    "date": <str>, 
+    "time": <str>, 
+    "location": <str>, 
+    "location_coordinates": [<float>, <float>], 
+    "creator_username": <str>, 
+    "is_private": <bool>}]}
+Output: 200 OK (or 500 on error)
+'''
 @events_bp.route("/map", methods=["GET"])
 @limiter.limit("600 per minute")
 @jwt_required()

@@ -12,6 +12,12 @@ from datetime import datetime, timedelta, timezone
 
 email_bp = Blueprint("email", __name__, url_prefix="/api/email")
 
+'''
+Input: JSON { "email": <str> }
+Action: Checks if a user with the provided email exists and is not yet confirmed. If so, it revokes any existing verification tokens, generates a new email_verification token (valid for 24 hours), and sends a verification link via email
+Data sent to the frontend: {"message": "If the account exists and is not verified, an email has been sent"}
+Output: 200 OK (or 400 on error)
+'''
 @email_bp.route("/verify_request",methods=["POST"])
 def verify_request():
     user_data = request.get_json(silent=True)    
@@ -45,6 +51,12 @@ def verify_request():
     current_app.logger.info(f"INFO: /verify_request, sending email for user: {email}")
     return make_api_response(ResponseTypes.SUCCESS, message="If the account exists and is not verified, an email has been sent")
 
+'''
+Input: URL Parameter <str:token>
+Action: Decodes the JWT token and verifies it is of type email_verification. Checks if the token has been revoked or expired. If valid, sets the user's is_confirmed status to True, records the timestamp, and revokes all verification tokens for that user.
+Data sent to the frontend: {"message": "Verification succesful"}
+Output: 200 OK (or 400/401/404 on error)
+'''
 @email_bp.route("/verify/<token>", methods=["POST"])
 @limiter.limit("100 per hour")
 def verify(token):
@@ -79,6 +91,12 @@ def verify(token):
         current_app.logger.error(f"ERROR: /verify, mail auth token exception occured: {e}")
         return make_api_response(ResponseTypes.BAD_REQUEST, message="Invalid or expired link")
     
+'''
+Input: JSON { "email": <str> }
+Action: Validates the email format. If the user exists, it revokes previous reset tokens and creates a new password_reset token. It then triggers an asynchronous Celery task to send a password reset link to the user's email
+Data sent to the frontend: {"message": "If user with that email is present in the database the mail with password reset will be sent"}
+Output: 200 OK (or 400/500 on error)
+'''
 @email_bp.route("/reset_password_request", methods=["POST"])
 @limiter.limit("500 per hour")   # for tests, 500 password resets for IP per hour, change before deployment to 5
 def reset_password_request():
@@ -119,6 +137,12 @@ def reset_password_request():
 
     return make_api_response(ResponseTypes.SUCCESS, message="If user with that email is present in the database the mail with password reset will be sent")
 
+'''
+Input: URL Parameter <str:token>, JSON { "new_password": <str> }
+Action: Decodes the token and verifies it is of type password_reset. Validates the new password format. Updates the user's password hash and timestamp, then revokes the current reset token and all active Access/Refresh tokens to force a fresh login
+Data sent to the frontend: {"message": "Password changed successfully"}
+Output: 200 OK (or 400/401/404/500 on error)
+'''
 @email_bp.route("/reset_password/<token>", methods=["POST"])
 @limiter.limit("500 per hour")
 def reset_password(token):
@@ -169,6 +193,12 @@ def reset_password(token):
     current_app.logger.info(f"INFO: /reset_password, password changed for user: {user_id}")
     return make_api_response(ResponseTypes.SUCCESS, message="Password changed successfully")
 
+'''
+Input: URL Parameter <str:token>
+Action: Decodes the token and verifies it is of type email_change. Checks if the token is valid and not revoked. Updates the user's primary email to the value stored in pending_email, revokes the specific token and all other email-change tokens for that user
+Data sent to the frontend: {"message": "Email changed succesfully"}
+Output: 200 OK (or 400/401/404/500 on error)
+'''
 @email_bp.route("/confirm_change/<token>", methods=["POST"])
 @limiter.limit("100 per hour")
 def confirm_change(token):

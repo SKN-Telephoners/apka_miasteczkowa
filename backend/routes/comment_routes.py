@@ -9,6 +9,12 @@ from sqlalchemy.exc import SQLAlchemyError
 
 comments_bp = Blueprint("comments", __name__, url_prefix="/api/comments")
 
+'''
+Input: URL Parameter <uuid:event_id>
+Action: Retrieves comments for an event and builds a tree structure (replies nested inside parents)
+Data sent to the frontend: {"comments": [{"comment_id": <str>, "user_id": <str>, "username": <str>, "content": <str>, "replies": [...] }], "message": "Comments list"}
+Output: 200 OK (or 400/404/500 on error)
+'''
 @comments_bp.route("/create/<event_id>", methods=["POST"])
 @jwt_required()
 @limiter.limit("600 per minute")
@@ -51,6 +57,12 @@ def create_comment(event_id):
     return make_api_response(ResponseTypes.CREATED, message="Comment created successfully")
 
 
+'''
+Input: URL Parameter <uuid:parent_comment_id>, Header { "Authorization": "Bearer <Access_Token>" }, JSON { "content": <str> }
+Action: Validates the existence of the parent comment and its associated event. Sanitizes the reply content. Creates a new comment record linked to the parent via parent_comment_id, inherits the event_id, and invalidates the event's Redis cache
+Data sent to the frontend: {"message": "Reply created successfully"}
+Output: 201 Created (or 400/404/500 on error)
+'''
 @comments_bp.route("/reply/<parent_comment_id>", methods=["POST"])
 @jwt_required()
 @limiter.limit("90 per minute")
@@ -104,6 +116,12 @@ def reply_to_comment(parent_comment_id):
     current_app.logger.info(f"INFO: /reply_to_comment, user: {user.user_id} successfuly replied to comment of ID {parent_comment.comment_id}")
     return make_api_response(ResponseTypes.CREATED, message="Reply created successfully")
 
+'''
+Input: URL Parameter <uuid:comment_id>, Header { "Authorization": "Bearer <Access_Token>" }
+Action: Verifies that the comment exists and that the requester is the original author. Performs a "soft delete" by setting the deleted flag to True, clearing the content string, and marking it as edited. This preserves the comment tree structure for replies. Invalidates the event's Redis cache
+Data sent to the frontend: {"message": "Comment deleted successfully"}
+Output: 200 OK (or 400/403/404/500 on error)
+'''
 @comments_bp.route("/delete/<comment_id>", methods=["DELETE"])
 @jwt_required()
 @limiter.limit("90 per minute")
@@ -136,6 +154,12 @@ def delete_comment(comment_id):
     current_app.logger.info(f"INFO: /delete_comment, user: {user.user_id} successfuly deleted comment of ID {comment_id}")
     return make_api_response(ResponseTypes.SUCCESS, message="Comment deleted successfully")
 
+'''
+Input: URL Parameter <uuid:comment_id>, Header { "Authorization": "Bearer <Access_Token>" }, JSON { "new_content": <str> }
+Action: Checks if the comment exists, belongs to the user, and is not already deleted. Sanitizes and updates the comment content and sets the is_edited flag to True.]
+Data sent to the frontend: {"message": "Comment edited successfully"}
+Output: 200 OK (or 400/403/404/500 on error)
+'''
 @comments_bp.route("/edit/<comment_id>", methods=["POST"])
 @jwt_required()
 def edit_comment(comment_id):
@@ -179,6 +203,22 @@ def edit_comment(comment_id):
     current_app.logger.info(f"INFO: /edit_comment, user {user.user_id} successfully edited comment: {comment_id}")
     return make_api_response(ResponseTypes.SUCCESS, message="Comment edited successfully")
 
+'''
+Input: URL Parameter <uuid:event_id>, Header { "Authorization": "Bearer <Access_Token>" }
+Action: Verifies event existence and checks if the user has permission to view the event (for private events). Fetches all comments, maps user IDs to usernames (using display_name to handle deleted users), and builds a tree structure where replies are nested within their parent comments
+Data sent to the frontend: {
+"comments": [{
+    "comment_id": <str>, 
+    "user_id": <str>, 
+    "username": <str>, 
+    "content": <str>, 
+    "deleted": <bool>, 
+    "created_at": <iso_date>, 
+    "parent_comment_id": <str>, 
+    "replies": [...] }], 
+"message": "Comments list"}
+Output: 200 OK (or 400/403/404/500 on error)
+'''
 @comments_bp.route("/event/<event_id>", methods=["GET"])
 @jwt_required()
 def get_comments_list(event_id):

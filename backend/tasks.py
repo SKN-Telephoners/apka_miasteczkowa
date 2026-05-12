@@ -4,6 +4,11 @@ from backend.extensions import mail, db
 from backend.models.notification import Notification, NotificationTag
 from flask import current_app
 
+'''
+Input: subject: <str>, recipient: <str>, body: <str>
+Action: Sends an email via the configured SMTP server in the background.
+Output: None
+'''
 @shared_task(ignore_result=True)
 def send_email_async(subject, recipient, body):
     try:
@@ -18,6 +23,11 @@ def send_email_async(subject, recipient, body):
         current_app.logger.error(f"Failed to sent async email: {e}")
         
 
+'''
+Input: user_id: <uuid>, notification_tag_value: <str>, payload: <JSONB/Dict>
+Action: Creates a database record in the Notifications table asynchronously.
+Output: None
+'''
 @shared_task
 def create_notification_task(user_id, notification_tag_value, payload):
     notification_tag = NotificationTag(notification_tag_value)
