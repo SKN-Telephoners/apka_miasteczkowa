@@ -6,6 +6,12 @@ import cloudinary.uploader
 
 pictures_bp = Blueprint("pictures", __name__, url_prefix="/api/pictures")
 
+'''
+Input: Form-Data { "file": <File_Binary>, "tags": <str> }
+Action: Uploads image to Cloudinary, applies transformations (500x500 crop), and returns cloud metadata
+Data sent to the frontend: {"picture_url": <str>, "cloud_id": <str>, "public_id": <str>, "tags": [<str>]}
+Output: 201 Created
+'''
 @pictures_bp.route("/upload", methods=["POST"])
 @jwt_required()
 @limiter.limit("600 per minute")
@@ -45,6 +51,18 @@ def upload_file():
         current_app.logger.error(f"ERROR: /upload_file, DB exception occured: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+'''
+Input: Form-Data { "files": [<File_Binary>, ...], "tags": <str> } (Supports up to 5 files simultaneously).
+Action: It iterates through the file list, uploading each to Cloudinary. It tracks successes and failures individually for each file
+Data sent to the frontend: {
+"pictures": [{
+    "picture_url": <str>, 
+    "cloud_id": <str>, 
+    "public_id": <str>}],
+"errors": [{"filename": <str>, "error": <str>}], 
+"message": <str>}
+Output: 201 Created (or 400/500 on error)
+'''
 @pictures_bp.route("/upload-batch", methods=["POST"])
 @jwt_required()
 @limiter.limit("100 per minute")

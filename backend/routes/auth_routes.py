@@ -11,6 +11,12 @@ from flask_mail import Message
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
+'''
+Input: JSON { "username": <str>, "password": <str>, "email": <str> }
+Action: Validates input format and uniqueness, creates a new unverified user, generates a verification token, and sends an activation email
+Data sent to the frontend: {"message": "Registration successful"}
+Output: 201 Created (or 400/409/500 on error)
+'''
 @auth_bp.route("/register",methods=["POST"])
 @limiter.limit("500 per hour")   # for tests, 500 registers for IP per hour, change before deployment to 5
 def register_user():
@@ -79,6 +85,12 @@ def register_user():
     
     return make_api_response(ResponseTypes.CREATED, message="Registration successful")
 
+'''
+Input: JSON { "username": <str>, "password": <str> }
+Action: Verifies credentials and account confirmation status. Generates JWT Access and Refresh tokens and stores them in the blocklist database as "active"
+Data sent to the frontend: {"user": {"username": <str>}, "access_token": <jwt>, "refresh_token": <jwt>, "message": "Login successful"}
+Output: 200 OK (or 400/401/403 on error)
+'''
 @auth_bp.route("/login", methods=["POST"])
 @limiter.limit("500 per 15 minutes")   # for tests, 500 logins for IP per 15 minutes, change before deployment to 5
 def login_user():
@@ -122,6 +134,12 @@ def login_user():
         "refresh_token": refresh_token
     })
 
+'''
+Input: Header { "Authorization": "Bearer <Refresh_Token>" }
+Action: Revokes the used Refresh Token and generates new pair of tokens (Access + Refresh)
+Data sent to the frontend: {"access_token": <jwt>, "refresh_token": <jwt>, "message": "Operation successful"}
+Output: 200 OK
+'''
 @auth_bp.route("/refresh", methods=["POST"])
 @jwt_required(refresh=True)
 def refresh():
@@ -142,6 +160,12 @@ def refresh():
         "refresh_token": new_refresh_token
         })
 
+'''
+Input: Header { "Authorization": "Bearer <Refresh_Token>" }, JSON { "access_token": <jwt> } (optional)
+Action: Revokes the refresh token and the provided access token to terminate the session.
+Data sent to the frontend: {"message": "Logged out successfully"}
+Output: 200 OK
+'''
 @auth_bp.route("/logout", methods=["DELETE"])
 @jwt_required(refresh=True)
 def logout():
@@ -164,6 +188,12 @@ def logout():
     current_app.logger.info(f"INFO: /logout, success in logging out user_id: {user_id}")
     return make_api_response(ResponseTypes.LOGOUT_SUCCESS)
 
+'''
+Input: Header { "Authorization": "Bearer <Access_Token>" }
+Action: Extracts the JTI (unique JWT ID) from the currently used Access Token and updates its status in the TokenBlocklist database table to "revoked". This immediately invalidates the token for any further requests.
+Data sent to the frontend: {"message": "Access token revoked"}
+Output: 200 OK
+'''
 @auth_bp.route("/revoke_access", methods=["DELETE"])
 @jwt_required()
 def revoke_access_token():
@@ -175,6 +205,12 @@ def revoke_access_token():
     current_app.logger.info(f"INFO: /revoke_access, access token revoked for user_id: {user_id}")
     return make_api_response(ResponseTypes.TOKEN_REVOKED, message="Access token revoked")
 
+'''
+Input: Header { "Authorization": "Bearer <Refresh_Token>" }
+Action: Extracts the JTI from the currently used Refresh Token and updates its status in the TokenBlocklist database table to "revoked". This prevents the token from being used to obtain new access tokens.
+Data sent to the frontend: {"message": "Refresh token revoked"}
+Output: 200 OK
+'''
 @auth_bp.route("/revoke_refresh", methods=["DELETE"])
 @jwt_required(refresh=True)
 def revoke_refresh_token():
