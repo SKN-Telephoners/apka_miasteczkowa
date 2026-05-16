@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
   },
   svgContainer: {
     width: "100%",
-    maxWidth: 400, 
+    maxWidth: 400,
     aspectRatio: 350 / 250,
   },
   backgroundImage: {

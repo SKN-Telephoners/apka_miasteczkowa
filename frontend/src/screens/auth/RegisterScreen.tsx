@@ -124,7 +124,7 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
         Alert.alert(
           "Błąd rejestracji",
           error.response.data.message ||
-            "Taki użytkownik lub email już istnieje.",
+          "Taki użytkownik lub email już istnieje.",
         );
       } else {
         Alert.alert(
@@ -147,7 +147,7 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
         keyboardShouldPersistTaps="handled"
       >
         <Text style={[styles.title, { color: colors.text }]}>
-          {"MESSAGES.APP.REGISTER_TITLE"}
+          {MESSAGES.APP.REGISTER_TITLE}
         </Text>
 
         <View style={styles.inputContainer}>

@@ -12,6 +12,7 @@ import {
 } from "@react-navigation/native";
 import Constants from "expo-constants";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -39,6 +40,7 @@ const MAP_REFRESH_COOLDOWN_MS = 60_000;
 
 function useMapStyles() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return useMemo(
     () =>
@@ -58,14 +60,17 @@ function useMapStyles() {
           top: 0,
           bottom: 0,
           width: 280,
+          zIndex: 10,
+          elevation: 10,
         },
         eventsPanelHeader: {
           flexDirection: "row",
           justifyContent: "space-between",
           alignItems: "center",
           paddingHorizontal: 15,
+          paddingTop: insets.top,
           // paddingVertical: 12,
-          minHeight: 50,
+          minHeight: 50 + insets.top,
           borderBottomWidth: 1,
           borderBottomColor: colors.border,
           backgroundColor: colors.highlight,
@@ -87,7 +92,6 @@ function useMapStyles() {
         },
         filterPanelButton: {
           marginTop: 3,
-          backgroundColor: colors.textSecondary,
         },
         eventsListContent: {
           flex: 1,
@@ -120,7 +124,7 @@ function useMapStyles() {
         toggleListButton: {
           position: "absolute",
           left: 10,
-          top: 10,
+          top: 10 + insets.top,
           width: 40,
           height: 40,
         },
@@ -199,7 +203,7 @@ function useMapStyles() {
           marginTop: 30,
         },
       }),
-    [colors],
+    [colors, insets.top],
   );
 }
 
@@ -521,21 +525,21 @@ export default function MapScreen() {
               style={{
                 circleRadius: selectedEventId
                   ? [
-                      "case",
-                      ["==", ["get", "id"], selectedEventId],
-                      13, // when selected
-                      10, // default
-                    ]
+                    "case",
+                    ["==", ["get", "id"], selectedEventId],
+                    13, // when selected
+                    10, // default
+                  ]
                   : 10,
                 circleStrokeColor: colors.highlight,
                 circleStrokeWidth: 5,
                 circleColor: selectedEventId
                   ? [
-                      "case",
-                      ["==", ["get", "id"], selectedEventId],
-                      colors.highlight, // when selected
-                      colors.background, // default
-                    ]
+                    "case",
+                    ["==", ["get", "id"], selectedEventId],
+                    colors.highlight, // when selected
+                    colors.background, // default
+                  ]
                   : colors.background,
               }}
             />
@@ -551,19 +555,28 @@ export default function MapScreen() {
               </Text>
               <View style={styles.eventsPanelHeaderButtons}>
                 {showEventsFilter ? (
-                  <TouchableOpacity onPress={() => setShowEventsFilter(false)}>
+                  <TouchableOpacity
+                    onPress={() => setShowEventsFilter(false)}
+                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                  >
                     <Text style={[styles.closePanelButton, { fontSize: 16 }]}>
                       {MESSAGES.UI.DONE}
                     </Text>
                   </TouchableOpacity>
                 ) : (
                   <>
-                    <TouchableOpacity onPress={() => setShowEventsFilter(true)}>
+                    <TouchableOpacity
+                      onPress={() => setShowEventsFilter(true)}
+                      hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                    >
                       <View style={styles.filterPanelButton}>
-                        <AppIcon name="Sliders" size={20} />
+                        <AppIcon name="Sliders" size={20} color={colors.textSecondary} />
                       </View>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setShowEventsList(false)}>
+                    <TouchableOpacity
+                      onPress={() => setShowEventsList(false)}
+                      hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                    >
                       <Text style={styles.closePanelButton}>✕</Text>
                     </TouchableOpacity>
                   </>
@@ -620,7 +633,7 @@ export default function MapScreen() {
                         style={[
                           styles.privacyButtonText,
                           filterPrivacy === type &&
-                            styles.privacyButtonTextActive,
+                          styles.privacyButtonTextActive,
                         ]}
                       >
                         {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -667,7 +680,7 @@ export default function MapScreen() {
                       style={[
                         styles.eventListItem,
                         selectedEventId === event.id &&
-                          styles.eventListItemSelected,
+                        styles.eventListItemSelected,
                       ]}
                       onPress={() => handleEventSelect(event)}
                     >
@@ -675,7 +688,7 @@ export default function MapScreen() {
                         style={[
                           styles.eventListItemName,
                           selectedEventId === event.id &&
-                            styles.eventListItemNameSelected,
+                          styles.eventListItemNameSelected,
                         ]}
                       >
                         {event.name}
