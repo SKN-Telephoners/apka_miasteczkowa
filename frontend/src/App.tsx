@@ -56,8 +56,10 @@ const App = () => {
             <UserProvider>
               <EventProvider>
                 <FriendsProvider>
-                  <StatusBar barStyle="dark-content" />
-                  <AppNavigator />
+                  <NotificationsProvider>
+                   <StatusBar barStyle="dark-content" />
+                   <AppNavigator />
+                  </NotificationsProvider>
                 </FriendsProvider>
               </EventProvider>
             </UserProvider>
