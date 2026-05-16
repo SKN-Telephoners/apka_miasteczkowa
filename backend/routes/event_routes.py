@@ -13,7 +13,15 @@ import cloudinary.uploader
 from cloudinary.utils import cloudinary_url
 from sqlalchemy import or_, and_, exists
 from sqlalchemy.orm import joinedload
-import backend.notifications as notifications
+from backend.notifications.signals import (
+    invite_created, 
+    event_new_participant, 
+    invite_status_update, 
+    joined_event_updated,
+    joined_event_deleted,
+    friend_new_private_event,
+    friend_new_public_event
+)
 import json
 
 events_bp = Blueprint("events", __name__, url_prefix="/api/events")
@@ -226,6 +234,8 @@ def create_event():
         db.session.add(creator_participant)
         new_event.participant_count = 1
 
+        valid_shared_ids = []
+
         if is_private and shared_list:
             for shared_with_id in shared_list:
                 u_uuid = validate_uuid(shared_with_id)
@@ -245,11 +255,42 @@ def create_event():
                     shared_with=u_uuid
                 )
                 db.session.add(new_event_visibility)
+                
+                valid_shared_ids.append(u_uuid)
+
         db.session.commit() 
         creator_lookup = {str(user.user_id): user}
         ser_event_data = serialize_event_payload(new_event, user.user_id, creator_lookup, set())
         cache_event_data(str(new_event.event_id), ser_event_data)
         
+
+        if new_event.is_private:
+            if valid_shared_ids:
+                friend_new_private_event.send(
+                    current_app._get_current_object(),
+                    creator_id=user.user_id,
+                    creator_name=user.username,
+                    event_id=new_event.event_id,
+                    event_name=new_event.event_name,
+                    shared_with_ids=valid_shared_ids
+                )
+        else:
+            friendships = Friendship.query.filter(
+                or_(Friendship.user_id == user.user_id, Friendship.friend_id == user.user_id)
+            ).all()
+            
+            friend_ids = [f.friend_id if f.user_id == user.user_id else f.user_id for f in friendships]
+            
+            if friend_ids:
+                friend_new_public_event.send(
+                    current_app._get_current_object(),
+                    creator_id=user.user_id,
+                    creator_name=user.username,
+                    event_id=new_event.event_id,
+                    event_name=new_event.event_name,
+                    friend_ids=friend_ids
+                )
+
         current_app.logger.info(f"INFO: /create_event, user {user.user_id} created event {new_event.event_id}")
 
     except SQLAlchemyError as e:
@@ -277,6 +318,15 @@ def delete_event(event_id):
         current_app.logger.warning(f"WARNING: /delete_event, user {user.user_id} tried to delete event {event_id} without permissions")
         return make_api_response(ResponseTypes.FORBIDDEN, message="You can delete your own events only")
     try:
+        #info needed for notifications
+        participants = Event_participants.query.filter(
+            Event_participants.event_id == event.event_id,
+            Event_participants.user_id != user.user_id
+        ).all()
+        
+        participant_ids = [p.user_id for p in participants]
+        event_name_cache = event.event_name
+
         for picture in event.pictures:
             try:
                 cloudinary.uploader.destroy(picture.cloud_id)
@@ -286,6 +336,15 @@ def delete_event(event_id):
         db.session.delete(event)
         db.session.commit()
         invalidate_event_cache(str(e_uuid))
+
+        if participant_ids:
+            joined_event_deleted.send(
+                current_app._get_current_object(),
+                event_name=event_name_cache,
+                creator_username=user.username,
+                participant_ids=participant_ids
+            )
+
         current_app.logger.info(f"INFO: /delete_event, user {user.user_id} deleted event {event_id}")
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -435,6 +494,23 @@ def edit_event(event_id):
         event.is_edited = True
         db.session.commit()
         invalidate_event_cache(str(event.event_id))
+
+        #get all participants except the creator who is editing the event
+        participants = Event_participants.query.filter(
+            Event_participants.event_id == event.event_id,
+            Event_participants.user_id != user.user_id
+        ).all()
+        
+        participant_ids = [p.user_id for p in participants]
+
+        if participant_ids:
+            joined_event_updated.send(
+                current_app._get_current_object(),
+                event_id=event.event_id,
+                event_name=event.event_name,
+                participant_ids=participant_ids
+            )
+
         current_app.logger.info(f"INFO: /edit_event, user {user.user_id} successfully edited event {event_id}")
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -646,6 +722,16 @@ def join_event(event_id):
         invalidate_event_cache(str(e_uuid))
         db.session.refresh(event)
         current_app.logger.info(f"INFO: /join, user {user.user_id} successfully joined event {event_id}")
+
+        event_new_participant.send(
+            current_app._get_current_object(),
+            participant_id=user.user_id,
+            participant_username=user.username,
+            creator_id=event.creator_id,
+            event_id=event.event_id,
+            event_name=event.event_name
+        )
+
     except SQLAlchemyError as e:
         db.session.rollback()
         current_app.logger.error(f"ERROR: /join, DB exception occured: {e}")
@@ -766,11 +852,11 @@ def invite_to_event(event_id):
         db.session.add(new_invite)
         db.session.commit()
         
-        notifications.invite_created.send(
+        invite_created.send(
             current_app._get_current_object(),
-            from_user_id=u_uuid, 
+            from_user_id=u_uuid,
             from_user_username=user.username,
-            to_user_id=i_uuid, 
+            to_user_id=i_uuid,
             invite_id=new_invite.invite_id,
             event_id=e_uuid,
             event_name=event.event_name
@@ -887,8 +973,38 @@ def change_invite_status(invite_id):
                 event = db.session.get(Event, invite.event_id)
                 if event:
                     event.participant_count = Event.participant_count + 1
+            
+                event_new_participant.send(
+                current_app._get_current_object(),
+                participant_id=user.user_id,
+                participant_username=user.username,
+                creator_id=event.creator_id,
+                event_id=event.event_id,
+                event_name=event.event_name
+                )
+
+            invite_status_update.send(
+            current_app._get_current_object(),
+            invite_id=invite.invite_id,
+            inviter_id=invite.inviter_id,
+            invitee_id=user.user_id,
+            invitee_username=user.username,
+            event_id=event.event_id,
+            event_name=event.event_name,
+            status="accepted"
+            )
         elif new_status == "declined":
             invite.status = InviteRequestStatus.declined
+            invite_status_update.send(
+                current_app._get_current_object(),
+                invite_id=invite.invite_id,
+                inviter_id=invite.inviter_id,
+                invitee_id=user.user_id,
+                invitee_username=user.username,
+                event_id=event.event_id,
+                event_name=event.event_name,
+                status="declined"
+            )
         else:
             return make_api_response(ResponseTypes.INVALID_DATA, message="Incorrect status")
         db.session.commit()

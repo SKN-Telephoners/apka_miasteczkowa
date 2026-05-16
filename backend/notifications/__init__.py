@@ -1,7 +1,6 @@
 from .signals import *
 
 __all__ = [
-    "event_new_invite",
     "event_new_participant",
     "event_new_comment",
 

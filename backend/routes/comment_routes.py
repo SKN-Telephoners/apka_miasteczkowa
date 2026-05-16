@@ -6,6 +6,7 @@ from backend.responses import ResponseTypes, make_api_response
 from flask_jwt_extended import jwt_required, get_current_user
 from backend.helpers import validate_uuid, sanitize_input, has_event_access,  get_event_cache_key, invalidate_event_cache, get_cached_event, cache_event_data
 from sqlalchemy.exc import SQLAlchemyError
+from backend.notifications.signals import event_new_comment, comment_reply_created
 
 comments_bp = Blueprint("comments", __name__, url_prefix="/api/comments")
 
@@ -43,6 +44,15 @@ def create_comment(event_id):
         db.session.add(new_comment)
         db.session.commit()
         invalidate_event_cache(str(event_id))
+
+        event_new_comment.send(
+            current_app._get_current_object(),
+            commenter_id=user.user_id,
+            commenter_name=user.username,
+            creator_id=event.creator_id,
+            event_id=event.event_id,
+            event_name=event.event_name
+        )
     except SQLAlchemyError as e:
         db.session.rollback()
         current_app.logger.error(f"ERROR: /create_comment, DB exception occured: {e}")
@@ -96,6 +106,15 @@ def reply_to_comment(parent_comment_id):
         db.session.add(new_comment)
         db.session.commit()
         invalidate_event_cache(str(parent_comment.event_id))
+
+        comment_reply_created.send(
+            current_app._get_current_object(),
+            replier_id=user.user_id,
+            replier_name=user.username,
+            parent_author_id=parent_comment.user_id,
+            event_id=event.event_id,
+            event_name=event.event_name
+        )
     except SQLAlchemyError as e:
         db.session.rollback()
         current_app.logger.error(f"ERROR: /reply_to_comment, DB exception occured: {e}")

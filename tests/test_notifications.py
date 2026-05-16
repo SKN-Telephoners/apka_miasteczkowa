@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch
 from backend.extensions import db
-from backend.models import FriendRequest, Friendship, User, Event, Notification
+from backend.models import FriendRequest, Friendship, User, Event, Notification, Comment
 from backend.models.notification import NotificationTag
 from backend.models.event import Event_visibility, Invites
 from datetime import datetime, timezone, timedelta
@@ -74,102 +74,153 @@ def test_invite_to_event_success(mock_signal, client, logged_in_user, registered
         assert kwargs['to_user_id'] == friend.user_id
         assert kwargs['event_id'] == new_event.event_id
 
-def test_invite_to_event_not_friends(client, logged_in_user, app):
+
+# friend_request_accepted, friend_new_public_event, friend_new_private_event
+def test_notifications_friendship_and_events(client, logged_in_user, registered_friend, app):
     with app.app_context():
-        user, token = logged_in_user
+        user, user_token = logged_in_user
+        friend, friend_pwd = registered_friend
 
-        stranger = User(username="stranger", password="Password123!", email="stranger@test.com", is_confirmed=True)
-        db.session.add(stranger)
-
-        new_event = Event(
-            event_name="Public Test Event",
-            description="public",
-            date_and_time=datetime(2050, 1, 20, 21, 37, tzinfo=timezone.utc),
-            location="here",
-            creator_id=user.user_id, 
-            is_private=False
-        )
-        db.session.add(new_event)
+        #clear existing notifications just in case
+        Notification.query.delete()
         db.session.commit()
 
-        response = client.post(f"/api/events/invite/{new_event.event_id}", headers={
-            "Authorization": f"Bearer {token}"
-        }, json={
-            "invited": str(stranger.user_id)
-        })
+        #user sends friend request
+        client.post(f"/api/friends/request/{friend.user_id}/create", headers=get_auth_header(user_token))
+        
+        #friend logs in and accepts
+        friend_login = client.post("/api/auth/login", json={"username": friend.username, "password": friend_pwd})
+        friend_token = friend_login.get_json()["access_token"]
+        client.post(f"/api/friends/request/{user.user_id}/accept", headers=get_auth_header(friend_token))
 
-        assert response.status_code == 403
-        assert response.get_json()["message"] == "You can only invite your friends"
+        #assert user got "friend_request_accepted"
+        accepted_notif = Notification.query.filter_by(user_id=user.user_id, tag=NotificationTag.friend_request_accepted).first()
+        assert accepted_notif is not None
+        assert accepted_notif.payload["friend_id"] == str(friend.user_id)
 
-def test_invite_private_event_no_visibility(client, logged_in_user, registered_friend, app):
-    with app.app_context():
-        user, token = logged_in_user
-        friend = registered_friend[0]
+        #user creates a public event
+        event_time = datetime.now(timezone.utc) + timedelta(days=2)
+        pub_payload = {
+            "name": "Leave me alone already", "description": ":____;", 
+            "date": event_time.strftime("%d.%m.%Y"), "time": event_time.strftime("%H:%M"), 
+            "location": "Krakow", "is_private": False
+        }
+        response = client.post("/api/events/create", json=pub_payload, headers=get_auth_header(user_token))
 
-        if user.user_id < friend.user_id:
-            new_friendship = Friendship(user_id=user.user_id, friend_id=friend.user_id)
-        else:
-            new_friendship = Friendship(user_id=friend.user_id, friend_id=user.user_id)
-        db.session.add(new_friendship)
+        #assert friend got "friend_new_public_event"
+        pub_notif = Notification.query.filter_by(user_id=friend.user_id, tag=NotificationTag.friend_new_public_event).first()
+        assert pub_notif is not None
+        assert "Leave me alone already" in pub_notif.payload["message"]
 
-        private_event = Event(
-            event_name="Secret Event",
-            description="private",
-            date_and_time=datetime(2050, 1, 20, 21, 37, tzinfo=timezone.utc),
-            location="here",
-            creator_id=user.user_id, 
-            is_private=True
-        )
-        db.session.add(private_event)
-        db.session.commit() 
-
-        response = client.post(f"/api/events/invite/{private_event.event_id}", headers={
-            "Authorization": f"Bearer {token}"
-        }, json={
-            "invited": str(friend.user_id)
-        })
-
-        assert response.status_code == 403
-        assert response.get_json()["message"] == "User does not have priviledges to view this event"
-
-def test_invite_private_event_with_visibility(client, logged_in_user, registered_friend, app):
-    with app.app_context():
-        user, token = logged_in_user
-        friend = registered_friend[0]
-
-        if user.user_id < friend.user_id:
-            new_friendship = Friendship(user_id=user.user_id, friend_id=friend.user_id)
-        else:
-            new_friendship = Friendship(user_id=friend.user_id, friend_id=user.user_id)
-        db.session.add(new_friendship)
-
-        private_event = Event(
-            event_name="Secret Event",
-            description="private",
-            date_and_time=datetime(2050, 1, 20, 21, 37, tzinfo=timezone.utc),
-            location="here",
-            creator_id=user.user_id, 
-            is_private=True
-        )
-        db.session.add(private_event)
-        db.session.commit() 
-
-        visibility = Event_visibility(
-            event_id=private_event.event_id, 
-            shared_with=friend.user_id,
-            sharing=user.user_id 
-        )
-        db.session.add(visibility)
-        db.session.commit()
-
-        response = client.post(f"/api/events/invite/{private_event.event_id}", headers={
-            "Authorization": f"Bearer {token}"
-        }, json={
-            "invited": str(friend.user_id)
-        })
-
+        #user creates a private event shared with friend
+        priv_payload = {
+            "name": "so stupid of me", "description": "miau miau", 
+            "date": event_time.strftime("%d.%m.%Y"), "time": event_time.strftime("%H:%M"), 
+            "location": "Krakow", "is_private": True,
+            "shared_list": [str(friend.user_id)]
+        }
+        response = client.post("/api/events/create", json=priv_payload, headers=get_auth_header(user_token))
         assert response.status_code == 201
-        assert response.get_json()["message"] == "Invite created successfully"
+
+        #assert friend got "friend_new_private_event"
+        priv_notif = Notification.query.filter_by(user_id=friend.user_id, tag=NotificationTag.friend_new_private_event).first()
+        assert priv_notif is not None
+        assert "so stupid of me" in priv_notif.payload["message"]
+
+
+#invite_created, invite_status_update, event_new_participant, joined_event_updated, joined_event_deleted
+def test_notifications_invites_and_participation(client, logged_in_user, registered_friend, app):
+    with app.app_context():
+        user, user_token = logged_in_user
+        friend, friend_pwd = registered_friend
+        
+        db.session.add(Friendship(
+            user_id=min(user.user_id, friend.user_id), 
+            friend_id=max(user.user_id, friend.user_id)
+        ))
+        ev = Event(event_name="Why do I even to this", location="I'll go crazy in 2 minutes", creator_id=user.user_id, is_private=False)
+        db.session.add(ev)
+        db.session.commit()
+        
+        Notification.query.delete()
+        db.session.commit()
+
+        friend_login = client.post("/api/auth/login", json={"username": friend.username, "password": friend_pwd})
+        friend_token = friend_login.get_json()["access_token"]
+
+        #user invites friend
+        client.post(f"/api/events/invite/{ev.event_id}", json={"invited": str(friend.user_id)}, headers=get_auth_header(user_token))
+        
+        #assert friend got "invite_created"
+        inv_notif = Notification.query.filter_by(user_id=friend.user_id, tag=NotificationTag.invite_created).first()
+        assert inv_notif is not None
+        invite_id = inv_notif.payload["invite_id"]
+
+        #friend accepts invite
+        response = client.post(f"/api/events/change_invite_status/{invite_id}", 
+                               headers={"Authorization": f"Bearer {friend_token}"}, 
+                               json={"status": "accepted"})
+        assert response.status_code == 200
+
+        #assert user got invite_status_update and event_new_participant
+        update_notif = Notification.query.filter_by(user_id=user.user_id, tag=NotificationTag.invite_status_update).first()
+        assert update_notif is not None
+        assert update_notif.payload["status"] == "accepted"
+
+        part_notif = Notification.query.filter_by(user_id=user.user_id, tag=NotificationTag.event_new_participant).first()
+        assert part_notif is not None
+
+        #user edits event
+        edit_payload = {"name": "I don't care if it works anymore", "date": "10.10.2026", "time": "12:00", "location": "duuuupa"}
+        client.put(f"/api/events/edit/{ev.event_id}", json=edit_payload, headers=get_auth_header(user_token))
+
+        #assert friend got joined_event_updated
+        edit_notif = Notification.query.filter_by(user_id=friend.user_id, tag=NotificationTag.joined_event_updated).first()
+        assert edit_notif is not None
+
+        #user deletes event
+        client.delete(f"/api/events/delete/{ev.event_id}", headers=get_auth_header(user_token))
+
+        #assert friend got joined_event_deleted
+        del_notif = Notification.query.filter_by(user_id=friend.user_id, tag=NotificationTag.joined_event_deleted).first()
+        assert del_notif is not None
+        assert "canceled" in del_notif.payload["message"]
+
+
+# event_new_comment, comment_reply_created
+def test_notifications_comments(client, logged_in_user, registered_friend, app):
+    with app.app_context():
+        user, user_token = logged_in_user
+        friend, friend_pwd = registered_friend
+        
+        ev = Event(event_name="I'm done", location="don't care", creator_id=user.user_id, is_private=False)
+        db.session.add(ev)
+        db.session.commit()
+
+        Notification.query.delete()
+        db.session.commit()
+
+        friend_login = client.post("/api/auth/login", json={"username": friend.username, "password": friend_pwd})
+        friend_token = friend_login.get_json()["access_token"]
+
+        # friend comments on User's event
+        client.post(f"/api/comments/create/{ev.event_id}", json={"content": "Jebać UJ!"}, headers=get_auth_header(friend_token))
+
+        # assert user got "event_new_comment"
+        new_comment_notif = Notification.query.filter_by(user_id=user.user_id, tag=NotificationTag.event_new_comment).first()
+        assert new_comment_notif is not None
+        assert new_comment_notif.payload["commenter_id"] == str(friend.user_id)
+
+        comment_in_db = Comment.query.filter_by(event_id=ev.event_id).first()
+
+        # user replies to Friend's comment
+        client.post(f"/api/comments/reply/{comment_in_db.comment_id}", json={"content": "Rel!"}, headers=get_auth_header(user_token))
+
+        # assert friend got "comment_reply_created"
+        reply_notif = Notification.query.filter_by(user_id=friend.user_id, tag=NotificationTag.comment_reply_created).first()
+        assert reply_notif is not None
+        assert reply_notif.payload["replier_id"] == str(user.user_id)
+
 
 """ notifications screen """
 def test_notifications_flow(client, logged_in_user, registered_friend, app):

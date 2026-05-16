@@ -3,7 +3,6 @@ from blinker import Namespace
 app_signals = Namespace()
 
 """Events"""
-event_new_invite = app_signals.signal('event-new-invite')
 event_new_participant = app_signals.signal('event-new-participant')
 event_new_comment = app_signals.signal("event-new-comment")
 
@@ -12,7 +11,8 @@ invite_created = app_signals.signal('invite-created')
 invite_status_update = app_signals.signal('invite-status-update')
 
 """Participation"""
-joined_event_changed = app_signals.signal('joined-event-changed')
+joined_event_updated = app_signals.signal('joined-event-updated')
+joined_event_deleted = app_signals.signal('joined-event-deleted')
 
 """Friends"""
 friend_request_created = app_signals.signal('friend-request-created')

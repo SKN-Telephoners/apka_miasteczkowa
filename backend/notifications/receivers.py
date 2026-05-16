@@ -2,12 +2,53 @@ from .signals import *
 from backend.models.notification import NotificationTag
 from backend.tasks import create_notification_task
 
-print("REVCEIVERS FILE LOADED")
-
 """Events"""
-#event_new_invite = app_signals.signal('event-new-invite')
-#event_new_participant = app_signals.signal('event-new-participant')
-#event_new_comment = app_signals.signal("event-new-comment")
+@event_new_participant.connect
+def handle_event_new_participant(sender, **kwargs):
+    participant_id = kwargs.get('participant_id')
+    participant_username = kwargs.get('participant_username')
+    creator_id = kwargs.get('creator_id')
+    event_id = kwargs.get('event_id')
+    event_name = kwargs.get('event_name')
+
+    payload = {
+        "participant_id": str(participant_id),
+        "participant_name": participant_username,
+        "event_id": str(event_id),
+        "event_name": event_name,
+        "message": f"{participant_username} joined your event {event_name}."
+    }
+
+    create_notification_task.delay(
+        user_id=str(creator_id),
+        notification_tag_value=NotificationTag.event_new_participant.value,
+        payload=payload
+    )
+
+@event_new_comment.connect
+def handle_event_new_comment(sender, **kwargs):
+    commenter_id = kwargs.get('commenter_id')
+    commenter_name = kwargs.get('commenter_name')
+    creator_id = kwargs.get('creator_id')
+    event_id = kwargs.get('event_id')
+    event_name = kwargs.get('event_name')
+
+    if str(commenter_id) == str(creator_id):
+        return
+
+    payload = {
+        "commenter_id": str(commenter_id),
+        "commenter_name": commenter_name,
+        "event_id": str(event_id),
+        "event_name": event_name,
+        "message": f"{commenter_name} commented on your event {event_name}."
+    }
+
+    create_notification_task.delay(
+        user_id=str(creator_id),
+        notification_tag_value=NotificationTag.event_new_comment.value,
+        payload=payload
+    )
 
 """Invites"""
 @invite_created.connect
@@ -34,10 +75,72 @@ def handle_invite_created_notification(sender, **kwargs):
         payload = payload
     )
 
-#invite_status_update = app_signals.signal('invite-status-update')
+@invite_status_update.connect
+def handle_invite_status_update(sender, **kwargs):
+    invite_id = kwargs.get('invite_id')
+    inviter_id = kwargs.get('inviter_id')
+    invitee_id = kwargs.get('invitee_id')
+    invitee_username = kwargs.get('invitee_username')
+    event_id = kwargs.get('event_id')
+    event_name = kwargs.get('event_name')
+    status = kwargs.get('status') # "accepted" or "declined"
+
+    payload = {
+        "invite_id": str(invite_id),
+        "invitee_id": str(invitee_id),
+        "invitee_name": invitee_username,
+        "event_id": str(event_id),
+        "event_name": event_name,
+        "status": status,
+        "message": f"{invitee_username} {status} your invitation to {event_name}."
+    }
+
+    create_notification_task.delay(
+        user_id=str(inviter_id),
+        notification_tag_value=NotificationTag.invite_status_update.value,
+        payload=payload
+    )
 
 """Participation"""
-#joined_event_changed = app_signals.signal('joined-event-changed')
+@joined_event_updated.connect
+def handle_joined_event_updated(sender, **kwargs):
+    event_id = kwargs.get('event_id')
+    event_name = kwargs.get('event_name')
+    participant_ids = kwargs.get('participant_ids', []) #list of user IDs
+
+    payload = {
+        "event_id": str(event_id),
+        "event_name": event_name,
+        "message": f"An event you are attending ({event_name}) has been updated."
+    }
+
+    #loop through all participants and queue a notification for each
+    for user_id in participant_ids:
+        create_notification_task.delay(
+            user_id=str(user_id),
+            notification_tag_value=NotificationTag.joined_event_updated.value,
+            payload=payload
+        )
+
+@joined_event_deleted.connect
+def handle_joined_event_deleted(sender, **kwargs):
+    event_name = kwargs.get('event_name')
+    creator_username = kwargs.get('creator_username')
+    participant_ids = kwargs.get('participant_ids', [])
+
+    payload = {
+        "event_name": event_name,
+        "creator_name": creator_username,
+        "message": f"The event '{event_name}' hosted by {creator_username} has been canceled."
+    }
+
+    #loop through all participants and queue a notification for each
+    for user_id in participant_ids:
+        create_notification_task.delay(
+            user_id=str(user_id),
+            notification_tag_value=NotificationTag.joined_event_deleted.value,
+            payload=payload
+        )
 
 """Friends"""
 @friend_request_created.connect
@@ -60,13 +163,92 @@ def handle_friend_request_notification(sender, **kwargs):
         payload = payload
     )
 
-#friend_request_accepted = app_signals.signal('friend-request-accepted')
-#friend_new_public_event= app_signals.signal('friend-new-public-event')
-#friend_new_private_event = app_signals.signal('friend-new-private-event')
+@friend_request_accepted.connect
+def handle_friend_request_accepted(sender, **kwargs):
+    accepter_id = kwargs.get('accepter_id')
+    accepter_name = kwargs.get('accepter_name')
+    original_sender_id = kwargs.get('sender_id')
+
+    payload = {
+        "friend_id": str(accepter_id),
+        "friend_name": accepter_name,
+        "message": f"{accepter_name} accepted your friend request!"
+    }
+
+    create_notification_task.delay(
+        user_id=str(original_sender_id),
+        notification_tag_value=NotificationTag.friend_request_accepted.value,
+        payload=payload
+    )
+
+@friend_new_public_event.connect
+def handle_friend_new_public_event(sender, **kwargs):
+    creator_id = kwargs.get('creator_id')
+    creator_name = kwargs.get('creator_name')
+    event_id = kwargs.get('event_id')
+    event_name = kwargs.get('event_name')
+    friend_ids = kwargs.get('friend_ids', [])
+
+    payload = {
+        "creator_id": str(creator_id),
+        "creator_name": creator_name,
+        "event_id": str(event_id),
+        "event_name": event_name,
+        "message": f"Your friend {creator_name} created a new public event: {event_name}."
+    }
+
+    for f_id in friend_ids:
+        create_notification_task.delay(
+            user_id=str(f_id),
+            notification_tag_value=NotificationTag.friend_new_public_event.value,
+            payload=payload
+        )
+
+@friend_new_private_event.connect
+def handle_friend_new_private_event(sender, **kwargs):
+    creator_id = kwargs.get('creator_id')
+    creator_name = kwargs.get('creator_name')
+    event_id = kwargs.get('event_id')
+    event_name = kwargs.get('event_name')
+    shared_with_ids = kwargs.get('shared_with_ids', [])
+
+    payload = {
+        "creator_id": str(creator_id),
+        "creator_name": creator_name,
+        "event_id": str(event_id),
+        "event_name": event_name,
+        "message": f"Your friend {creator_name} shared a private event: {event_name} with you."
+    }
+
+    for f_id in shared_with_ids:
+        create_notification_task.delay(
+            user_id=str(f_id),
+            notification_tag_value=NotificationTag.friend_new_private_event.value,
+            payload=payload
+        )
 
 """Comments"""
-#comment_reply_created = app_signals.signal('comment-reply-created')
+@comment_reply_created.connect
+def handle_comment_reply_created(sender, **kwargs):
+    replier_id = kwargs.get('replier_id')
+    replier_name = kwargs.get('replier_name')
+    parent_author_id = kwargs.get('parent_author_id')
+    event_id = kwargs.get('event_id')
+    event_name = kwargs.get('event_name')
 
+    if str(replier_id) == str(parent_author_id):
+        return
 
+    payload = {
+        "replier_id": str(replier_id),
+        "replier_name": replier_name,
+        "event_id": str(event_id),
+        "event_name": event_name,
+        "message": f"{replier_name} replied to your comment in {event_name}."
+    }
 
-
+    create_notification_task.delay(
+        user_id=str(parent_author_id),
+        notification_tag_value=NotificationTag.comment_reply_created.value,
+        payload=payload
+    )

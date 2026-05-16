@@ -5,14 +5,14 @@ from datetime import datetime, timezone
 import enum
 
 class NotificationTag(enum.Enum):
-    event_new_invite = 'event-new-invite'
     event_new_participant = 'event-new-participant'
     event_new_comment = "event-new-comment"
 
     invite_created = 'invite-created'
     invite_status_update = 'invite-status-update'
 
-    joined_event_changed = 'joined-event-changed'
+    joined_event_updated = 'joined-event-updated'
+    joined_event_deleted = 'joined-event-deleted'
 
     friend_request_created = 'friend-request-created'
     friend_request_accepted = 'friend-request-accepted'
