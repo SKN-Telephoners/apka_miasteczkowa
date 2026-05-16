@@ -401,3 +401,14 @@ export const editEvent = async (eventId: string, data: EditEventData): Promise<s
         throw new Error(msg);
     }
 }
+
+export const getEventById = async (eventId: string): Promise<Event> => {
+    try {
+        // The backend endpoint is: @events_bp.route("get/<event_id>", methods=["GET"])
+        const response = await api.get<{ data: Event }>(`api/events/get/${eventId}`);
+        return response.data.data;
+    } catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || "Network error";
+        throw new Error(msg);
+    }
+};

@@ -7,6 +7,7 @@ import { UserProvider } from "./contexts/UserContext";
 import { EventProvider } from "./contexts/EventContext";
 import { FriendsProvider } from "./contexts/FriendsContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { NotificationsProvider } from "./contexts/NotificationsContext";
 import AppNavigator from "./navigation/AppNavigator";
 import { tokenStorage } from "./utils/storage";
 

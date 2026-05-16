@@ -1,5 +1,5 @@
 import React from "react";
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import EventCard from "../../components/EventCard";
 import { THEME } from "../../utils/constants";
@@ -13,13 +13,42 @@ const EventPreviewScreen = () => {
     const styles = createStyles(colors);
     const route = useRoute<any>();
     const navigation = useNavigation<any>();
-    const event = route?.params?.event as Event | undefined;
+    const [event, setEvent] = React.useState<Event | undefined>(route?.params?.event);
+    const [isLoading, setIsLoading] = React.useState<boolean>(false);
+    const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+
+    const eventId = route?.params?.event_id;
     const screenTitle = route?.params?.screenTitle || "Podgląd wydarzenia";
     const allowEdit = Boolean(route?.params?.allowEdit);
 
+    React.useEffect(() => {
+        if (!event && eventId) {
+            let isMounted = true;
+            setIsLoading(true);
+
+            import("../../services/events").then(({ getEventById }) => {
+                getEventById(eventId)
+                    .then(data => {
+                        if (isMounted) setEvent(data);
+                    })
+                    .catch(err => {
+                        console.error("Błąd podczas pobierania wydarzenia:", err);
+                        if (isMounted) setErrorMsg("Nie udało się załadować wydarzenia.");
+                    })
+                    .finally(() => {
+                        if (isMounted) setIsLoading(false);
+                    });
+            });
+
+            return () => {
+                isMounted = false;
+            };
+        }
+    }, [event, eventId]);
+
     React.useLayoutEffect(() => {
         navigation.setOptions?.({
-            title: screenTitle,
+            title: event?.name || screenTitle,
             headerStyle: { backgroundColor: colors.background },
             headerTintColor: colors.text,
             headerTitleStyle: { color: colors.text },
@@ -39,12 +68,23 @@ const EventPreviewScreen = () => {
         });
     }, [navigation, colors.background, colors.text, screenTitle, allowEdit, event]);
 
+    if (isLoading) {
+        return (
+            <SafeAreaView style={styles.screen}>
+                <View style={styles.emptyState}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                    <Text style={[styles.emptySubtitle, { marginTop: 12 }]}>Ładowanie wydarzenia...</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
     if (!event) {
         return (
             <SafeAreaView style={styles.screen}>
                 <View style={styles.emptyState}>
                     <Text style={styles.emptyTitle}>Brak danych podglądu</Text>
-                    <Text style={styles.emptySubtitle}>Wróć do edycji i spróbuj ponownie.</Text>
+                    <Text style={styles.emptySubtitle}>{errorMsg || "Wróć do ekranu głównego i spróbuj ponownie."}</Text>
                 </View>
             </SafeAreaView>
         );
