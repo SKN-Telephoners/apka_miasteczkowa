@@ -429,3 +429,22 @@ def test_notifications_created_window(client, logged_in_user, app):
         res_older = client.get("/api/notifications/?created_window=older", headers=get_auth_header(token))
         assert len(res_older.get_json()["data"]) == 1
         assert res_older.get_json()["data"][0]["payload"]["message"] == "Old msg"
+
+
+#read notification
+def test_read_notification(client, logged_in_user, app):
+    with app.app_context():
+        user, token = logged_in_user
+
+        example_notif = Notification(
+            user_id=user.user_id, tag=list(NotificationTag)[0], is_read=False, 
+            payload={"message": "Today msg"}, created_at=datetime.now(timezone.utc)
+        )
+        db.session.add(example_notif)
+        db.session.commit()
+
+        response = client.put(f"/api/notifications/{example_notif.notification_id}/read", headers=get_auth_header(token))
+        assert response.status_code == 200
+
+        assert len(Notification.query.filter_by(user_id=user.user_id).all()) == 1
+        assert example_notif.is_read == True

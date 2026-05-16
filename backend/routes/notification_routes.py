@@ -1,13 +1,15 @@
 from flask import Blueprint, request, current_app
 from backend.models import Notification
 from backend.models.notification import NotificationTag
-from backend.extensions import limiter
+from backend.extensions import limiter, db
 from backend.constants import Constants
 from backend.responses import ResponseTypes, make_api_response
+from sqlalchemy.exc import SQLAlchemyError
 from flask_jwt_extended import jwt_required, get_current_user
 from backend.helpers import sanitize_input
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
+from backend.helpers import validate_uuid
 
 notifications_bp = Blueprint("notifications", __name__, url_prefix="/api/notifications")
 local_tz = ZoneInfo("Europe/Warsaw")
@@ -111,3 +113,33 @@ def get_notifications():
     except Exception as e:
         current_app.logger.error(f"ERROR: /get_notifications, DB exception occured: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
+
+
+@notifications_bp.route("<notification_id>/read", methods=["PUT"])
+@limiter.limit("600 per minute")
+@jwt_required()
+def read_notification(notification_id):
+    user = get_current_user()
+
+    n_uuid = validate_uuid(notification_id)
+    if not n_uuid:
+        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid notification UD format")
+    
+    notification = db.session.get(Notification, n_uuid)
+    if notification is None:
+        return make_api_response(ResponseTypes.NOT_FOUND, message="This notification does not exist")
+    
+    if user.user_id != notification.user_id:
+        current_app.logger.warning(f"WARNING: /read_notification, user {user.user_id} attempted to read notification {notification_id} without permissions")
+        return make_api_response(ResponseTypes.FORBIDDEN, message="You can read your own notifications only")
+    
+    try:
+        notification.is_read = True
+        db.session.commit()
+        current_app.logger.info(f"INFO: /read_notifications, user {user.user_id} successfully read notification {notification_id}")
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        current_app.logger.error(f"ERROR: /read_notifiaction, DB exception occured: {e}")
+        return make_api_response(ResponseTypes.SERVER_ERROR)
+
+    return make_api_response(ResponseTypes.SUCCESS, message="Notification read successfully")
