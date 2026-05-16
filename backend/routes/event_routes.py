@@ -572,6 +572,49 @@ def edit_event(event_id):
 
     return make_api_response(ResponseTypes.SUCCESS, message="Event edited successfully")
 
+@events_bp.route("get/<event_id>", methods=["GET"])
+@limiter.limit("600 per minute")
+@jwt_required()
+def get_event(event_id):
+    try:
+        user = get_current_user()
+        e_uuid = validate_uuid(event_id)
+
+        if not e_uuid:
+            return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Event ID")
+
+        event = db.session.get(Event, e_uuid)
+
+        if event is None:
+            return make_api_response(ResponseTypes.NOT_FOUND, message="This event does not exist")
+
+        if event.is_private and event.creator_id != user.user_id:
+            has_access = db.session.query(Event_visibility).filter_by(event_id=e_uuid, shared_with=user.user_id).first()
+            if not has_access:
+                current_app.logger.warning(f"WARNING: /get_event, user {user.user_id} tried to access private event {event_id} without permission")
+                return make_api_response(ResponseTypes.FORBIDDEN, message="This event is private")
+
+        creator = db.session.get(User, event.creator_id)
+        creator_lookup = {str(event.creator_id): creator} if creator else {}
+
+        event_data = serialize_event_payload(event, None, creator_lookup, set())
+
+        is_joined = (event.creator_id == user.user_id)
+        if not is_joined:
+            participant = db.session.query(Event_participants).filter_by(event_id=e_uuid, user_id=user.user_id).first()
+            if participant is not None:
+                is_joined = True
+
+        event_data["is_participating"] = is_joined
+        event_data["is_joined"] = is_joined
+
+        current_app.logger.info(f"INFO: /get_event, user {user.user_id} successfully fetched event {event_id}")
+        return make_api_response(ResponseTypes.SUCCESS, data=event_data)
+
+    except Exception as e:
+        current_app.logger.error(f"ERROR: /get_event, exception occured: {e}")
+        return make_api_response(ResponseTypes.SERVER_ERROR)
+
 '''
 /api/events/feed?page=1&limit=20&visibility=all&participation=all&created_window=all&sort_mode=default
 Input: Query Params { page=<int> & limit=<int> & q=<str> & visibility=all / public / private & participation=all/ joined / not_joined & sort_mode=default / members_desc / ... }
