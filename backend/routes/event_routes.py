@@ -1,14 +1,7 @@
 from flask import Blueprint, request, current_app
-<<<<<<< HEAD
-from backend.models.event import Event, Event_visibility, Event_participants, Invites, InviteRequestStatus
-from backend.models.event import Pictures
-from backend.models import User, Friendship 
-from backend.extensions import db, limiter
-=======
 from backend.models.event import Event, Event_visibility, Event_participants, Invites, InviteRequestStatus, Pictures, Location
 from backend.models import User, Friendship
 from backend.extensions import db, limiter, redis_client
->>>>>>> 123640be615c21efe3e83010c5356d285e88d016
 from backend.constants import Constants
 from backend.responses import ResponseTypes, make_api_response
 from flask_jwt_extended import jwt_required, get_current_user
@@ -773,22 +766,16 @@ def invite_to_event(event_id):
         db.session.add(new_invite)
         db.session.commit()
         
-<<<<<<< HEAD
         notifications.invite_created.send(
-=======
-        notifications.event_invite_sent.send(
->>>>>>> 123640be615c21efe3e83010c5356d285e88d016
             current_app._get_current_object(),
-            from_user=u_uuid, 
-            to_user=i_uuid, 
+            from_user_id=u_uuid, 
+            from_user_username=user.username,
+            to_user_id=i_uuid, 
             invite_id=new_invite.invite_id,
             event_id=e_uuid,
             event_name=event.event_name
         )
-<<<<<<< HEAD
-=======
         current_app.logger.info(f"INFO: /invite, user {u_uuid} invited user {i_uuid} to event {e_uuid}")
->>>>>>> 123640be615c21efe3e83010c5356d285e88d016
         
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -913,8 +900,6 @@ def change_invite_status(invite_id):
     
     return make_api_response(ResponseTypes.SUCCESS, message="Invite status changed successfully")
 
-<<<<<<< HEAD
-=======
 @events_bp.route("/<user_id>/creator", methods=["GET"])
 @jwt_required()
 def get_user_events_creator(user_id):
@@ -1022,7 +1007,6 @@ def get_coordinates():
     coordinates = query.coordinates
     current_app.logger.info(f"INFO: /get_coordinates, successfully fetched coordinates for {location_name}")
     return make_api_response(ResponseTypes.SUCCESS, data={"coordinates": str(coordinates)})
->>>>>>> 123640be615c21efe3e83010c5356d285e88d016
 
 @events_bp.route("/map", methods=["GET"])
 @limiter.limit("600 per minute")
@@ -1071,145 +1055,6 @@ def map_events():
                 "is_private": event.is_private
             })
 
-<<<<<<< HEAD
-        incoming_invites.append({
-            "id": str(invite.invite_id),
-            "createdAt": invite.created_at.isoformat() if invite.created_at else None,
-            "inviter": {
-                "id": str(inviter.user_id),
-                "username": inviter.display_name,
-                "email": inviter.email,
-                "academy": inviter.academy,
-                "course": inviter.course,
-                "profile_picture": inviter_profile_picture,
-            },
-            "event": {
-                "id": str(event.event_id),
-                "name": event.event_name,
-                "description": event.description or "",
-                "date": event.date_and_time.astimezone(local_tz).strftime("%d.%m.%Y"),
-                "time": event.date_and_time.astimezone(local_tz).strftime("%H:%M"),
-                "location": event.location,
-                "creator_id": str(event.creator_id),
-                "creator_username": creator.display_name if creator else None,
-                "creator_profile_picture_url": creator_profile_picture_url,
-                "created_at": event.created_at.isoformat() if event.created_at else None,
-                "comment_count": int(event.comment_count or 0),
-                "participant_count": int(event.participant_count or 0),
-                "is_private": event.is_private,
-                "pictures": pictures,
-            },
-        })
-
-    return make_api_response(ResponseTypes.SUCCESS, data={"incomingInvites": incoming_invites})
-
-
-@events_bp.route("/<user_id>/creator", methods=["GET"])
-@jwt_required()
-def get_user_events_creator(user_id):
-    u_uuid = validate_uuid(user_id)
-
-    if not u_uuid:
-        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid user ID")
-
-    user = db.session.get(User, u_uuid)
-    created_events = Event.query.filter_by(creator_id=user.user_id).all()
-    
-    created_data=[
-            {
-                "event_id": str(event.event_id),
-                "name": event.event_name,
-                "description": event.description,
-                "date": event.date_and_time.astimezone(local_tz).strftime("%d.%m.%Y"),
-                "time": event.date_and_time.astimezone(local_tz).strftime("%H:%M"),
-                "location": event.location,
-                "creator_id": str(event.creator_id),
-                "pictures": [
-                    {
-                        "cloud_id": pic.cloud_id,
-                        "url": cloudinary_url(pic.cloud_id, secure=True)[0]
-                    } 
-                    for pic in event.pictures
-                ],
-                "creator_username": user.username,
-                "comment_count": str(event.comment_count),
-                "participation_count": event.participant_count,
-                "is_private": event.is_private,
-            }
-            for event in created_events
-        ]
-    
-    return make_api_response(
-        ResponseTypes.SUCCESS, 
-        data={"data": created_data}
-    )
-
-
-@events_bp.route("/<user_id>/participant", methods=["GET"])
-@jwt_required()
-def get_user_events_participand(user_id):
-    u_uuid = validate_uuid(user_id)
-
-    if not u_uuid:
-        return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid user ID")
-
-    user = db.session.get(User, u_uuid)
-    
-    participating_events = db.session.query(Event).join(
-        Event_participants, Event.event_id == Event_participants.event_id
-    ).filter(Event_participants.user_id == user.user_id).all()
-
-    participating_data=[
-            {
-                "event_id": str(event.event_id),
-                "name": event.event_name,
-                "description": event.description,
-                "date": event.date_and_time.astimezone(local_tz).strftime("%d.%m.%Y"),
-                "time": event.date_and_time.astimezone(local_tz).strftime("%H:%M"),
-                "location": event.location,
-                "creator_id": str(event.creator_id),
-                "pictures": [
-                    {
-                        "cloud_id": pic.cloud_id,
-                        "url": cloudinary_url(pic.cloud_id, secure=True)[0]
-                    } 
-                    for pic in event.pictures
-                ],
-                "creator_username": User.query.filter_by(user_id=event.creator_id).first().username,
-                "comment_count": str(event.comment_count),
-                "participation_count": event.participant_count,
-                "is_private": event.is_private,
-            }
-            for event in participating_events
-        ]
-    
-    return make_api_response(
-        ResponseTypes.SUCCESS, 
-        data={"data": participating_data}
-    )
-
-
-@events_bp.route("/get_coordinates", methods=["GET"])
-@limiter.limit("1000 per second")
-@jwt_required()
-def get_coordinates():
-    location_name = request.args.get('location') # request for that endpoint ex: /api/events/get_coordinates?location=Krakow
-    location_name = str(sanitize_input(location_name))
-    if not location_name or location_name == "":
-        return make_api_response(ResponseTypes.INVALID_DATA, message="Location name must not be empty")
-
-    if len(location_name) > Constants.MAX_LOCATION_LEN:
-        return make_api_response(ResponseTypes.INVALID_DATA, message="Location name too long")
-
-    query = db.session.query(Location).filter_by(location_name=location_name).first()    
-    
-    if not query:
-        return make_api_response(ResponseTypes.NOT_FOUND, message="Location of that name not found")
-    
-    coordinates = query.coordinates
-
-    return make_api_response(ResponseTypes.SUCCESS, data={"coordinates": str(coordinates)})
-=======
         return make_api_response(
             ResponseTypes.SUCCESS,
             data={"data": final_map_data},
@@ -1217,4 +1062,3 @@ def get_coordinates():
     except Exception as e:
         current_app.logger.error(f"ERROR: /map, exception occured: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
->>>>>>> 123640be615c21efe3e83010c5356d285e88d016

@@ -58,8 +58,9 @@ def create_friend_request(friend_id):
         
         notifications.friend_request_created.send(
             current_app._get_current_object(),
-            from_user = user.user_id, 
-            to_user = friend_id, 
+            from_user_id = user.user_id, 
+            from_user_username = user.username, 
+            to_user_id = friend_id, 
             request_id=new_request.request_id
         )
 

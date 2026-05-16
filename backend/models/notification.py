@@ -35,9 +35,3 @@ class Notification(db.Model):
     payload = db.Column(JSONB, nullable=False, default={})
 
     user = db.relationship("User", foreign_keys=[user_id])
-
-    def __init__(self, user_id, tag, is_read, payload):
-        self.user_id = user_id
-        self.tag = tag
-        self.is_read = is_read
-        self.payload = payload

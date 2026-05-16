@@ -1,6 +1,8 @@
-from signals import *
+from .signals import *
 from backend.models.notification import NotificationTag
 from backend.tasks import create_notification_task
+
+print("REVCEIVERS FILE LOADED")
 
 """Events"""
 #event_new_invite = app_signals.signal('event-new-invite')
@@ -9,25 +11,26 @@ from backend.tasks import create_notification_task
 
 """Invites"""
 @invite_created.connect
-def handle_friend_request_notification(sender, **kwargs):
-    from_user = kwargs.get('from_user')
-    to_user = kwargs.get('to_user')
+def handle_invite_created_notification(sender, **kwargs):
+    from_user_id = kwargs.get('from_user_id')
+    from_user_username = kwargs.get('from_user_username')
+    to_user_id = kwargs.get('to_user_id')
     invite_id = kwargs.get('invite_id')
     event_id = kwargs.get('event_id')
     event_name = kwargs.get('event_name')
 
     payload = {
         "invite_id": str(invite_id),
-        "sender_id": str(from_user.user_id),
-        "sender_name": from_user.username,
-        "event_id": event_id,
+        "sender_id": str(from_user_id),
+        "sender_name": from_user_username,
+        "event_id": str(event_id),
         "event_name": event_name,
-        "message": f"{from_user.username} invited you to an event {event_name}."
+        "message": f"{from_user_username} invited you to an event {event_name}."
     }
 
     create_notification_task.delay(
-        user_id = str(to_user.user_id),
-        notification_type_value = NotificationTag.event_invite.value,
+        user_id = str(to_user_id),
+        notification_tag_value = NotificationTag.invite_created.value,
         payload = payload
     )
 
@@ -39,20 +42,21 @@ def handle_friend_request_notification(sender, **kwargs):
 """Friends"""
 @friend_request_created.connect
 def handle_friend_request_notification(sender, **kwargs):
-    from_user = kwargs.get('from_user')
-    to_user = kwargs.get('to_user')
+    from_user_id = kwargs.get('from_user_id')
+    from_user_username = kwargs.get('from_user_username')
+    to_user_id = kwargs.get('to_user_id')
     request_id = kwargs.get('request_id')
 
     payload = {
         "friend_request_id": str(request_id),
-        "sender_id": str(from_user.user_id),
-        "sender_name": from_user.username,
-        "message": f"{from_user.username} sent you a friend request."
+        "sender_id": str(from_user_id),
+        "sender_name": from_user_username,
+        "message": f"{from_user_username} sent you a friend request."
     }
 
     create_notification_task.delay(
-        user_id = str(to_user.user_id),
-        notification_type_value = NotificationTag.friend_request_incoming.value,
+        user_id = str(to_user_id),
+        notification_tag_value = NotificationTag.friend_request_created.value, 
         payload = payload
     )
 
