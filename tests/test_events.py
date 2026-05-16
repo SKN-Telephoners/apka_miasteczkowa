@@ -18,6 +18,9 @@ TINY_JPG = base64.b64decode(
 
 local_tz = ZoneInfo("Europe/Warsaw")
 
+def get_auth_header(token):
+    return {"Authorization": f"Bearer {token}"}
+
 # =============================================================================
 # Tests for handling events
 # =============================================================================
@@ -660,3 +663,60 @@ def test_map_events_returns_only_future_events(client, logged_in_user, app):
         assert "future map event" in returned_names
         assert "past map event" not in returned_names
         assert all(event.get("location_coordinates") for event in data)
+
+def test_get_event_success(client, logged_in_user, app):
+    with app.app_context():
+        user, token = logged_in_user
+        
+        ev = Event(event_name="Chuj", location="dziura w ziemi", creator_id=user.user_id, is_private=False)
+        db.session.add(ev)
+        db.session.commit()
+
+        response = client.get(f"/api/events/get/{ev.event_id}", headers=get_auth_header(token))
+        
+        assert response.status_code == 200
+        data = response.get_json()
+        
+        assert data["name"] == "Chuj"
+        assert data["is_participating"] is True
+
+def test_get_event_not_found(client, logged_in_user, app):
+    with app.app_context():
+        _, token = logged_in_user
+        fake_uuid = "123e4567-e89b-12d3-a456-426614174000"
+
+        response = client.get(f"/api/events/{fake_uuid}", headers=get_auth_header(token))
+        
+        assert response.status_code == 404
+
+def test_get_event_private_forbidden(client, logged_in_user, registered_friend, app):
+    with app.app_context():
+        _, token = logged_in_user
+        friend, _ = registered_friend
+        
+        ev = Event(event_name="Nu uh", location="X", creator_id=friend.user_id, is_private=True)
+        db.session.add(ev)
+        db.session.commit()
+
+        response = client.get(f"/api/events/get/{ev.event_id}", headers=get_auth_header(token))
+        
+        assert response.status_code == 403
+
+def test_get_event_private_shared_success(client, logged_in_user, registered_friend, app):
+    with app.app_context():
+        user, token = logged_in_user
+        friend, _ = registered_friend
+        
+        ev = Event(event_name="No masz no", location="X", creator_id=friend.user_id, is_private=True)
+        db.session.add(ev)
+        db.session.flush()
+
+        vis = Event_visibility(event_id=ev.event_id, sharing=friend.user_id, shared_with=user.user_id)
+        db.session.add(vis)
+        db.session.commit()
+
+        response = client.get(f"/api/events/get/{ev.event_id}", headers=get_auth_header(token))
+        
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["name"] == "No masz no"
