@@ -14,6 +14,34 @@ from backend.helpers import validate_uuid
 notifications_bp = Blueprint("notifications", __name__, url_prefix="/api/notifications")
 local_tz = ZoneInfo("Europe/Warsaw")
 
+'''
+Input: 
+    Header { "Authorization": "Bearer <Access_Token>" }, 
+    Query Params { 
+        page=<int>, 
+        limit=<int>, 
+        q=<str>, 
+        status="unread"/"read"/"all", 
+        type=<NotificationTag_Value>, 
+        created_window="today"/"week"/..., 
+        sort_mode="newest"/"oldest" }
+Action: Retrieves paginated notifications for the current user. Filters by read status, type, and creation date. Converts timestamps to the local "Europe/Warsaw" timezone.
+Data sent to the frontend: {"data": [{
+    "notification_id": <str>, 
+    "type": <str>, 
+    "is_read": <bool>, 
+    "date": <str>, 
+    "time": <str>, 
+    "payload": <dict>}], 
+"pagination": {
+    "page": <int>, 
+    "limit": <int>, 
+    "total": <int>, 
+    "pages": <int>, 
+    "has_next": <bool>, 
+    "unread_count": <int>}}
+Output: 200 OK (or 500 on error)
+'''
 @notifications_bp.route("/", methods=["GET"])
 @limiter.limit("600 per minute")
 @jwt_required()

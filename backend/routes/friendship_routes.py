@@ -12,6 +12,12 @@ from backend.notifications.signals import friend_request_created, friend_request
 
 friends_bp = Blueprint("friends", __name__, url_prefix="/api/friends")
 
+'''
+Input: URL Parameter <uuid:friend_id>
+Action: Creates a friend request record and triggers an asynchronous notification task
+Data sent to the frontend: {"message": "Friend request created"}
+Output: 201 Created (or 400/404/409/500 on error)
+'''
 @friends_bp.route("/request/<friend_id>/create", methods=["POST"])
 @jwt_required()
 @limiter.limit("300 per minute") #change to 30 before deployment
@@ -76,6 +82,12 @@ def create_friend_request(friend_id):
     current_app.logger.info(f"INFO: /create_friend_request, user of ID {user.user_id} created friend request for user: {friend_id}")
     return make_api_response(ResponseTypes.CREATED, message="Friend request created")
 
+'''
+Input: URL Parameter <uuid:friend_id>, Header { "Authorization": "Bearer <Access_Token>" }
+Action: Locates a friend request sent by the current user to the specified friend_id. If found, the request is deleted from the database, canceling it
+Data sent to the frontend: {"message": "Friend request cancelled", "friend_id": <str>}
+Output: 200 OK (or 404/400/500 on error)
+'''
 @friends_bp.route("/request/<friend_id>/cancel", methods=["POST"])
 @jwt_required()
 @limiter.limit("300 per minute")
@@ -102,6 +114,12 @@ def cancel_friend_request(friend_id):
     current_app.logger.info(f"INFO: /cancel_friend_request, friend request {user.user_id} -> {friend_id} cancelled")
     return make_api_response(ResponseTypes.SUCCESS, message="Friend request cancelled", data={"friend_id": str(friend_id)})
 
+'''
+Input: URL Parameter <uuid:friend_id>, Header { "Authorization": "Bearer <Access_Token>" }
+Action: Finds an incoming friend request from the specified friend_id. It deletes the request record and creates a new Friendship record. The user_id and friend_id are stored in a specific order (lesser ID first) to ensure uniqueness in the database
+Data sent to the frontend: {"message": "Friend request accepted", "friend_id": <str>}
+Output: 200 OK (or 404/400/409/500 on error)
+'''
 @friends_bp.route("/request/<friend_id>/accept", methods=["POST"])
 @jwt_required()
 @limiter.limit("300 per minute") #change before deployment to 30
@@ -146,6 +164,12 @@ def accept_friend_request(friend_id):
     current_app.logger.info(f"INFO: /accept_friend_request, user {user.user_id} accepted friend request")
     return make_api_response(ResponseTypes.SUCCESS, message="Friend request accepted", data={"friend_id": str(friend_id)})
 
+'''
+Input: URL Parameter <uuid:friend_id>, Header { "Authorization": "Bearer <Access_Token>" }
+Action: Identifies an incoming friend request from the specified friend_id and deletes the record from the database, effectively rejecting the request :((
+Data sent to the frontend: {"message": "Friend request declined"}
+Output: 200 OK (or 404/400/500 on error)
+'''
 @friends_bp.route("/request/<friend_id>/decline", methods=["POST"])
 @jwt_required()
 @limiter.limit("300 per minute") #change before deployment to 30
@@ -172,6 +196,23 @@ def decline_friend_request(friend_id):
     return make_api_response(ResponseTypes.SUCCESS, message="Friend request declined")
 
 
+'''
+Input: Header { "Authorization": "Bearer <Access_Token>" }
+Action: Queries the database for all friend requests where the current user is either the sender (outgoing) or the receiver (incoming) that have a "pending" status
+Data sent to the frontend: {
+"incoming_pending_requests": [{
+    "request_id": <str>, 
+    "sender_id": <str>, 
+    "sender_username": <str>,
+    "requested_at": <iso_date>}], 
+"outgoing_pending_requests": [{
+    "request_id": <str>, 
+    "receiver_id": <str>, 
+    "receiver_username": <str>, 
+    "requested_at": <iso_date>}], 
+    "message": "Pending requests retrieved"}
+Output: 200 OK (or 500 on error)
+'''
 @friends_bp.route("/request/pending", methods=["GET"])
 @jwt_required()
 def get_pending_requests():
@@ -219,7 +260,12 @@ def get_pending_requests():
         }
     )
 
-
+'''
+Input: Header { "Authorization": "Bearer <Access_Token>" }
+Action: Fetches the list of all confirmed friends for the logged-in user
+Data sent to the frontend: {"friends": [{"id": <uuid>, "username": <str>}], "message": "Friends list"}
+Output: 200 OK (or 500 on error)
+'''
 @friends_bp.route("/list", methods=["GET"])
 @jwt_required()
 def get_friends_list():

@@ -22,6 +22,25 @@ from sqlalchemy import or_, and_, case
 
 users_bp = Blueprint("users", __name__, url_prefix="/api/users")
 
+'''
+Input: URL Parameter <uuid:user_id>, Header { "Authorization": "Bearer <Access_Token>" }
+Action: Retrieves public profile data, generates Cloudinary URLs for pictures, and counts the user's friends
+Data sent to the frontend: {
+    "user_id": <str>, 
+    "username": <str>, 
+    "email": <str>, 
+    "created_at": <iso_date>, 
+    "academy": <str>, 
+    "course": <str>, 
+    "year": <int>, 
+    "faculty": <str>, 
+    "academic_clubs": [<str>], 
+    "description": <str>, 
+    "profile_picture": {"cloud_id": <str>, "url": <str>}, 
+    "friend_count": <int>, 
+    "deleted": <bool>}
+Output: 200 OK (or 404 on error)
+'''
 @users_bp.route("/profile/<user_id>", methods=["GET"])
 @jwt_required()
 def get_user_info(user_id):
@@ -64,7 +83,12 @@ def get_user_info(user_id):
     current_app.logger.info(f"INFO: /get_user_info, success in retrieving user info for {user_id}")
     return make_api_response(ResponseTypes.SUCCESS, data=user_data)
 
-
+'''
+Input: JSON { "username": <str>, "description": <str>, "academy": <str>, "profile_picture": {"cloud_id": <str>} OR null } (all fields optional)
+Action: Updates profile fields. Handles username uniqueness checks and manages Cloudinary profile picture deletion if updated.
+Data sent to the frontend: {"message": "Profile updated successfully"}.
+Output: 200 OK (or 400/403/500 on error)
+'''
 @users_bp.route("/update_profile", methods=["PUT"])
 @limiter.limit("300 per minute")
 @jwt_required()
@@ -156,7 +180,12 @@ def update_profile():
     current_app.logger.info(f"INFO: /update_profile, success in editing user profile for ID: {user.user_id}")
     return make_api_response(ResponseTypes.SUCCESS, message="Profile updated successfully")
 
-
+'''
+Input: JSON { "course": <str>, "year": <int>, "faculty": <str>, "academic_clubs": "Club1, Club2" }
+Action: Validates if the user belongs to the primary academy (AGH). Checks if the faculty, course, and year are valid based on static data files. Parses a comma-separated string of academic clubs and verifies their existence
+Data sent to the frontend: {"message": "Academic details updated successfully"}
+Output: 200 OK (or 400/403/404/500 on error)
+'''
 @users_bp.route("/update_academic_details", methods=["PUT"])
 @limiter.limit("100 per minute")
 @jwt_required()
@@ -230,7 +259,12 @@ def update_academic_details():
         current_app.logger.info(f"ERROR: /update_academic_details, DB exception occured: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
-
+'''
+Input: Header { "Authorization": "Bearer <Access_Token>" }, JSON { "old_password": <str>, "new_password": <str> }
+Action: Verifies the current password. If correct, validates the new password against the security pattern, updates it, and invalidates (revokes) all existing sessions/tokens for this user.
+Data sent to the frontend: {"message": "Password updated successfully"}
+Output: 200 OK (or 400/401/500 on error)
+'''
 @users_bp.route("/settings/password", methods=["PUT"])
 @jwt_required()
 @limiter.limit("500 per minute")
@@ -266,6 +300,12 @@ def change_password():
     current_app.logger.info(f"INFO: /settings/password, new password set for user: {user.user_id}")
     return make_api_response(ResponseTypes.SUCCESS, message="Password updated successfully")
 
+'''
+Input: Header { "Authorization": "Bearer <Access_Token>" }, JSON { "new_email": <str> }
+Action: Sanitizes the new email and checks if it's already in use. Generates an email-change JWT, sends a confirmation link to the new email, and a security notification to the current email
+Data sent to the frontend: {"message": "Verification link sent to new email"}
+Output: 200 OK (or 400/409/500 on error)
+'''
 @users_bp.route("/settings/change_email", methods=["PUT"])
 @jwt_required()
 @limiter.limit("300 per minute")
@@ -322,7 +362,12 @@ def change_email_request():
     current_app.logger.info(f"INFO: /settings/change_email, link for mail change set to user: {user.user_id}")
     return make_api_response(ResponseTypes.SUCCESS, message="Verification link sent to new email")
 
-
+'''
+Input: Header { "Authorization": "Bearer <Access_Token>" }
+Action: Identifies the current user and revokes every Access and Refresh token associated with their ID in the database blocklist
+Data sent to the frontend: {"message": "Successfully logged out from all devices"}
+Output: 200 OK (or 500 on error)
+'''
 @users_bp.route("/settings/logout_all", methods=["DELETE"])
 @jwt_required()
 def logout_from_all_devices():
@@ -336,7 +381,12 @@ def logout_from_all_devices():
         current_app.logger.error(f"ERROR: /settings/logout_all, exception occurred: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
     
-
+'''
+Input: JSON { "password": <str> }, Header { "Authorization": "Bearer <Access_Token>" }
+Action: Validates password, anonymizes the username/email, removes the profile picture from Cloudinary, revokes all tokens, and sets the deleted flag
+Data sent to the frontend: {"message": "Account successfully deleted"}
+Output: 200 OK (or 400/401/500 on error)
+'''
 @users_bp.route("/settings/delete_account", methods=["DELETE"])
 @jwt_required()
 def delete_account():
@@ -388,6 +438,23 @@ def delete_account():
         current_app.logger.error(f"ERROR: /settings/delete_account, DB exception occurred: {e}")
         return make_api_response(ResponseTypes.SERVER_ERROR)
     
+
+'''
+Input: Header { "Authorization": "Bearer <Access_Token>" }, Query Params { "page": <int>, "limit": <int>, "search": <str> }
+Action: Fetches a paginated list of non-deleted users. It performs an outer join with the Friendship table to determine if each user is already a friend. Results are ordered with friends appearing first, then by username alphabetically
+Data sent to the frontend: {
+    "users": [{
+        "user_id": <str>, 
+        "username": <str>, 
+        "academy": <str>, 
+        "profile_picture": <str>, 
+        "is_friend": <bool>}], 
+    "pagination": {
+        "total": <int>, 
+        "pages": <int>, 
+        "current_page": <int>}}
+Output: 200 OK (or 400/500 on error)
+'''
 @users_bp.route("/users_list", methods=["GET"])
 @limiter.limit("600 per second")
 @jwt_required()

@@ -9,6 +9,11 @@ import cloudinary
 import os
 from logging.handlers import RotatingFileHandler
 
+'''
+Input: test_mode: <bool>, dev_mode: <bool>
+Action: The application factory. It initializes the Flask app, loads configurations, sets log levels, initializes all extensions (DB, JWT, Mail, Limiter, CORS, Talisman), registers all blueprints, and defines global error handlers for HTTP exceptions (like 429 Rate Limit) and general server errors
+Output: <Flask_Application_Object> (or 500 on error).
+'''
 def create_app(test_mode=False, dev_mode=False):
     app = Flask(__name__)
     CORS(app, resources={r"/api/*": {"origins": "https://production-api.com"}})

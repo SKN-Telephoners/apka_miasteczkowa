@@ -23,6 +23,12 @@ class ResponseTypes:
     #5xx
     SERVER_ERROR = ("Internal server error", 500)
 
+'''
+Input: response_type: <tuple: (default_msg, status_code)>, data: <dict> (optional), message: <str> (optional override).
+Action: Standardizes API responses across the backend. Wraps the message and optional data into a consistent JSON structure.
+Data sent to the frontend: {"message": <str>, ...<data_keys>}
+Output: Flask Response Object and int: status_code
+'''
 def make_api_response(response_type, data=None, message=None):
     default_msg, status_code = response_type
 

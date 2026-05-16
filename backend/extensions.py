@@ -24,6 +24,11 @@ limiter = Limiter(
 )
 redis_client = redis.from_url("redis://localhost:6379", decode_responses=True)
 
+'''
+Input: app: <Flask_Application_Object>
+Action: Initializes Celery with the Flask application context. It creates a FlaskTask class to ensure all background tasks run within the app context (access to DB, Mail, etc.)
+Output: <Celery_Application_Object>
+'''
 #celery
 def celery_init_app(app: Flask) -> Celery:
     class FlaskTask(Task):
@@ -37,6 +42,11 @@ def celery_init_app(app: Flask) -> Celery:
     app.extensions["celery"] = celery_app
     return celery_app
 
+'''
+Input: app: <Flask_Application_Object>
+Action: Locates the keys directory and reads static JSON files (academy.json, courses.json, etc.). It loads these into the Flask app.config for global use during data validation
+Output: None (Updates app.config in place).
+'''
 def load_static_data(app):
     base_dir = os.path.dirname(os.path.abspath(__file__))
     data_dir = os.path.normpath(os.path.join(base_dir, "keys")) 
