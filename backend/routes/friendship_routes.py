@@ -8,7 +8,7 @@ from backend.helpers import validate_uuid
 import uuid
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy import or_, and_
-import backend.notifications as notifications
+from backend.notifications.signals import friend_request_created, friend_request_accepted
 
 friends_bp = Blueprint("friends", __name__, url_prefix="/api/friends")
 
@@ -56,10 +56,11 @@ def create_friend_request(friend_id):
         db.session.add(new_request)
         db.session.commit()
         
-        notifications.friend_request_created.send(
+        friend_request_created.send(
             current_app._get_current_object(),
-            from_user = user.user_id, 
-            to_user = friend_id, 
+            from_user_id = user.user_id, 
+            from_user_username = user.username, 
+            to_user_id = friend_id, 
             request_id=new_request.request_id
         )
 
@@ -126,6 +127,14 @@ def accept_friend_request(friend_id):
         db.session.delete(request)
         db.session.add(new_friendship)
         db.session.commit()
+
+        friend_request_accepted.send(
+            current_app._get_current_object(),
+            accepter_id=user.user_id,
+            accepter_name=user.username,
+            sender_id=friend_id
+        )
+        
     except IntegrityError:
         db.session.rollback()
         current_app.logger.warning(f"WARNING: /accept_friend_request, user of ID {user.user_id} tried to accept friend request for friendship that already exist")

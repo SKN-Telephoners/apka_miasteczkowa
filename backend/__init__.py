@@ -46,6 +46,9 @@ def create_app(test_mode=False, dev_mode=False):
 
     register_blueprints(app)
 
+    with app.app_context():
+        import backend.notifications.receivers
+
     logging.basicConfig(level=logging.INFO)
 
     csp = {

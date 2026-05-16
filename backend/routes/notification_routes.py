@@ -27,7 +27,7 @@ def get_notifications():
         q = sanitize_input(q) if q else ""
         
         status = request.args.get("status", default="all", type=str).lower()
-        notif_type = request.args.get("type", default="all", type=str)
+        notif_tag = request.args.get("tag", default="all", type=str)
         created_window = request.args.get("created_window", default="all", type=str).lower()
         sort_mode = request.args.get("sort_mode", default="newest", type=str).lower()
 
@@ -52,10 +52,10 @@ def get_notifications():
         elif status == "read":
             query = query.filter(Notification.is_read == True)
 
-        if notif_type != "all":
+        if notif_tag != "all":
             try:
-                enum_type = NotificationTag(notif_type)
-                query = query.filter(Notification.type == enum_type)
+                enum_tag = NotificationTag(notif_tag)
+                query = query.filter(Notification.tag == enum_tag)
             except ValueError:
                 pass
 
@@ -87,7 +87,7 @@ def get_notifications():
         notification_list = [
             {
                 "notification_id": str(notif.notification_id),
-                "type": notif.type.value,
+                "tag": notif.tag.value,
                 "is_read": notif.is_read,
                 "date": notif.created_at.astimezone(local_tz).strftime("%d.%m.%Y"),
                 "time": notif.created_at.astimezone(local_tz).strftime("%H:%M"),

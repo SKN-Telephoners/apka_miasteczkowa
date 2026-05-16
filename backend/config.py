@@ -39,11 +39,16 @@ class TestConfig(Config):
     
     MAIL_SUPPRESS_SEND = True
     MAIL_BACKEND = 'flask_mail.backends.locmem.EmailBackend'
+
     TESTING = True
+    
     SQLALCHEMY_DATABASE_URI = os.getenv(
         "TEST_DATABASE_URL", 
         "postgresql://postgres:postgres@localhost/apka_miasteczkowa_test?sslmode=require"
     ) #jeżeli się nie uda z .env to i tak będzie
+    
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
     CELERY = dict(
         broker_url="memory://",
         result_backend="cache+memory://",
