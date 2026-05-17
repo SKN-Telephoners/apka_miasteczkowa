@@ -43,6 +43,7 @@ def get_event(event_id):
         event = db.session.get(Event, e_uuid)
 
         if event is None:
+            current_app.logger.warning(f"WARNING: /get_event, user {user.user_id} tried to access event {event_id} that does not exist")
             return make_api_response(ResponseTypes.NOT_FOUND, message="This event does not exist")
 
         if event.is_private and event.creator_id != user.user_id:
