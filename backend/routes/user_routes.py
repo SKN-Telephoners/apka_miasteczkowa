@@ -152,7 +152,8 @@ def update_profile():
                 try:
                     cloudinary.uploader.destroy(current_pic)
                 except Exception as cloud_err:
-                    current_app.logger.error(f"ERROR: /update_profile, Cloudinary delete error: {cloud_err}")
+                    current_app.logger.error(f"ERROR: /update_profile, Cloudinary delete error:")
+                    current_app.logger.exception(cloud_err, stack_info=True)
                 
                 user.profile_picture = None
 
@@ -164,7 +165,8 @@ def update_profile():
                     try:
                         cloudinary.uploader.destroy(current_pic)
                     except Exception as cloud_err:
-                        current_app.logger.error(f"ERROR: /update_profile, Cloudinary delete error: {cloud_err}")
+                        current_app.logger.error(f"ERROR: /update_profile, Cloudinary delete error:")
+                        current_app.logger.exception(cloud_err, stack_info=True)
                     
                     user.profile_picture = new_cloud_id
             else:
@@ -174,7 +176,8 @@ def update_profile():
         db.session.commit()
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /update_profile, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /update_profile, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
     
     current_app.logger.info(f"INFO: /update_profile, success in editing user profile for ID: {user.user_id}")
@@ -256,7 +259,8 @@ def update_academic_details():
         return make_api_response(ResponseTypes.SUCCESS, message="Academic details updated successfully")
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.info(f"ERROR: /update_academic_details, DB exception occured: {e}")
+        current_app.logger.info(f"ERROR: /update_academic_details, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
 '''
@@ -294,7 +298,8 @@ def change_password():
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /settings/password, DB exception occurred: {e}")
+        current_app.logger.error(f"ERROR: /settings/password, DB exception occurred:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
     current_app.logger.info(f"INFO: /settings/password, new password set for user: {user.user_id}")
@@ -356,7 +361,8 @@ def change_email_request():
         
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /settings/change_email, DB exception occurred: {e}")
+        current_app.logger.error(f"ERROR: /settings/change_email, DB exception occurred:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR, message="Could not send verification email")
 
     current_app.logger.info(f"INFO: /settings/change_email, link for mail change set to user: {user.user_id}")
@@ -378,7 +384,8 @@ def logout_from_all_devices():
         current_app.logger.info(f"INFO: /settings/logout_all, logged out user: {user_id} from all devices")
         return make_api_response(ResponseTypes.SUCCESS, message="Successfully logged out from all devices")
     except Exception as e:
-        current_app.logger.error(f"ERROR: /settings/logout_all, exception occurred: {e}")
+        current_app.logger.error(f"ERROR: /settings/logout_all, exception occurred:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
     
 '''
@@ -426,7 +433,8 @@ def delete_account():
             try:
                 cloudinary.uploader.destroy(user.profile_picture)
             except Exception as cloud_err:
-                current_app.logger.error(f"ERROR: /settings/delete_account, failed to delete profile picture {user.profile_picture} from Cloudinary: {cloud_err}")
+                current_app.logger.error(f"ERROR: /settings/delete_account, failed to delete profile picture {user.profile_picture} from Cloudinary:")
+                current_app.logger.exception(cloud_err, stack_info=True)
             user.profile_picture = None
         
         db.session.commit()
@@ -435,7 +443,8 @@ def delete_account():
     
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /settings/delete_account, DB exception occurred: {e}")
+        current_app.logger.error(f"ERROR: /settings/delete_account, DB exception occurred:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
     
 
@@ -467,7 +476,8 @@ def get_users_list():
         if limit > Constants.MAX_PAGINATION_LIMIT:
             limit = Constants.MAX_PAGINATION_LIMIT
     except (ValueError, TypeError) as e:
-        current_app.logger.error(f"ERROR: /users_list, exception occurred: {e}")
+        current_app.logger.error(f"ERROR: /users_list, exception occurred:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.INVALID_DATA, message="Pagination must be a positive integer")
 
     search_val = request.args.get("search", default="", type=str).strip()

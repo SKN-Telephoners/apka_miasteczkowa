@@ -61,7 +61,8 @@ def create_comment(event_id):
         )
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /create_comment, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /create_comment, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
     current_app.logger.info(f"INFO: /create_comment, user: {user.user_id} successfuly added comment to event of event_id: {event_id}")
     return make_api_response(ResponseTypes.CREATED, message="Comment created successfully")
@@ -129,7 +130,8 @@ def reply_to_comment(parent_comment_id):
         )
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /reply_to_comment, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /reply_to_comment, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
     current_app.logger.info(f"INFO: /reply_to_comment, user: {user.user_id} successfuly replied to comment of ID {parent_comment.comment_id}")
@@ -167,7 +169,8 @@ def delete_comment(comment_id):
         invalidate_event_cache(str(comment.event_id))
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /delete_comment, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /delete_comment, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
     current_app.logger.info(f"INFO: /delete_comment, user: {user.user_id} successfuly deleted comment of ID {comment_id}")
@@ -216,7 +219,8 @@ def edit_comment(comment_id):
         db.session.commit()
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /edit_comment, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /edit_comment, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
     current_app.logger.info(f"INFO: /edit_comment, user {user.user_id} successfully edited comment: {comment_id}")
@@ -281,5 +285,6 @@ def get_comments_list(event_id):
         current_app.logger.info(f"INFO: /get_comment, comments in event {event_id} sent to frontend")
         return make_api_response(ResponseTypes.SUCCESS, message="Comments list", data={"comments": comments_tree})
     except SQLAlchemyError as e:
-        current_app.logger.error(f"ERROR: /get_comment, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /get_comment, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)

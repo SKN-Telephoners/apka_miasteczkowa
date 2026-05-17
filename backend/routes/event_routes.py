@@ -191,7 +191,8 @@ def create_event():
 
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /create_event, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /create_event, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
     return make_api_response(ResponseTypes.CREATED, message="Event created successfully", data={"event_id": str(new_event.event_id)})
 
@@ -233,7 +234,8 @@ def delete_event(event_id):
             try:
                 cloudinary.uploader.destroy(picture.cloud_id)
             except Exception as cloud_err:
-                current_app.logger.error(f"ERROR: /delete_event, failed to delete picture {picture.cloud_id} from Cloudinary: {cloud_err}")
+                current_app.logger.error(f"ERROR: /delete_event, failed to delete picture {picture.cloud_id} from Cloudinary:")
+                current_app.logger.exception(cloud_err, stack_info=True)
 
         db.session.delete(event)
         db.session.commit()
@@ -250,7 +252,8 @@ def delete_event(event_id):
         current_app.logger.info(f"INFO: /delete_event, user {user.user_id} deleted event {event_id}")
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /delete_event, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /delete_event, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
     return make_api_response(ResponseTypes.SUCCESS, message="Event deleted successfully")
@@ -399,7 +402,8 @@ def edit_event(event_id):
             try:
                 cloudinary.uploader.destroy(pic_id)
             except Exception as cloud_err:
-                current_app.logger.error(f"ERROR: /edit_event, Cloudinary delete error: {cloud_err}")
+                current_app.logger.error(f"ERROR: /edit_event, Cloudinary delete error:")
+                current_app.logger.exception(cloud_err, stack_info=True)
 
             event.pictures.remove(pic_to_remove)
 
@@ -431,7 +435,8 @@ def edit_event(event_id):
         current_app.logger.info(f"INFO: /edit_event, user {user.user_id} successfully edited event {event_id}")
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /edit_event, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /edit_event, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
     return make_api_response(ResponseTypes.SUCCESS, message="Event edited successfully")

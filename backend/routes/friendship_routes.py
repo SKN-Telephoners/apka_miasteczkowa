@@ -76,7 +76,8 @@ def create_friend_request(friend_id):
         return make_api_response(ResponseTypes.CONFLICT, message="Request already exists")
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /create_friend_request, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /create_friend_request, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
     
     current_app.logger.info(f"INFO: /create_friend_request, user of ID {user.user_id} created friend request for user: {friend_id}")
@@ -109,7 +110,8 @@ def cancel_friend_request(friend_id):
         db.session.commit()
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /cancel_friend_request, DB exception occured {e}")
+        current_app.logger.error(f"ERROR: /cancel_friend_request, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
     current_app.logger.info(f"INFO: /cancel_friend_request, friend request {user.user_id} -> {friend_id} cancelled")
     return make_api_response(ResponseTypes.SUCCESS, message="Friend request cancelled", data={"friend_id": str(friend_id)})
@@ -159,7 +161,8 @@ def accept_friend_request(friend_id):
         return make_api_response(ResponseTypes.CONFLICT, message="Friendship already exists")
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /accept_friend_request, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /accept_friend_request, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
     current_app.logger.info(f"INFO: /accept_friend_request, user {user.user_id} accepted friend request")
     return make_api_response(ResponseTypes.SUCCESS, message="Friend request accepted", data={"friend_id": str(friend_id)})
@@ -190,7 +193,8 @@ def decline_friend_request(friend_id):
         db.session.commit()
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /decline_friend_request, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /decline_friend_request, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
     current_app.logger.info(f"INFO: /decline_friend_request, user {user.user_id} declined friend request")
     return make_api_response(ResponseTypes.SUCCESS, message="Friend request declined")
@@ -299,5 +303,6 @@ def get_friends_list():
         current_app.logger.info(f"INFO: /get_friends_list, success in retrieving friends list")
         return make_api_response(ResponseTypes.SUCCESS, message="Friends list", data={"friends": friends_data})
     except SQLAlchemyError as e:
-        current_app.logger.error(f"ERROR: /get_friends_list, DB exception occured {e} ")
+        current_app.logger.error(f"ERROR: /get_friends_list, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)

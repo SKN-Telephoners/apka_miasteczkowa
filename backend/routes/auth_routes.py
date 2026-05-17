@@ -69,7 +69,8 @@ def register_user():
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /register, DB commit error: {e}")
+        current_app.logger.error(f"ERROR: /register, DB commit error:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR, message="Registration failed")
 
     try:
@@ -77,7 +78,8 @@ def register_user():
         current_app.logger.info(f"INFO: /register, sent authentication email to user_id: {new_user.user_id}")
     except Exception as e:
         # Registration is already committed; do not fail with 500 just because email delivery failed.
-        current_app.logger.error(f"ERROR: /register, registration mail send error for {new_user.user_id}: {e}")
+        current_app.logger.error(f"ERROR: /register, registration mail send error for {new_user.user_id}:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(
             ResponseTypes.CREATED,
             message="Registration successful. Verification email could not be sent, please request it again."
@@ -183,7 +185,8 @@ def logout():
                 access_jti = access_payload["jti"]
                 revoke_token(access_jti, user_id)
         except Exception as e:
-            current_app.logger.warning(f"WARNING: /logout, Exception occured: {e}")
+            current_app.logger.warning(f"ERROR: /logout, Exception occured:")
+            current_app.logger.exception(e, stack_info=True)
             pass
     current_app.logger.info(f"INFO: /logout, success in logging out user_id: {user_id}")
     return make_api_response(ResponseTypes.LOGOUT_SUCCESS)

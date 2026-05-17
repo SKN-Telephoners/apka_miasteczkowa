@@ -70,7 +70,8 @@ def get_event(event_id):
         return make_api_response(ResponseTypes.SUCCESS, data=event_data)
 
     except Exception as e:
-        current_app.logger.error(f"ERROR: /get_event, exception occured: {e}")
+        current_app.logger.error(f"ERROR: /get_event, exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
 '''
@@ -226,7 +227,8 @@ def feed():
             }
         })
     except Exception as e:
-        current_app.logger.error(f"ERROR: /feed, exception occured: {e}")
+        current_app.logger.error(f"ERROR: /feed, exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
     
 '''
@@ -330,7 +332,7 @@ def get_user_events_participand(user_id):
 Input: URL Parameter <uuid:event_id>, Header { "Authorization": "Bearer <Access_Token>" }
 Action: Checks the database to see if the current user is a participant or the creator. Retrieves the total participant count
 Data sent to the frontend: {"is_participating": <bool>, "participant_count": <int>}
-Output: 200 OK (or 404/400/500 on error)
+Output: 200 OK (or 404/400 on error)
 '''
 @getters_bp.route("/participation/<event_id>", methods=["GET"])
 @limiter.limit("600 per minute")
@@ -390,5 +392,6 @@ def get_sent_invites(event_id):
         current_app.logger.info(f"INFO: /invites, user {u_uuid} successfully fetched invites for event {e_uuid}")
         return make_api_response(ResponseTypes.SUCCESS, data={"invited_ids": invited_ids})
     except SQLAlchemyError as e:
-        current_app.logger.error(f"ERROR: /invites, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /invites, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)

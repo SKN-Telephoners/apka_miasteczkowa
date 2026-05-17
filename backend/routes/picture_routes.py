@@ -48,7 +48,8 @@ def upload_file():
         }, message="Picture uploaded and tagged successfully") # Returns the tags as a Python list
 
     except Exception as e:
-        current_app.logger.error(f"ERROR: /upload_file, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /upload_file, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
 
 '''
@@ -108,12 +109,14 @@ def upload_multiple_files():
             })
 
         except Exception as e:
-            current_app.logger.error(f"ERROR: /upload_multiple_files, Cloudinary upload error for {file.filename}: {e}")
+            current_app.logger.error(f"ERROR: /upload_multiple_files, Cloudinary upload error for {file.filename}:")
+            current_app.logger.exception(e, stack_info=True)
             errors.append({"filename": file.filename, "error": str(e)})
 
     # If all uploads failed
     if not uploaded_data and errors:
-        current_app.logger.error(f"ERROR: /upload_multiple_files, Cloudinary upload error for all files: {e}")
+        current_app.logger.error(f"ERROR: /upload_multiple_files, Cloudinary upload error for all files:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR, message="Failed to upload pictures", data={"errors": errors})
 
     # Return partial or full success

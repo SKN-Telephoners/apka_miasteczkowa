@@ -8,6 +8,7 @@ from backend.routes import register_blueprints
 import cloudinary
 import os
 from logging.handlers import RotatingFileHandler
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 '''
 Input: test_mode: <bool>, dev_mode: <bool>
@@ -16,7 +17,8 @@ Output: <Flask_Application_Object> (or 500 on error).
 '''
 def create_app(test_mode=False, dev_mode=False):
     app = Flask(__name__)
-    CORS(app, resources={r"/api/*": {"origins": "https://production-api.com"}})
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+    CORS(app, resources={r"/api/*": {"origins": "https://production-api.com"}}) # tu zmienić na adres domeny
 
     if test_mode:
         app.config.from_object(TestConfig)

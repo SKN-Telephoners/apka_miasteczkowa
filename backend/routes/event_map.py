@@ -107,5 +107,6 @@ def map_events():
             data={"data": final_map_data},
         )
     except Exception as e:
-        current_app.logger.error(f"ERROR: /map, exception occured: {e}")
+        current_app.logger.error(f"ERROR: /map, exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
