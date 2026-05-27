@@ -1,5 +1,7 @@
 import api from "./api";
 import { Event, EventPicture } from "../types";
+import { API_BASE_URL } from "../utils/constants";
+import { tokenStorage } from "../utils/storage";
 
 type ApiMessage = { message?: string }; //type string insure for backend function response
 type CreateEventResponse = { message: string; event_id: string; creator_id: string };
@@ -10,6 +12,8 @@ type UploadPictureResponse = {
     public_id?: string;
     clout_id?: string;
     picture_url?: string;
+    secure_url?: string;
+    eager?: Array<{ secure_url?: string }>;
     pictures?: Array<{
         cloud_id: string;
         public_id?: string;
@@ -26,6 +30,17 @@ type UploadPictureResponse = {
             picture_url?: string;
         }>;
     };
+    tags?: string[];
+};
+
+type UploadedPictureResult = { cloud_id: string; picture_url?: string };
+
+const parseUploadedPicture = (resp: UploadPictureResponse | undefined): UploadedPictureResult | undefined => {
+    if (!resp) return undefined;
+    const cloudId = resp.cloud_id || resp.public_id;
+    const url = resp.picture_url || resp.secure_url || resp.eager?.[0]?.secure_url;
+    if (cloudId) return { cloud_id: cloudId, picture_url: url };
+    return undefined;
 };
 
 const normalizePictures = (
@@ -58,24 +73,29 @@ export const uploadEventPicture = async (uri: string, fileName = "event-picture.
         formData.append("file", filePayload);
         formData.append("tags", "event-picture");
 
-        const response = await api.post<UploadPictureResponse>("/api/pictures/upload", formData);
-        const responseData: UploadPictureResponse = response.data || {};
+        // Use fetch for reliable multipart uploads in React Native and include auth token.
+        const uploadUrl = `${API_BASE_URL}/api/pictures/upload`;
+        const token = await tokenStorage.getAccessToken();
+        const headers: any = {};
+        if (token) headers.Authorization = `Bearer ${token}`;
 
-        const uploadedPicture =
-            responseData.pictures?.[0]
-            ?? responseData.data?.pictures?.[0]
-            ?? (responseData.cloud_id ? { cloud_id: responseData.cloud_id, picture_url: responseData.picture_url } : undefined)
-            ?? (responseData.public_id ? { cloud_id: responseData.public_id, picture_url: responseData.picture_url } : undefined)
-            ?? (responseData.clout_id ? { cloud_id: responseData.clout_id, picture_url: responseData.picture_url } : undefined)
-            ?? (responseData.data?.cloud_id ? { cloud_id: responseData.data.cloud_id, picture_url: responseData.data.picture_url } : undefined)
-            ?? (responseData.data?.public_id ? { cloud_id: responseData.data.public_id, picture_url: responseData.data.picture_url } : undefined)
-            ?? (responseData.data?.clout_id ? { cloud_id: responseData.data.clout_id, picture_url: responseData.data.picture_url } : undefined);
+        const fetchResponse = await fetch(uploadUrl, {
+            method: "POST",
+            body: formData,
+            headers,
+        });
+
+        if (!fetchResponse.ok) {
+            const text = await fetchResponse.text().catch(() => "");
+            throw new Error(`Upload failed: ${fetchResponse.status} ${text}`);
+        }
+
+        const responseData: UploadPictureResponse = await fetchResponse.json().catch(() => ({} as any));
+
+        const uploadedPicture = parseUploadedPicture(responseData);
 
         if (!uploadedPicture?.cloud_id) {
             console.log("Upload response (missing cloud_id):", JSON.stringify(responseData));
-        }
-
-        if (!uploadedPicture?.cloud_id) {
             throw new Error("Upload picture failed");
         }
 
@@ -84,7 +104,7 @@ export const uploadEventPicture = async (uri: string, fileName = "event-picture.
             url: uploadedPicture.picture_url,
         };
     } catch (err: any) {
-        const msg = err?.response?.data?.message || err?.message || "Network error";
+        const msg = err?.message || "Network error";
         throw new Error(msg);
     }
 };
