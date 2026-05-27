@@ -57,7 +57,7 @@ Action: Decodes the JWT token and verifies it is of type email_verification. Che
 Data sent to the frontend: {"message": "Verification succesful"}
 Output: 200 OK (or 400/401/404 on error)
 '''
-@email_bp.route("/verify/<token>", methods=["POST"])
+@email_bp.route("/verify/<token>", methods=["GET"])
 @limiter.limit("100 per hour")
 def verify(token):
     try:
