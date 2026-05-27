@@ -148,8 +148,8 @@ const NotificationsScreen = () => {
                         <RefreshControl 
                             refreshing={isRefreshing} 
                             onRefresh={handleRefresh} 
-                            colors={[colors.primary]}
-                            tintColor={colors.primary}
+                            colors={[colors.highlight]}
+                            tintColor={colors.highlight}
                         />
                     }
                     onEndReached={handleLoadMore}

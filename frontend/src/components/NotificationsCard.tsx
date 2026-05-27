@@ -15,21 +15,21 @@ const getIconForTag = (tag: string): { name: IconName; color: string } => {
     switch (tag) {
         case 'friend-request-created':
         case 'friend-request-accepted':
-            return { name: 'people', color: '#3498db' };
+            return { name: 'AddUser', color: '#3498db' };
         case 'invite-created':
         case 'invite-status-update':
-            return { name: 'mail', color: '#9b59b6' };
+            return { name: 'Send', color: '#9b59b6' };
         case 'event-new-participant':
         case 'event-new-comment':
         case 'comment-reply-created':
-            return { name: 'chatbox-ellipses', color: '#f39c12' };
+            return { name: 'Comment', color: '#f39c12' };
         case 'friend-new-public-event':
         case 'friend-new-private-event':
         case 'joined-event-updated':
         case 'joined-event-deleted':
-            return { name: 'calendar', color: '#e74c3c' };
+            return { name: 'Events', color: '#e74c3c' };
         default:
-            return { name: 'notifications', color: '#7f8c8d' };
+            return { name: 'Bell', color: '#7f8c8d' };
     }
 };
 
