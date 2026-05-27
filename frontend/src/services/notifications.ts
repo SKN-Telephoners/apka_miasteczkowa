@@ -48,11 +48,6 @@ export const getNotifications = async (
     }
 };
 
-/**
- * FUTURE: Endpoint do oznaczania powiadomienia jako przeczytane.
- * Na ten moment zakomentowane ze względu na brak implementacji w backendzie.
- */
-/*
 export const markNotificationAsRead = async (notificationId: string): Promise<void> => {
     try {
         await api.put(`/api/notifications/${notificationId}/read`);
@@ -61,4 +56,3 @@ export const markNotificationAsRead = async (notificationId: string): Promise<vo
         throw error;
     }
 };
-*/

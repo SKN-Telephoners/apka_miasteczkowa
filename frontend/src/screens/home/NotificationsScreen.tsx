@@ -18,7 +18,8 @@ const NotificationsScreen = () => {
         isLoading, 
         isRefreshing, 
         hasMore, 
-        fetchNotifications 
+        fetchNotifications,
+        markAsRead
     } = useNotifications();
     const { acceptRequest, declineRequest } = useFriends();
 
@@ -90,8 +91,12 @@ const NotificationsScreen = () => {
         return null;
     };
 
-    const handleNotificationPress = (notification: AppNotification) => {
-        const { tag, payload } = notification;
+    const handleNotificationPress = async (notification: AppNotification) => {
+        const { tag, payload, notification_id, is_read } = notification;
+
+        if (!is_read) {
+            await markAsRead(notification_id);
+        }
 
         if (payload.event_id) {
             navigation.navigate('Main', {
@@ -131,7 +136,7 @@ const NotificationsScreen = () => {
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
-            {notifications.length === 0 && !isLoading ? (
+            {(!notifications || notifications.length === 0) && !isLoading ? (
                 <Text style={[styles.emptyText, { color: colors.text }]}>Brak nowych powiadomień</Text>
             ) : (
                 <FlatList

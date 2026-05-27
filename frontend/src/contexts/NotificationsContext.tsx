@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { getNotifications, AppNotification } from '../services/notifications';
+import { getNotifications, markNotificationAsRead, AppNotification } from '../services/notifications';
 import { useAuth } from './AuthContext';
 
 interface NotificationsContextProps {
@@ -9,7 +9,7 @@ interface NotificationsContextProps {
     isRefreshing: boolean;
     hasMore: boolean;
     fetchNotifications: (page?: number, isRefresh?: boolean) => Promise<void>;
-    // markAsRead: (notificationId: string) => Promise<void>; // FUTURE IMPLEMENTATION
+    markAsRead: (notificationId: string) => Promise<void>;
 }
 
 const NotificationsContext = createContext<NotificationsContextProps | undefined>(undefined);
@@ -69,11 +69,9 @@ export const NotificationsProvider: React.FC<{ children: ReactNode }> = ({ child
         }
     }, [isAuthenticated, fetchNotifications]);
 
-    /*
-    // FUTURE IMPLEMENTATION
     const markAsRead = async (notificationId: string) => {
         try {
-            // await markNotificationAsRead(notificationId);
+            await markNotificationAsRead(notificationId);
             // Zaktualizuj stan lokalnie, aby nie musieć fetchować ponownie
             setNotifications(prev => 
                 prev.map(notif => 
@@ -87,7 +85,6 @@ export const NotificationsProvider: React.FC<{ children: ReactNode }> = ({ child
             console.error("Failed to mark notification as read", error);
         }
     };
-    */
 
     return (
         <NotificationsContext.Provider value={{
@@ -97,7 +94,7 @@ export const NotificationsProvider: React.FC<{ children: ReactNode }> = ({ child
             isRefreshing,
             hasMore,
             fetchNotifications,
-            // markAsRead
+            markAsRead
         }}>
             {children}
         </NotificationsContext.Provider>
