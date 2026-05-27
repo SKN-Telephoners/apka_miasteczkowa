@@ -18,7 +18,7 @@ Output: <Flask_Application_Object> (or 500 on error).
 def create_app(test_mode=False, dev_mode=False):
     app = Flask(__name__)
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
-    CORS(app, resources={r"/api/*": {"origins": "https://production-api.com"}}) # tu zmienić na adres domeny
+    CORS(app, resources={r"/api/*": {"origins": "https://brzeczka.kolo.kt.agh.edu.pl"}}) # staging for now
 
     if test_mode:
         app.config.from_object(TestConfig)
