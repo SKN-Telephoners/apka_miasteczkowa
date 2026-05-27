@@ -1,10 +1,11 @@
 import React, { useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
+import { View, Text, FlatList, StyleSheet, RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { THEME } from '../../utils/constants';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNotifications } from '../../contexts/NotificationsContext';
 import NotificationsCard from '../../components/NotificationsCard';
+import Button from '../../components/Button';
 import { changeInviteStatus } from '../../services/events';
 import { useFriends } from '../../contexts/FriendsContext';
 import { AppNotification } from '../../services/notifications';
@@ -39,24 +40,24 @@ const NotificationsScreen = () => {
         if (tag === 'invite-created') {
             return (
                 <>
-                    <TouchableOpacity
-                        style={[styles.button, { backgroundColor: colors.highlight }]}
+                    <Button
+                        title="Akceptuj"
+                        type="primary"
+                        style={{ flex: 1, marginVertical: 0, height: 36 }}
                         onPress={async () => {
                             await changeInviteStatus(payload.invite_id, 'accepted');
                             fetchNotifications(1, true);
                         }}
-                    >
-                        <Text style={styles.buttonText}>Akceptuj</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.button, styles.declineButton]}
+                    />
+                    <Button
+                        title="Odrzuć"
+                        type="danger"
+                        style={{ flex: 1, marginVertical: 0, height: 36 }}
                         onPress={async () => {
                             await changeInviteStatus(payload.invite_id, 'declined');
                             fetchNotifications(1, true);
                         }}
-                    >
-                        <Text style={styles.buttonText}>Odrzuć</Text>
-                    </TouchableOpacity>
+                    />
                 </>
             );
         }
@@ -64,24 +65,24 @@ const NotificationsScreen = () => {
         if (tag === 'friend-request-created') {
             return (
                 <>
-                    <TouchableOpacity
-                        style={[styles.button, { backgroundColor: colors.highlight }]}
+                    <Button
+                        title="Akceptuj"
+                        type="primary"
+                        style={{ flex: 1, marginVertical: 0, height: 36 }}
                         onPress={async () => {
                             await acceptRequest(payload.friend_request_id);
                             fetchNotifications(1, true);
                         }}
-                    >
-                        <Text style={styles.buttonText}>Akceptuj</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.button, styles.declineButton]}
+                    />
+                    <Button
+                        title="Odrzuć"
+                        type="danger"
+                        style={{ flex: 1, marginVertical: 0, height: 36 }}
                         onPress={async () => {
                             await declineRequest(payload.friend_request_id);
                             fetchNotifications(1, true);
                         }}
-                    >
-                        <Text style={styles.buttonText}>Odrzuć</Text>
-                    </TouchableOpacity>
+                    />
                 </>
             );
         }
@@ -160,18 +161,6 @@ const styles = StyleSheet.create({
     },
     list: {
         padding: THEME.spacing.m,
-    },
-    button: {
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: THEME.borderRadius.s,
-    },
-    declineButton: {
-        backgroundColor: '#e74c3c',
-    },
-    buttonText: {
-        color: '#FFFFFF',
-        fontWeight: 'bold',
     },
     emptyText: {
         textAlign: 'center',

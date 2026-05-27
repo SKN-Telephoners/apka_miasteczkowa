@@ -15,7 +15,7 @@ import { THEME } from "../utils/constants";
 interface ButtonProps extends TouchableOpacityProps {
   title: string;
   loading?: boolean;
-  type?: "primary" | "secondary" | "outline";
+  type?: "primary" | "secondary" | "outline" | "danger";
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
 }
@@ -39,6 +39,8 @@ const Button: React.FC<ButtonProps> = ({
         return styles.secondaryButton;
       case "outline":
         return styles.outlineButton;
+      case "danger":
+        return styles.dangerButton;
       case "primary":
       default:
         return styles.primaryButton;
@@ -51,6 +53,8 @@ const Button: React.FC<ButtonProps> = ({
         return styles.secondaryText;
       case "outline":
         return styles.outlineText;
+      case "danger":
+        return styles.dangerText;
       case "primary":
       default:
         return styles.primaryText;
@@ -107,6 +111,9 @@ const getStyles = (colors: typeof THEME.colors.light) =>
       borderWidth: 1,
       borderColor: colors.highlight,
     },
+    dangerButton: {
+      backgroundColor: '#e74c3c',
+    },
     disabledButton: {
       opacity: 0.5,
     },
@@ -124,6 +131,9 @@ const getStyles = (colors: typeof THEME.colors.light) =>
     outlineText: {
       color: colors.highlight,
       textDecorationLine: "underline",
+    },
+    dangerText: {
+      color: "#FFFFFF",
     },
   });
 

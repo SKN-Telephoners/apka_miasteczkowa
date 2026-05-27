@@ -41,7 +41,7 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ notification, onPre
         <TouchableOpacity 
             style={[
                 styles.container, 
-                { backgroundColor: colors.card },
+                { backgroundColor: colors.background, borderColor: colors.border },
                 !notification.is_read && { borderLeftWidth: 4, borderLeftColor: colors.primary }
             ]} 
             onPress={onPress}
@@ -78,13 +78,9 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ notification, onPre
 const styles = StyleSheet.create({
     container: {
         padding: THEME.spacing.m,
-        marginBottom: THEME.spacing.s,
+        marginBottom: THEME.spacing.m,
         borderRadius: THEME.borderRadius.m,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
+        borderWidth: 1,
     },
     header: {
         flexDirection: 'row',
@@ -102,14 +98,14 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     message: {
-        fontSize: 15,
-        lineHeight: 20,
+        ...THEME.typography.text,
         marginBottom: 4,
     },
     unreadMessage: {
         fontWeight: 'bold',
     },
     date: {
+        ...THEME.typography.text,
         fontSize: 12,
     },
     actionsContainer: {
