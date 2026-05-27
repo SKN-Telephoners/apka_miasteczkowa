@@ -34,7 +34,7 @@ export const getNotifications = async (
     status: 'unread' | 'read' | 'all' = 'all'
 ): Promise<GetNotificationsResponse> => {
     try {
-        const response = await api.get('/notifications/', {
+        const response = await api.get('/api/notifications/', {
             params: {
                 page,
                 limit,
@@ -55,7 +55,7 @@ export const getNotifications = async (
 /*
 export const markNotificationAsRead = async (notificationId: string): Promise<void> => {
     try {
-        await api.put(`/notifications/${notificationId}/read`);
+        await api.put(`/api/notifications/${notificationId}/read`);
     } catch (error) {
         console.error(`Error marking notification ${notificationId} as read:`, error);
         throw error;
