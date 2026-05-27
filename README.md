@@ -42,10 +42,10 @@ flask run --host=0.0.0.0
 ```
 **Window 2: Frontend**
 ```bash
-sudo apt install npm   
+sudo apt install npm  
+cd frontend 
 npm install expo   
-npm audit fix   
-cd frontend   
+npm audit fix      
 npx expo start
 ```
 **Window 3: Databases (PostgreSQL & Redis)**
