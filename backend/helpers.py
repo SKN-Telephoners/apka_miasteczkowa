@@ -65,7 +65,12 @@ def is_token_revoked(jwt_payload):
     jti = jwt_payload["jti"]
     user_id = jwt_payload["sub"]
     try:
-        token = TokenBlocklist.query.filter_by(jti=jti, user_id=user_id).one_or_none()
+        token_query = db.select(TokenBlocklist).filter_by(jti=jti, user_id=user_id)
+        token = db.session.execute(
+            token_query, 
+            bind_arguments={'bind_key': 'readonly'}
+        ).scalar_one_or_none()
+        
         if token is None:
             return True
         return token.revoked_at is not None

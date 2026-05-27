@@ -69,24 +69,21 @@ def get_notifications():
         if limit > Constants.MAX_PAGINATION_LIMIT:
             limit = Constants.MAX_PAGINATION_LIMIT
 
-        help_query = db.select(Notification).filter(Notification.user_id == user_id)
-        query = db.session.execute(help_query, bind_arguments={'bind_key': 'readonly'}).scalars().all()
+        query = db.select(Notification).where(Notification.user_id == user_id).execution_options(bind_key="readonly")
 
         if q:
             search_filter = f"%{q}%"
-            query = query.filter(
-                Notification.payload.op('->>')('message').ilike(search_filter)
-            )
+            query = query.where(Notification.payload.op('->>')('message').ilike(search_filter))
 
         if status == "unread":
-            query = query.filter(Notification.is_read == False)
+            query = query.where(Notification.is_read == False)
         elif status == "read":
-            query = query.filter(Notification.is_read == True)
+            query = query.where(Notification.is_read == True)
 
         if notif_tag != "all":
             try:
                 enum_tag = NotificationTag(notif_tag)
-                query = query.filter(Notification.tag == enum_tag)
+                query = query.where(Notification.tag == enum_tag)
             except ValueError:
                 pass
 
@@ -95,25 +92,25 @@ def get_notifications():
         if created_window != "all":
             if created_window == "today":
                 start_date = now - timedelta(days=1)
+                query = query.where(Notification.created_at >= start_date)
             elif created_window == "week":
                 start_date = now - timedelta(weeks=1)
+                query = query.where(Notification.created_at >= start_date)
             elif created_window == "month":
                 start_date = now - timedelta(days=30)
+                query = query.where(Notification.created_at >= start_date)
             elif created_window == "year":
                 start_date = now - timedelta(days=365)
-            
-            if created_window == "older":
-                query = query.filter(Notification.created_at < (now - timedelta(days=365)))
-            else:
-                query = query.filter(Notification.created_at >= start_date)
-
+                query = query.where(Notification.created_at >= start_date)
+            elif created_window == "older":
+                query = query.where(Notification.created_at < (now - timedelta(days=365)))
 
         if sort_mode == "oldest": 
             query = query.order_by(Notification.created_at.asc())
         else:
             query = query.order_by(Notification.created_at.desc())
-        
-        pagination = query.paginate(page=page, per_page=limit, error_out=False)
+
+        pagination = db.paginate(query, page=page, per_page=limit, error_out=False)
 
         notification_list = [
             {
@@ -126,8 +123,16 @@ def get_notifications():
             }
             for notif in pagination.items
         ]
+        unread_count = None
+        if page == 1:
+            unread_count = db.session.scalar(
+                db.select(db.func.count(Notification.notification_id))
+                .where(Notification.user_id == user_id, Notification.is_read == False)
+                .execution_options(bind_key="readonly") # Dodaj to
+            )
 
         current_app.logger.info(f"INFO: /get_notifications, retrieved notifications for user: {user_id}")
+        
         return make_api_response(ResponseTypes.SUCCESS, data={
             "data": notification_list,
             "pagination": {
@@ -136,7 +141,7 @@ def get_notifications():
                 "total": pagination.total,
                 "pages": pagination.pages,
                 "has_next": pagination.has_next,
-                "unread_count": Notification.query.filter_by(user_id=user_id, is_read=False).count() if page == 1 else None 
+                "unread_count": unread_count
             }
         })
     except Exception as e:

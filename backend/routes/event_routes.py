@@ -12,7 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError
 import cloudinary.uploader
 from cloudinary.utils import cloudinary_url
 from sqlalchemy import or_, and_, exists
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, defer
 from backend.notifications.signals import (
     invite_created, 
     event_new_participant, 
@@ -583,7 +583,10 @@ def get_event(event_id):
         if not e_uuid:
             return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Event ID")
 
-        event = db.session.get(Event, e_uuid)
+        event = db.session.execute(
+            db.select(Event).filter_by(event_id=e_uuid),
+            bind_arguments={'bind_key': 'readonly'}
+        ).scalar_one_or_none()
 
         if event is None:
             return make_api_response(ResponseTypes.NOT_FOUND, message="This event does not exist")
@@ -594,7 +597,12 @@ def get_event(event_id):
                 current_app.logger.warning(f"WARNING: /get_event, user {user.user_id} tried to access private event {event_id} without permission")
                 return make_api_response(ResponseTypes.FORBIDDEN, message="This event is private")
 
-        creator = db.session.get(User, event.creator_id)
+        creator = db.session.execute(
+            db.select(User)
+            .filter_by(user_id=event.creator_id)
+            .options(defer(User.password_hash)), 
+            bind_arguments={'bind_key': 'readonly'}
+        ).scalar_one_or_none()
         creator_lookup = {str(event.creator_id): creator} if creator else {}
 
         event_data = serialize_event_payload(event, None, creator_lookup, set())
@@ -1259,6 +1267,12 @@ def get_user_events_participand(user_id):
 
     participating_events = db.session.execute(participating_events_query).scalars().all()
 
+    for event in participating_events:
+        creator_name = db.session.execute(
+            db.select(User.username).filter_by(user_id=event.creator_id),
+            bind_arguments={'bind_key': 'readonly'}
+        ).scalar()
+
     participating_data=[
             {
                 "event_id": str(event.event_id),
@@ -1275,7 +1289,7 @@ def get_user_events_participand(user_id):
                     } 
                     for pic in event.pictures
                 ],
-                "creator_username": User.query.filter_by(user_id=event.creator_id).first().username,
+                "creator_username": creator_name,
                 "comment_count": str(event.comment_count),
                 "participation_count": event.participant_count,
                 "is_private": event.is_private,
