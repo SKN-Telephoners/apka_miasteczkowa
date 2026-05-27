@@ -13,11 +13,11 @@ import { AppNotification } from '../../services/notifications';
 const NotificationsScreen = () => {
     const navigation = useNavigation<any>();
     const { colors } = useTheme();
-    const { 
-        notifications, 
-        isLoading, 
-        isRefreshing, 
-        hasMore, 
+    const {
+        notifications,
+        isLoading,
+        isRefreshing,
+        hasMore,
         fetchNotifications,
         markAsRead
     } = useNotifications();
@@ -29,8 +29,6 @@ const NotificationsScreen = () => {
 
     const handleLoadMore = () => {
         if (hasMore && !isLoading && !isRefreshing) {
-            // Paginacja w kontekście może wyliczyć następną stronę,
-            // Jeśli context zakłada tylko strzał do strony, to na razie zostawmy
             // TODO: Podpiąć doczytywanie stron
         }
     };
@@ -124,7 +122,7 @@ const NotificationsScreen = () => {
 
     const renderItem = ({ item }: { item: AppNotification }) => {
         const actions = renderActionButtons(item);
-        
+
         return (
             <NotificationsCard
                 notification={item}
@@ -145,9 +143,9 @@ const NotificationsScreen = () => {
                     keyExtractor={(item) => item.notification_id}
                     contentContainerStyle={styles.list}
                     refreshControl={
-                        <RefreshControl 
-                            refreshing={isRefreshing} 
-                            onRefresh={handleRefresh} 
+                        <RefreshControl
+                            refreshing={isRefreshing}
+                            onRefresh={handleRefresh}
                             colors={[colors.highlight]}
                             tintColor={colors.highlight}
                         />
