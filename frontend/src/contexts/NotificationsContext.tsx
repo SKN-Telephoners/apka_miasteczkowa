@@ -16,7 +16,7 @@ const NotificationsContext = createContext<NotificationsContextProps | undefined
 
 export const NotificationsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { isAuthenticated } = useAuth();
-    
+
     const [notifications, setNotifications] = useState<AppNotification[]>([]);
     const [unreadCount, setUnreadCount] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -26,7 +26,7 @@ export const NotificationsProvider: React.FC<{ children: ReactNode }> = ({ child
 
     const fetchNotifications = useCallback(async (page: number = 1, isRefresh: boolean = false) => {
         if (!isAuthenticated) return;
-        
+
         if (isRefresh) {
             setIsRefreshing(true);
         } else {
@@ -34,15 +34,14 @@ export const NotificationsProvider: React.FC<{ children: ReactNode }> = ({ child
         }
 
         try {
-            const data = await getNotifications(page, 20); // Domyślnie 20 powiadomień na stronę
-            
+            const data = await getNotifications(page, 20);
+
             if (isRefresh || page === 1) {
                 setNotifications(data.data);
             } else {
                 setNotifications(prev => [...prev, ...data.data]);
             }
-            
-            // Paginacja i liczba nieprzeczytanych z response
+
             setHasMore(data.pagination.has_next);
             setCurrentPage(data.pagination.page);
             if (data.pagination.unread_count !== null && data.pagination.unread_count !== undefined) {
@@ -57,7 +56,6 @@ export const NotificationsProvider: React.FC<{ children: ReactNode }> = ({ child
         }
     }, [isAuthenticated]);
 
-    // Opcjonalne pobieranie po autoryzacji
     useEffect(() => {
         if (isAuthenticated) {
             fetchNotifications(1, true);
@@ -72,11 +70,10 @@ export const NotificationsProvider: React.FC<{ children: ReactNode }> = ({ child
     const markAsRead = async (notificationId: string) => {
         try {
             await markNotificationAsRead(notificationId);
-            // Zaktualizuj stan lokalnie, aby nie musieć fetchować ponownie
-            setNotifications(prev => 
-                prev.map(notif => 
-                    notif.notification_id === notificationId 
-                        ? { ...notif, is_read: true } 
+            setNotifications(prev =>
+                prev.map(notif =>
+                    notif.notification_id === notificationId
+                        ? { ...notif, is_read: true }
                         : notif
                 )
             );
