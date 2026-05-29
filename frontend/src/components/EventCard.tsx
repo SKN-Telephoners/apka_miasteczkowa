@@ -1,4 +1,4 @@
-import { TouchableOpacity, Text, View, StyleSheet, Alert, Image } from "react-native";
+import { TouchableOpacity, Text, View, StyleSheet, ToastAndroid, Image } from "react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { Event } from "../types";
 import { useNavigation } from "@react-navigation/native";
@@ -159,9 +159,9 @@ const EventCard = ({
     const handleSendFriendRequest = async () => {
         try {
             await sendFriendRequest(item.creator_id);
-            Alert.alert("Sukces", "Zaproszenie wysłane");
+            ToastAndroid.show("Operacja zakończona pomyślnie.", ToastAndroid.SHORT);
         } catch (err: any) {
-            Alert.alert("Błąd", err?.message || "Nie udało się wysłać zaproszenia");
+            ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
         }
     };
 
@@ -169,29 +169,17 @@ const EventCard = ({
         if (isParticipationLoading) return;
 
         if (isParticipating && isPrivateEvent) {
-            Alert.alert(
-                "Czy na pewno chcesz opuścić wydarzenie prywatne?",
-                "Nie będziesz mógł się na nie zapisać bez zgody autora.",
-                [
-                    { text: "Anuluj", style: "cancel" },
-                    {
-                        text: "Opuść",
-                        style: "destructive",
-                        onPress: async () => {
-                            try {
-                                setIsParticipationLoading(true);
-                                await leaveEvent(item.id);
-                                setIsParticipating(false);
-                                setParticipantCount((prev) => Math.max(prev - 1, 0));
-                            } catch (err: any) {
-                                Alert.alert("Błąd", err?.message || "Nie udało się zaktualizować udziału w wydarzeniu.");
-                            } finally {
-                                setIsParticipationLoading(false);
-                            }
-                        },
-                    },
-                ]
-            );
+            try {
+                setIsParticipationLoading(true);
+                await leaveEvent(item.id);
+                setIsParticipating(false);
+                setParticipantCount((prev) => Math.max(prev - 1, 0));
+                ToastAndroid.show("Operacja zakończona pomyślnie.", ToastAndroid.SHORT);
+            } catch (err: any) {
+                ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
+            } finally {
+                setIsParticipationLoading(false);
+            }
             return;
         }
 
@@ -208,7 +196,7 @@ const EventCard = ({
                 setParticipantCount((prev) => prev + 1);
             }
         } catch (err: any) {
-            Alert.alert("Błąd", err?.message || "Nie udało się zaktualizować udziału w wydarzeniu.");
+            ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
         } finally {
             setIsParticipationLoading(false);
         }

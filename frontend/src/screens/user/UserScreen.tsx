@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, Linking } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, ToastAndroid, Linking } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 import { useUser } from "../../contexts/UserContext";
 import { useFriends } from "../../contexts/FriendsContext";
@@ -58,7 +58,7 @@ const UserScreen = () => {
           <Text
             key={index}
             style={{ color: colors.primary, textDecorationLine: "underline" }}
-            onPress={() => Linking.openURL(part).catch(() => Alert.alert("Błąd", "Nie można otworzyć tego linku."))}
+            onPress={() => Linking.openURL(part).catch(() => ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT))}
           >
             {part}
           </Text>
@@ -172,35 +172,21 @@ const UserScreen = () => {
         await sendFriendRequest(profileData.id || profileData.user_id);
       }
     } catch (err: any) {
-      const errorMsg = err?.message || "Nie udało się wysłać zaproszenia";
-      Alert.alert("Błąd", errorMsg);
+      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
     }
   }
 
   const handleRemoveFriend = () => {
-    Alert.alert(
-      "Usunąć ze znajomych",
-      "Czy chcesz usunąć tego użytkownika ze znajomych?",
-      [
-        {
-          text: "Anuluj",
-          style: "cancel",
-        },
-        {
-          text: "Usuń",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              if (visitedUser?.id || visitedUser?.user_id) {
-                await removeFriend(visitedUser.id || visitedUser.user_id);
-              }
-            } catch (err: any) {
-              Alert.alert("Błąd", err?.message || "Nie udało się usunąć użytkownika ze znajomych");
-            }
-          },
-        },
-      ]
-    );
+    (async () => {
+      try {
+        if (visitedUser?.id || visitedUser?.user_id) {
+          await removeFriend(visitedUser.id || visitedUser.user_id);
+          ToastAndroid.show("Operacja zakończona pomyślnie.", ToastAndroid.SHORT);
+        }
+      } catch (err: any) {
+        ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
+      }
+    })();
   }
 
   return (

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, SafeAreaView, StyleSheet, Text, ToastAndroid, TouchableOpacity, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "../../contexts/ThemeContext";
@@ -48,7 +48,7 @@ const SearchScreen = () => {
       await sendFriendRequest(targetUserId);
       await queryClient.invalidateQueries({ queryKey: ["user-search", userId] });
     } catch (err: any) {
-      Alert.alert("Błąd", err?.message || "Nie udało się wysłać zaproszenia");
+      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
     }
   };
 
