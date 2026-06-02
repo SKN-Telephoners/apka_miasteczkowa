@@ -45,7 +45,10 @@ MAIL_PORT = <your_port_for_mail>
 MAIL_USERNAME = <your_mail_name>
 MAIL_PASSWORD = <password_to_mail>
 MAX_CONTENT_LENGTH = 16777216 # 16 MB
-CLOUDINARY_URL = <cloudinary_url_for_photos>
+AWS_ACCESS_KEY_ID = AKIAEXAMPLE1234567890
+AWS_SECRET_ACCESS_KEY = <your_aws_key>
+AWS_S3_BUCKET_NAME = <name_of_your_bucket>
+AWS_S3_REGION=eu-central-1 
 TESTING = True
 ```
 Your .env file needs to be in root directory.

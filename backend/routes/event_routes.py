@@ -4,6 +4,7 @@ from backend.models import User, Friendship
 from backend.extensions import db, limiter, redis_client
 from backend.constants import Constants
 from backend.responses import ResponseTypes, make_api_response
+from backend.picture_helpers import delete_from_s3
 from flask_jwt_extended import jwt_required, get_current_user
 from backend.helpers import validate_uuid, sanitize_input, get_event_cache_key, invalidate_event_cache, get_cached_event, cache_event_data
 from datetime import datetime, timezone, timedelta
@@ -138,7 +139,7 @@ def serialize_event_payload(event, user_id, creator_lookup, participating_event_
         "pictures": [
             {
                 "cloud_id": pic.cloud_id,
-                "url": cloudinary_url(pic.cloud_id, secure=True)[0],
+                "url": f"{current_app.config['S3_LOCATION']}{pic.cloud_id}"
             }
             for pic in event.pictures
         ],
@@ -367,7 +368,7 @@ def delete_event(event_id):
 
         for picture in event.pictures:
             try:
-                cloudinary.uploader.destroy(picture.cloud_id)
+                delete_from_s3(picture.cloud_id)
             except Exception as cloud_err:
                 current_app.logger.error(f"ERROR: /delete_event, failed to delete picture {picture.cloud_id} from Cloudinary: {cloud_err}")
 
@@ -533,7 +534,7 @@ def edit_event(event_id):
         for pic_id in ids_to_delete:
             pic_to_remove = existing_pictures_map[pic_id]
             try:
-                cloudinary.uploader.destroy(pic_id)
+                delete_from_s3(pic_id)
             except Exception as cloud_err:
                 current_app.logger.error(f"ERROR: /edit_event, Cloudinary delete error: {cloud_err}")
 

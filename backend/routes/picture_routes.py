@@ -2,13 +2,17 @@ from flask import Blueprint, request, current_app, jsonify
 from backend.extensions import limiter
 from backend.responses import ResponseTypes, make_api_response
 from flask_jwt_extended import jwt_required, get_current_user
+from backend.constants import Constants
+from backend.picture_helpers import validate_and_process_image, upload_to_s3
 import cloudinary.uploader
+import magic
+import os
 
 pictures_bp = Blueprint("pictures", __name__, url_prefix="/api/pictures")
 
 '''
-Input: Form-Data { "file": <File_Binary>, "tags": <str> }
-Action: Uploads image to Cloudinary, applies transformations (500x500 crop), and returns cloud metadata
+Input: Form-Data { "file": <File_Binary>, "tags": <str>, "type": <str: "profile"/"event"> }
+Action: Validates, compresses, and uploads a single image to S3.
 Data sent to the frontend: {"picture_url": <str>, "cloud_id": <str>, "public_id": <str>, "tags": [<str>]}
 Output: 201 Created
 '''
@@ -21,35 +25,35 @@ def upload_file():
 
     user_id = get_current_user()
     file = request.files['file']
+    #frontend needs to send us type (event/profile) of a picture or do this in tags
+    image_type = request.form.get('type', 'event') 
     
     # Get manual tags from the request body
     # We expect a comma-separated string from the frontend, e.g., "sunset, vacation, 2024"
     manual_tags = request.form.get('tags', '') 
 
-    try:
-        response = cloudinary.uploader.upload(
-            file,
-            upload_preset="aplikacja_miasteczkowa",
-            tags=manual_tags,  # Cloudinary accepts a list or a comma-separated string
-            unique_filename=True,
-            overwrite=True,
-            eager=[{"width": 500, "height": 500, "crop": "fill"}]
-        )
+    processed_file, error = validate_and_process_image(file, image_type)
+    if error:
+        current_app.logger.warning(f"WARNING: /upload_file, error: {error}")
+        return make_api_response(ResponseTypes.BAD_REQUEST, message=error)
 
-        picture_url = response.get('eager')[0].get('secure_url') if response.get('eager') else response.get('secure_url')
-        picture_id = response.get('public_id') or response.get('cloud_id')
+    if image_type == "profile":
+        folder = "profiles"
+    else:
+        folder = "events"
 
-        current_app.logger.info(f"INFO: /upload_file, success in uploading and tagging file for user: {user_id.user_id}")
-        return make_api_response(ResponseTypes.CREATED, data={
-            "picture_url": picture_url,
-            "cloud_id": picture_id,
-            "public_id": response.get('public_id'),
-            "tags": response.get('tags', [])
-        }, message="Picture uploaded and tagged successfully") # Returns the tags as a Python list
+    s3_key = upload_to_s3(processed_file, folder)
 
-    except Exception as e:
-        current_app.logger.error(f"ERROR: /upload_file, DB exception occured: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+    if not s3_key:
+        current_app.logger.error(f"ERROR: /upload_file, picture upload to s3 failed")
+        return make_api_response(ResponseTypes.SERVER_ERROR, message="Upload to S3 failed")
+
+    full_url = f"{current_app.config['S3_LOCATION']}{s3_key}"
+
+    return make_api_response(ResponseTypes.CREATED, data={
+        "picture_url": full_url,
+        "cloud_id": s3_key
+    })
 
 '''
 Input: Form-Data { "files": [<File_Binary>, ...], "tags": <str> } (Supports up to 5 files simultaneously).
@@ -88,32 +92,24 @@ def upload_multiple_files():
         if file.filename == '':
             continue
 
-        try:
-            response = cloudinary.uploader.upload(
-                file,
-                upload_preset="aplikacja_miasteczkowa",
-                tags=manual_tags,
-                unique_filename=True,
-                overwrite=True,
-                eager=[{"width": 500, "height": 500, "crop": "fill"}]
-            )
+        processed_file, error = validate_and_process_image(file, "event")
+        if error:
+            errors.append({"filename": file.filename, "error": error})
+            continue
 
-            picture_url = response.get('eager')[0].get('secure_url') if response.get('eager') else response.get('secure_url')
-            picture_id = response.get('public_id') or response.get('cloud_id')
-            
+        s3_key = upload_to_s3(processed_file, "events")
+        if s3_key:
             uploaded_data.append({
-                "picture_url": picture_url,
-                "cloud_id": picture_id,
-                "public_id": response.get('public_id')
+                "picture_url": f"{current_app.config['S3_LOCATION']}{s3_key}",
+                "cloud_id": s3_key,
+                "public_id": s3_key
             })
-
-        except Exception as e:
-            current_app.logger.error(f"ERROR: /upload_multiple_files, Cloudinary upload error for {file.filename}: {e}")
-            errors.append({"filename": file.filename, "error": str(e)})
+        else:
+            errors.append({"filename": file.filename, "error": "S3 Upload failed"})
 
     # If all uploads failed
     if not uploaded_data and errors:
-        current_app.logger.error(f"ERROR: /upload_multiple_files, Cloudinary upload error for all files: {e}")
+        current_app.logger.error(f"ERROR: /upload_multiple_files, s3 upload error for all files: {errors}")
         return make_api_response(ResponseTypes.SERVER_ERROR, message="Failed to upload pictures", data={"errors": errors})
 
     # Return partial or full success

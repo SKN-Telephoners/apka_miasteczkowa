@@ -19,3 +19,6 @@ class Constants:
     MAX_PAGINATION_LIMIT = 50
     PRIMARY_ACADEMY = "AGH"
     CACHE_TTL = 3600 # 1 hour
+    MAX_PROFILE_PIC_SIZE = 5 * 1024 * 1024 
+    MAX_EVENT_PIC_SIZE = 10 * 1024 * 1024
+    ALLOWED_EXTENSIONS = {"image/jpeg", "image/png", "image/webp"}

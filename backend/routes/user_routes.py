@@ -12,6 +12,7 @@ from backend.helpers import (
     validate_uuid
 )
 from backend.constants import Constants
+from backend.picture_helpers import delete_from_s3
 from datetime import datetime, timezone, timedelta
 import re
 import uuid
@@ -145,30 +146,17 @@ def update_profile():
 
     if "profile_picture" in user_data:
         pic_data = user_data["profile_picture"]
-        current_pic = user.profile_picture if user.profile_picture else None
+        current_pic_key = user.profile_picture 
 
         if pic_data is None:
-            if current_pic:
-                try:
-                    cloudinary.uploader.destroy(current_pic)
-                except Exception as cloud_err:
-                    current_app.logger.error(f"ERROR: /update_profile, Cloudinary delete error: {cloud_err}")
-                
+            if current_pic_key:
+                delete_from_s3(current_pic_key)
                 user.profile_picture = None
-
         elif isinstance(pic_data, dict) and "cloud_id" in pic_data:
-            new_cloud_id = pic_data["cloud_id"]
-            
-            if current_pic:
-                if current_pic != new_cloud_id:
-                    try:
-                        cloudinary.uploader.destroy(current_pic)
-                    except Exception as cloud_err:
-                        current_app.logger.error(f"ERROR: /update_profile, Cloudinary delete error: {cloud_err}")
-                    
-                    user.profile_picture = new_cloud_id
-            else:
-                user.profile_picture = new_cloud_id
+            new_s3_key = pic_data["cloud_id"]
+            if current_pic_key and current_pic_key != new_s3_key:
+                delete_from_s3(current_pic_key)
+            user.profile_picture = new_s3_key
 
     try:
         db.session.commit()

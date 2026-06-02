@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, make_response
+from flask import Flask, jsonify, make_response, current_app
 from backend.extensions import db, bcrypt, jwt, mail, limiter, CORS, celery_init_app, load_static_data
 from backend.config import Config, TestConfig
 from werkzeug.exceptions import HTTPException
@@ -8,6 +8,7 @@ from backend.routes import register_blueprints
 import cloudinary
 import os
 from logging.handlers import RotatingFileHandler
+import boto3
 
 '''
 Input: test_mode: <bool>, dev_mode: <bool>
@@ -48,6 +49,12 @@ def create_app(test_mode=False, dev_mode=False):
     celery_init_app(app)
     
     cloudinary.config(secure=True)
+    s3 = boto3.client(
+        "s3",
+        aws_access_key_id=current_app.config["AWS_ACCESS_KEY_ID"],
+        aws_secret_access_key=current_app.config["AWS_SECRET_ACCESS_KEY"],
+        region_name=current_app.config["AWS_S3_REGION"]
+    )
 
     register_blueprints(app)
 
