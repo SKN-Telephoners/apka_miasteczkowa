@@ -1,12 +1,15 @@
 from flask import Blueprint, request, current_app
-from backend.models.event import Event, Event_visibility, Location
+from backend.models.event import Event, Event_visibility, Location, Event_participants
 from backend.models import User
-from backend.extensions import db, limiter
+from backend.extensions import db, limiter, redis_client
 from backend.constants import Constants
 from backend.responses import ResponseTypes, make_api_response
+from backend.helpers import validate_uuid, sanitize_input, get_event_cache_key, cache_event_data
+from .event_helpers import serialize_event_payload
+import json
 from flask_jwt_extended import jwt_required, get_current_user
 from backend.helpers import sanitize_input
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from sqlalchemy import or_, and_, exists
 from .event_helpers import parse_location_coordinates
 from zoneinfo import ZoneInfo
@@ -42,7 +45,8 @@ def get_coordinates():
     return make_api_response(ResponseTypes.SUCCESS, data={"coordinates": str(coordinates)})
 
 '''
-Input: Header { "Authorization": "Bearer <Access_Token>" }
+/api/events/map?visibility=all&participation=all&created_window=all&sort_mode=default
+Input: Header { "Authorization": "Bearer <Access_Token>" and query params: visibility=all / public / private & participation=all/ joined / not_joined & sort_mode=default / members_desc / ...}
 Action: Retrieves all upcoming events visible to the user that contain valid coordinate data for map
 Data sent to the frontend: {"data": [{
     "event_id": <str>, 
@@ -64,43 +68,104 @@ def map_events():
         user_id = user.user_id
         now_utc = datetime.now(timezone.utc)
 
-        visibility_exists = exists().where(
-            and_(
-                Event_visibility.event_id == Event.event_id,
-                Event_visibility.shared_with == user_id,
-            )
+        visibility = request.args.get("visibility", default="all", type=str).lower()
+        participation = request.args.get("participation", default="all", type=str).lower()
+        created_window = request.args.get("created_window", default="all", type=str).lower()
+        sort_mode = request.args.get("sort_mode", default="default", type=str).lower()
+
+        visibility_subquery = db.session.query(Event_visibility.event_id).filter(
+            Event_visibility.event_id == Event.event_id,
+            Event_visibility.shared_with == user_id,
         )
 
-        events = db.session.query(Event, User.username).join(
-            User, Event.creator_id == User.user_id
-        ).filter(
+        participation_subquery = db.session.query(Event_participants.event_id).filter(
+            Event_participants.event_id == Event.event_id,
+            Event_participants.user_id == user_id
+        )
+
+        query = Event.query.filter(
             Event.date_and_time >= now_utc,
             or_(
                 Event.is_private == False,
                 Event.creator_id == user_id,
-                visibility_exists,
+                visibility_subquery.exists(),
+                participation_subquery.exists()
             )
-        ).order_by(Event.date_and_time.asc()).all()
+        )
+
+        if visibility == "public":
+            query = query.filter(Event.is_private == False)
+        elif visibility == "private":
+            query = query.filter(Event.is_private == True)
+
+        if participation != "all":
+            participation_exists = db.session.query(Event_participants.event_id).filter(
+                Event_participants.event_id == Event.event_id,
+                Event_participants.user_id == user_id
+            ).exists()
+
+            query = query.filter(participation_exists if participation == "joined" else ~participation_exists)
+
+        if created_window != "all":
+            if created_window == "today":
+                start_date = now_utc - timedelta(days=1)
+            elif created_window == "week":
+                start_date = now_utc - timedelta(weeks=1)
+            elif created_window == "month":
+                start_date = now_utc - timedelta(days=30)
+            elif created_window == "year":
+                start_date = now_utc - timedelta(days=365)
+            if created_window == "older":
+                query = query.filter(Event.created_at < (now_utc - timedelta(days=365)))
+            else:
+                query = query.filter(Event.created_at >= start_date)
+
+        if sort_mode == "members_asc": 
+            query = query.order_by(Event.participant_count.asc())
+        elif sort_mode == "members_desc": 
+            query = query.order_by(Event.participant_count.desc())
+        elif sort_mode == "comments_asc": 
+            query = query.order_by(Event.comment_count.asc())
+        elif sort_mode == "comments_desc": 
+            query = query.order_by(Event.comment_count.desc())
+        else:
+            query = query.order_by(Event.date_and_time.asc())
+        
+        events = query.all()
+
+        creator_ids = {e.creator_id for e in events}
+        creator_users = User.query.filter(User.user_id.in_(creator_ids)).all() if creator_ids else []
+        creator_lookup = {str(u.user_id): u for u in creator_users}
 
         final_map_data = []
 
-        for event, creator_name in events:
+        for event in events:
+            eid_str = str(event.event_id)
+            cached_val = redis_client.get(get_event_cache_key(eid_str))
+
+            if cached_val:
+                full_event_data = json.loads(cached_val)
+            else:
+                full_event_data = serialize_event_payload(event, None, creator_lookup, set())
+                cache_event_data(eid_str, full_event_data)
+                
             coords = parse_location_coordinates(event.location)
             if coords is None:
                 continue
 
-            local_dt = event.date_and_time.astimezone(local_tz)
-
-            final_map_data.append({
-                "event_id": str(event.event_id),
-                "name": event.event_name,
-                "date": local_dt.strftime("%d.%m.%Y"),
-                "time": local_dt.strftime("%H:%M"),
-                "location": event.location,
+            map_item = {
+                "event_id": eid_str,
+                "name": full_event_data.get("name"),
+                "date": full_event_data.get("date"),
+                "time": full_event_data.get("time"),
+                "location": full_event_data.get("location"),
                 "location_coordinates": coords,
-                "creator_username": creator_name,
-                "is_private": event.is_private
-            })
+                "creator_username": full_event_data.get("creator_username"),
+                "is_private": full_event_data.get("is_private")
+            }
+            final_map_data.append(map_item)
+
+        current_app.logger.info(f"INFO: /map, user {user_id} fetched {len(final_map_data)} events for map")
 
         return make_api_response(
             ResponseTypes.SUCCESS,

@@ -70,8 +70,7 @@ def get_event(event_id):
         return make_api_response(ResponseTypes.SUCCESS, data=event_data)
 
     except Exception as e:
-        current_app.logger.error(f"ERROR: /get_event, exception occured: {e}")
-        return make_api_response(ResponseTypes.SERVER_ERROR)
+        current_app.logger.error(f"ERROR: /get_event, exception occuregERVER_ERROR")
 
 '''
 /api/events/feed?page=1&limit=20&visibility=all&participation=all&created_window=all&sort_mode=default
@@ -119,7 +118,7 @@ def feed():
 
         participation_subquery = db.session.query(Event_participants.event_id).filter(
             Event_participants.event_id == Event.event_id,
-            Event_participants.user_id == user_id,
+            Event_participants.user_id == user_id
         )
 
         query = Event.query.filter(
@@ -127,7 +126,7 @@ def feed():
                 Event.is_private == False,
                 Event.creator_id == user_id,
                 visibility_subquery.exists(),
-                participation_subquery.exists(),
+                participation_subquery.exists()
             )
         )
 
