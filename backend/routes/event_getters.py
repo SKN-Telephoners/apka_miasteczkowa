@@ -12,7 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from cloudinary.utils import cloudinary_url
 from sqlalchemy import or_
 import json
-from .event_helpers import serialize_event_payload
+from .event_helpers import serialize_event_payload, get_friend_ids
 
 getters_bp = Blueprint("event_getters", __name__, url_prefix="/api/events")
 local_tz = ZoneInfo("Europe/Warsaw")
@@ -103,6 +103,8 @@ def feed():
         participation = request.args.get("participation", default="all", type=str).lower()
         created_window = request.args.get("created_window", default="all", type=str).lower()
         sort_mode = request.args.get("sort_mode", default="default", type=str).lower()
+        show_friends_only = request.args.get("friends_only", default="false").lower() == "true"
+        show_friends_attending = request.args.get("friends_attending", default="false").lower() == "true"
 
         if page < 1:
             page = 1
@@ -129,6 +131,26 @@ def feed():
                 participation_subquery.exists()
             )
         )
+
+        if show_friends_only or show_friends_attending:
+            friend_ids = get_friend_ids(user_id)
+            
+            if not friend_ids:
+                query = query.filter(Event.event_id == None)
+                current_app.logger.info(f"INFO: /feed, user {user_id} filtered by friends but has no friends :(")
+            else:
+                friend_conditions = []
+                if show_friends_only:
+                    friend_conditions.append(Event.creator_id.in_(friend_ids))
+                
+                if show_friends_attending:
+                    friends_in_event = db.session.query(Event_participants.event_id).filter(
+                        Event_participants.user_id.in_(friend_ids)
+                    )
+                    friend_conditions.append(Event.event_id.in_(friends_in_event))
+                
+                query = query.filter(or_(*friend_conditions))
+                current_app.logger.info(f"INFO: /feed, user {user_id} filtered by friends_only={show_friends_only}, friends_attending={show_friends_attending}")
 
         if q:
             search_filter = f"%{q}%"

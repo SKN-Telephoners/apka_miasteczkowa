@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime, timezone, timedelta
 from backend.models.event import Event_participants, Event_visibility
-from backend.models import Event
+from backend.models import User, Event, Friendship
 from backend.extensions import db
 
 # =============================================================================
@@ -288,3 +288,61 @@ def test_feed_pagination_metadata(client, logged_in_user, app):
         assert pagination["total"] == 5
         assert pagination["pages"] == 3
         assert pagination["has_next"] is True
+
+def test_friends_filters_feed_and_map(client, logged_in_user, registered_friend, app):
+    with app.app_context():
+        user, token = logged_in_user
+        friend, friend_pass = registered_friend
+        future_date = datetime.now(timezone.utc) + timedelta(days=1)
+        
+        stranger = User(username="stranger", email="stranger@test.pl", password="Password123!", is_confirmed=True)
+        db.session.add(stranger)
+        db.session.commit()
+
+        u_id, f_id = sorted([user.user_id, friend.user_id])
+        db.session.add(Friendship(user_id=u_id, friend_id=f_id))
+        
+        e_friend = Event(event_name="Friend Event", location="[19.9,50.0]", creator_id=friend.user_id, is_private=False, date_and_time=future_date)
+        e_attending = Event(event_name="Stranger Event Attended", location="[20.0,50.1]", creator_id=stranger.user_id, is_private=False, date_and_time=future_date)
+        e_stranger = Event(event_name="Pure Stranger", location="[21.0,50.2]", creator_id=stranger.user_id, is_private=False, date_and_time=future_date)
+        
+        db.session.add_all([e_friend, e_attending, e_stranger])
+        db.session.commit()
+
+        db.session.add(Event_participants(event_id=e_attending.event_id, user_id=friend.user_id))
+        db.session.commit()
+
+        headers = {"Authorization": f"Bearer {token}"}
+
+        res_only = client.get("/api/events/feed?friends_only=true", headers=headers)
+        names_only = [e["name"] for e in res_only.get_json()["data"]]
+        assert "Friend Event" in names_only
+        assert "Pure Stranger" not in names_only
+
+        res_att = client.get("/api/events/feed?friends_attending=true", headers=headers)
+        names_att = [e["name"] for e in res_att.get_json()["data"]]
+        assert "Stranger Event Attended" in names_att
+
+        res_map = client.get("/api/events/map?friends_only=true&friends_attending=true", headers=headers)
+        map_data = res_map.get_json()["data"]
+        map_names = [e["name"] for e in map_data]
+        assert "Friend Event" in map_names
+        assert "Stranger Event Attended" in map_names
+        assert "Pure Stranger" not in map_names
+
+        assert map_data[0]["location_coordinates"] is not None
+
+def test_friends_filter_no_friends(client, logged_in_user, app):
+    """Test przypadku gdy użytkownik nie ma znajomych a używa filtrów."""
+    user, token = logged_in_user
+    headers = {"Authorization": f"Bearer {token}"}
+
+    with app.app_context():
+        stranger = User(username="s2", email="s2@t.pl", password="P1!", is_confirmed=True)
+        db.session.add(stranger)
+        db.session.flush()
+        db.session.add(Event(event_name="Public", location="X", creator_id=stranger.user_id))
+        db.session.commit()
+
+    res = client.get("/api/events/feed?friends_only=true", headers=headers)
+    assert len(res.get_json()["data"]) == 0

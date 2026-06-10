@@ -11,7 +11,7 @@ from flask_jwt_extended import jwt_required, get_current_user
 from backend.helpers import sanitize_input
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import or_, and_, exists
-from .event_helpers import parse_location_coordinates
+from .event_helpers import parse_location_coordinates, get_friend_ids
 from zoneinfo import ZoneInfo
 
 map_bp = Blueprint("map", __name__, url_prefix="/api/events")
@@ -45,8 +45,10 @@ def get_coordinates():
     return make_api_response(ResponseTypes.SUCCESS, data={"coordinates": str(coordinates)})
 
 '''
-/api/events/map?visibility=all&participation=all&created_window=all&sort_mode=default
-Input: Header { "Authorization": "Bearer <Access_Token>" and query params: visibility=all / public / private & participation=all/ joined / not_joined & sort_mode=default / members_desc / ...}
+/api/events/map?visibility=all&participation=all&created_window=all&friends_only=false&friends_attending=false
+Input: Header { "Authorization": "Bearer <Access_Token>" } 
+       Query Params: visibility (all/public/private), participation (all/joined/not_joined), 
+       friends_only (bool), friends_attending (bool).
 Action: Retrieves all upcoming events visible to the user that contain valid coordinate data for map
 Data sent to the frontend: {"data": [{
     "event_id": <str>, 
@@ -72,6 +74,9 @@ def map_events():
         participation = request.args.get("participation", default="all", type=str).lower()
         created_window = request.args.get("created_window", default="all", type=str).lower()
         sort_mode = request.args.get("sort_mode", default="default", type=str).lower()
+        show_friends_only = request.args.get("friends_only", default="false").lower() == "true"
+        show_friends_attending = request.args.get("friends_attending", default="false").lower() == "true"
+
 
         visibility_subquery = db.session.query(Event_visibility.event_id).filter(
             Event_visibility.event_id == Event.event_id,
@@ -93,6 +98,27 @@ def map_events():
             )
         )
 
+        if show_friends_only or show_friends_attending:
+            friend_ids = get_friend_ids(user_id)
+
+            if not friend_ids:
+                current_app.logger.info(f"INFO: /map, user {user_id} filtered by friends but has no friends :(")
+                return make_api_response(ResponseTypes.SUCCESS, data={"data": []})
+            
+            friend_conditions = []
+            if show_friends_only:
+                friend_conditions.append(Event.creator_id.in_(friend_ids))
+            if show_friends_attending:
+                friends_in_event = db.session.query(Event_participants.event_id).filter(
+                    Event_participants.user_id.in_(friend_ids)
+                )
+                friend_conditions.append(Event.event_id.in_(friends_in_event))
+            
+            query = query.filter(or_(*friend_conditions))
+            current_app.logger.info(f"INFO: /map, user {user_id} filtered by friends_only={show_friends_only}, friends_attending={show_friends_attending}")
+
+        events = query.distinct().all() 
+
         if visibility == "public":
             query = query.filter(Event.is_private == False)
         elif visibility == "private":
@@ -105,6 +131,8 @@ def map_events():
             ).exists()
 
             query = query.filter(participation_exists if participation == "joined" else ~participation_exists)
+
+        events = query.distinct().order_by(Event.date_and_time.asc()).all()
 
         if created_window != "all":
             if created_window == "today":
@@ -130,8 +158,6 @@ def map_events():
             query = query.order_by(Event.comment_count.desc())
         else:
             query = query.order_by(Event.date_and_time.asc())
-        
-        events = query.all()
 
         creator_ids = {e.creator_id for e in events}
         creator_users = User.query.filter(User.user_id.in_(creator_ids)).all() if creator_ids else []
