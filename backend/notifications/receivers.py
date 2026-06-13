@@ -16,7 +16,6 @@ def handle_event_new_participant(sender, **kwargs):
         "participant_name": participant_username,
         "event_id": str(event_id),
         "event_name": event_name,
-        "message": f"{participant_username} joined your event {event_name}."
     }
 
     create_notification_task.delay(
@@ -41,7 +40,6 @@ def handle_event_new_comment(sender, **kwargs):
         "commenter_name": commenter_name,
         "event_id": str(event_id),
         "event_name": event_name,
-        "message": f"{commenter_name} commented on your event {event_name}."
     }
 
     create_notification_task.delay(
@@ -66,7 +64,6 @@ def handle_invite_created_notification(sender, **kwargs):
         "sender_name": from_user_username,
         "event_id": str(event_id),
         "event_name": event_name,
-        "message": f"{from_user_username} invited you to an event {event_name}."
     }
 
     create_notification_task.delay(
@@ -92,7 +89,6 @@ def handle_invite_status_update(sender, **kwargs):
         "event_id": str(event_id),
         "event_name": event_name,
         "status": status,
-        "message": f"{invitee_username} {status} your invitation to {event_name}."
     }
 
     create_notification_task.delay(
@@ -111,7 +107,6 @@ def handle_joined_event_updated(sender, **kwargs):
     payload = {
         "event_id": str(event_id),
         "event_name": event_name,
-        "message": f"An event you are attending ({event_name}) has been updated."
     }
 
     #loop through all participants and queue a notification for each
@@ -131,7 +126,6 @@ def handle_joined_event_deleted(sender, **kwargs):
     payload = {
         "event_name": event_name,
         "creator_name": creator_username,
-        "message": f"The event '{event_name}' hosted by {creator_username} has been canceled."
     }
 
     #loop through all participants and queue a notification for each
@@ -154,7 +148,6 @@ def handle_friend_request_notification(sender, **kwargs):
         "friend_request_id": str(request_id),
         "sender_id": str(from_user_id),
         "sender_name": from_user_username,
-        "message": f"{from_user_username} sent you a friend request."
     }
 
     create_notification_task.delay(
@@ -172,7 +165,6 @@ def handle_friend_request_accepted(sender, **kwargs):
     payload = {
         "friend_id": str(accepter_id),
         "friend_name": accepter_name,
-        "message": f"{accepter_name} accepted your friend request!"
     }
 
     create_notification_task.delay(
@@ -194,7 +186,6 @@ def handle_friend_new_public_event(sender, **kwargs):
         "creator_name": creator_name,
         "event_id": str(event_id),
         "event_name": event_name,
-        "message": f"Your friend {creator_name} created a new public event: {event_name}."
     }
 
     for f_id in friend_ids:
@@ -217,7 +208,6 @@ def handle_friend_new_private_event(sender, **kwargs):
         "creator_name": creator_name,
         "event_id": str(event_id),
         "event_name": event_name,
-        "message": f"Your friend {creator_name} shared a private event: {event_name} with you."
     }
 
     for f_id in shared_with_ids:
@@ -244,7 +234,6 @@ def handle_comment_reply_created(sender, **kwargs):
         "replier_name": replier_name,
         "event_id": str(event_id),
         "event_name": event_name,
-        "message": f"{replier_name} replied to your comment in {event_name}."
     }
 
     create_notification_task.delay(
