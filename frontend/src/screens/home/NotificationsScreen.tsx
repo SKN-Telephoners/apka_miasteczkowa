@@ -8,7 +8,7 @@ import NotificationsCard from '../../components/NotificationsCard';
 import Button from '../../components/Button';
 import { changeInviteStatus } from '../../services/events';
 import { useFriends } from '../../contexts/FriendsContext';
-import { AppNotification } from '../../services/notifications';
+import { AppNotification, AggregatedNotification } from '../../services/notifications';
 
 const NotificationsScreen = () => {
     const navigation = useNavigation<any>();
@@ -18,6 +18,7 @@ const NotificationsScreen = () => {
         isLoading,
         isRefreshing,
         hasMore,
+        currentPage,
         fetchNotifications,
         markAsRead
     } = useNotifications();
@@ -29,11 +30,11 @@ const NotificationsScreen = () => {
 
     const handleLoadMore = () => {
         if (hasMore && !isLoading && !isRefreshing) {
-            // TODO: Podpiąć doczytywanie stron
+            fetchNotifications(currentPage + 1, false);
         }
     };
 
-    const renderActionButtons = (notification: AppNotification) => {
+    const renderActionButtons = (notification: AggregatedNotification) => {
         const { tag, payload } = notification;
 
         if (tag === 'invite-created') {
@@ -89,11 +90,11 @@ const NotificationsScreen = () => {
         return null;
     };
 
-    const handleNotificationPress = async (notification: AppNotification) => {
-        const { tag, payload, notification_id, is_read } = notification;
+    const handleNotificationPress = async (notification: AggregatedNotification) => {
+        const { tag, payload, is_read, aggregated_ids } = notification;
 
         if (!is_read) {
-            await markAsRead(notification_id);
+            await markAsRead(aggregated_ids);
         }
 
         if (payload.event_id) {
@@ -120,7 +121,7 @@ const NotificationsScreen = () => {
         }
     };
 
-    const renderItem = ({ item }: { item: AppNotification }) => {
+    const renderItem = ({ item }: { item: AggregatedNotification }) => {
         const actions = renderActionButtons(item);
 
         return (

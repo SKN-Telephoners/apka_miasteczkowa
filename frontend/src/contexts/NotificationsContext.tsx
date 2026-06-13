@@ -1,15 +1,17 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { getNotifications, markNotificationAsRead, AppNotification } from '../services/notifications';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
+import { getNotifications, markNotificationAsRead, AppNotification, AggregatedNotification } from '../services/notifications';
+import { aggregateNotifications } from '../utils/notificationAggregator';
 import { useAuth } from './AuthContext';
 
 interface NotificationsContextProps {
-    notifications: AppNotification[];
+    notifications: AggregatedNotification[];
     unreadCount: number | null;
     isLoading: boolean;
     isRefreshing: boolean;
     hasMore: boolean;
     fetchNotifications: (page?: number, isRefresh?: boolean) => Promise<void>;
-    markAsRead: (notificationId: string) => Promise<void>;
+    markAsRead: (notificationIds: string[]) => Promise<void>;
+    currentPage: number;
 }
 
 const NotificationsContext = createContext<NotificationsContextProps | undefined>(undefined);
@@ -67,29 +69,36 @@ export const NotificationsProvider: React.FC<{ children: ReactNode }> = ({ child
         }
     }, [isAuthenticated, fetchNotifications]);
 
-    const markAsRead = async (notificationId: string) => {
+    const aggregatedNotifications = useMemo(() => aggregateNotifications(notifications), [notifications]);
+
+    const markAsRead = async (notificationIds: string[]) => {
         try {
-            await markNotificationAsRead(notificationId);
+            await Promise.all(notificationIds.map(id => markNotificationAsRead(id)));
             setNotifications(prev =>
                 prev.map(notif =>
-                    notif.notification_id === notificationId
+                    notificationIds.includes(notif.notification_id)
                         ? { ...notif, is_read: true }
                         : notif
                 )
             );
-            setUnreadCount(prev => prev && prev > 0 ? prev - 1 : 0);
+            setUnreadCount(prev => {
+                if (prev === null) return null;
+                const newlyRead = notifications.filter(n => notificationIds.includes(n.notification_id) && !n.is_read).length;
+                return Math.max(0, prev - newlyRead);
+            });
         } catch (error) {
-            console.error("Failed to mark notification as read", error);
+            console.error("Failed to mark notifications as read", error);
         }
     };
 
     return (
         <NotificationsContext.Provider value={{
-            notifications,
+            notifications: aggregatedNotifications,
             unreadCount,
             isLoading,
             isRefreshing,
             hasMore,
+            currentPage,
             fetchNotifications,
             markAsRead
         }}>

@@ -1,12 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
-import { AppNotification } from '../services/notifications';
+import { AppNotification, AggregatedNotification } from '../services/notifications';
 import { THEME } from '../utils/constants';
 import AppIcon, { IconName } from './AppIcon';
 
 interface NotificationCardProps {
-    notification: AppNotification;
+    notification: AppNotification | AggregatedNotification;
     onPress?: () => void;
     actions?: React.ReactNode;
 }
@@ -33,9 +33,42 @@ const getIconForTag = (tag: string): { name: IconName; color: string } => {
     }
 };
 
+const getLocalizedMessage = (tag: string, payload: any): string => {
+    switch (tag) {
+        case 'event-new-participant':
+            return `${payload.participant_name} dołączył(a) do Twojego wydarzenia ${payload.event_name}.`;
+        case 'event-new-comment':
+            return `${payload.commenter_name} skomentował(a) Twoje wydarzenie ${payload.event_name}.`;
+        case 'invite-created':
+            return `${payload.sender_name} zaprosił(a) Cię do wydarzenia ${payload.event_name}.`;
+        case 'invite-status-update':
+            const statusPl = payload.status === 'accepted' ? 'zaakceptował(a)' : 'odrzucił(a)';
+            return `${payload.invitee_name} ${statusPl} Twoje zaproszenie do ${payload.event_name}.`;
+        case 'joined-event-updated':
+            return `Wydarzenie w którym bierzesz udział (${payload.event_name}) zostało zaktualizowane.`;
+        case 'joined-event-deleted':
+            return `Wydarzenie "${payload.event_name}" organizowane przez ${payload.creator_name} zostało anulowane.`;
+        case 'friend-request-created':
+            return `${payload.sender_name} wysłał(a) Ci zaproszenie do znajomych.`;
+        case 'friend-request-accepted':
+            return `${payload.friend_name} zaakceptował(a) Twoje zaproszenie do znajomych!`;
+        case 'friend-new-public-event':
+            return `Twój znajomy ${payload.creator_name} utworzył nowe wydarzenie publiczne: ${payload.event_name}.`;
+        case 'friend-new-private-event':
+            return `Twój znajomy ${payload.creator_name} udostępnił Ci prywatne wydarzenie: ${payload.event_name}.`;
+        case 'comment-reply-created':
+            return `${payload.replier_name} odpowiedział(a) na Twój komentarz w ${payload.event_name}.`;
+        default:
+            return payload.message || 'Masz nowe powiadomienie.';
+    }
+};
+
 const NotificationCard: React.FC<NotificationCardProps> = ({ notification, onPress, actions }) => {
     const { colors } = useTheme();
     const { name: iconName, color: iconColor } = getIconForTag(notification.tag);
+    
+    const isAggregated = 'count' in notification && (notification as AggregatedNotification).count > 1;
+    const aggregatedCount = isAggregated ? (notification as AggregatedNotification).count : 0;
 
     return (
         <TouchableOpacity 
@@ -51,6 +84,11 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ notification, onPre
             <View style={styles.header}>
                 <View style={[styles.iconContainer, { backgroundColor: `${iconColor}20` }]}>
                     <AppIcon name={iconName} size={24} color={iconColor} />
+                    {isAggregated && (
+                        <View style={[styles.badge, { backgroundColor: colors.primary }]}>
+                            <Text style={styles.badgeText}>{aggregatedCount}</Text>
+                        </View>
+                    )}
                 </View>
                 <View style={styles.content}>
                     <Text style={[
@@ -58,7 +96,7 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ notification, onPre
                         { color: colors.text },
                         !notification.is_read && styles.unreadMessage
                     ]}>
-                        {notification.payload.message || 'Nowe powiadomienie'}
+                        {getLocalizedMessage(notification.tag, notification.payload)}
                     </Text>
                     <Text style={[styles.date, { color: colors.icon }]}>
                         {notification.date} o {notification.time}
@@ -93,6 +131,24 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: THEME.spacing.m,
+        position: 'relative',
+    },
+    badge: {
+        position: 'absolute',
+        top: -5,
+        right: -5,
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: '#fff',
+    },
+    badgeText: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: 'bold',
     },
     content: {
         flex: 1,

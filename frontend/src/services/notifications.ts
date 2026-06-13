@@ -14,6 +14,13 @@ export interface AppNotification {
     payload: NotificationPayload;
 }
 
+export interface AggregatedNotification extends Omit<AppNotification, 'notification_id'> {
+    notification_id: string;
+    aggregated_ids: string[];
+    count: number;
+    raw_notifications: AppNotification[];
+}
+
 export interface PaginationMeta {
     page: number;
     limit: number;
