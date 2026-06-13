@@ -42,10 +42,10 @@ flask run --host=0.0.0.0
 ```
 **Window 2: Frontend**
 ```bash
-sudo apt install npm   
+sudo apt install npm  
+cd frontend 
 npm install expo   
-npm audit fix   
-cd frontend   
+npm audit fix      
 npx expo start
 ```
 **Window 3: Databases (PostgreSQL & Redis)**
@@ -81,9 +81,16 @@ createdb apka_miasteczkowa_test
 exit
 ```
 
-Import the schema *(Replace \<username> with your actual Linux username)*:
+Initialize the migrations:
 ```bash
-psql -U postgres -d apka_miasteczkowa -W /home/<username>/apka_miasteczkowa/schema.sql   
+cd backend
+flask db init
+flask db migrate -m "<migration title>"
+flask db upgrade
+```
+
+Import the schema for test db *(Replace \<username> with your actual Linux username)*:
+```bash 
 psql -U postgres -d apka_miasteczkowa_test -W /home/<username>/apka_miasteczkowa/schema.sql
 ```
 
