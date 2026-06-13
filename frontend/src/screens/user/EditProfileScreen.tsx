@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TextInput, Alert, TouchableOpacity, Image, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ToastAndroid, TouchableOpacity, Image, ScrollView } from 'react-native';
 import { useUser } from '../../contexts/UserContext';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -43,22 +43,22 @@ const EditProfileScreen = () => {
     const handleEmailRequest = async () => {
         try {
             await userService.changeEmail(email);
-            Alert.alert("Wysłano", "Weryfikacja została wysłana na podany nowy adres e-mail.");
+            ToastAndroid.show("Operacja zakończona pomyślnie.", ToastAndroid.SHORT);
         } catch (error) {
-            Alert.alert("Błąd", "Nie udało się zainicjować zmiany adresu e-mail.");
+            ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
         }
     };
 
     const uploadSelectedPicture = async (asset: ImagePicker.ImagePickerAsset) => {
         if (!asset.uri) {
-            Alert.alert("Błąd", "Nie udało się odczytać zdjęcia.");
+            ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
             return;
         }
 
         const fileInfo = await FileSystem.getInfoAsync(asset.uri);
         const maxBytes = 15 * 1024 * 1024;
         if (fileInfo.exists && typeof fileInfo.size === "number" && fileInfo.size > maxBytes) {
-            Alert.alert("Plik za duży", "Wybierz zdjęcie mniejsze niż 15 MB.");
+            ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
             return;
         }
 
@@ -73,7 +73,7 @@ const EditProfileScreen = () => {
             });
         } catch (error: any) {
             setProfilePicturePreviewUri(null);
-            Alert.alert("Błąd zdjęcia", error?.message || "Nie udało się przesłać zdjęcia.");
+            ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
         } finally {
             setIsPictureUploading(false);
         }
@@ -82,7 +82,7 @@ const EditProfileScreen = () => {
     const takePhoto = async () => {
         const permission = await ImagePicker.requestCameraPermissionsAsync();
         if (!permission.granted) {
-            Alert.alert("Brak uprawnień", "Aplikacja potrzebuje dostępu do aparatu.");
+            ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
             return;
         }
 
@@ -101,7 +101,7 @@ const EditProfileScreen = () => {
     const pickFromDevice = async () => {
         const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!permission.granted) {
-            Alert.alert("Brak uprawnień", "Aplikacja potrzebuje dostępu do galerii.");
+            ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
             return;
         }
 
@@ -118,21 +118,7 @@ const EditProfileScreen = () => {
     };
 
     const showPictureOptions = () => {
-        Alert.alert("Zdjęcie profilowe", "Wybierz źródło zdjęcia", [
-            { text: "Zrób zdjęcie", onPress: takePhoto },
-            { text: "Wybierz z urządzenia", onPress: pickFromDevice },
-            (profilePicture || user?.profile_picture)
-                ? {
-                    text: "Usuń zdjęcie",
-                    style: "destructive",
-                    onPress: () => {
-                        setProfilePicture(null);
-                        setProfilePicturePreviewUri(null);
-                    },
-                }
-                : undefined,
-            { text: "Anuluj", style: "cancel" },
-        ].filter(Boolean) as any);
+        void pickFromDevice();
     };
 
     const handleSave = async () => {
@@ -147,9 +133,10 @@ const EditProfileScreen = () => {
                 year: year,
                 profile_picture: profilePicture ? { cloud_id: profilePicture.cloud_id } : null,
             });
-            Alert.alert("Sukces", "Zaktualizowano profil", [{ text: "OK", onPress: () => navigation.goBack() }]);
+            ToastAndroid.show("Operacja zakończona pomyślnie.", ToastAndroid.SHORT);
+            navigation.goBack();
         } catch (error) {
-            Alert.alert("Błąd", "Nie udało się zapisać zmian");
+            ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
         } finally {
             setIsSaving(false);
         }

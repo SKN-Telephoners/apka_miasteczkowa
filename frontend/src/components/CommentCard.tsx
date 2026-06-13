@@ -1,11 +1,11 @@
 import React from "react";
 import {
     Text, View, StyleSheet,
-    TouchableOpacity, Alert,
+    TouchableOpacity,
     TextInput, Modal, Pressable,
+    ToastAndroid
 } from "react-native";
 import { useEffect, useState } from "react";
-import { Ionicons } from "@expo/vector-icons";
 import { Comment } from "../types/comment";
 import { editComment, deleteComment, replyToComment } from "../services/comments";
 import UserCard from "./UserCard";
@@ -136,42 +136,42 @@ const CommentCard = ({
     const handleSendFriendRequest = async () => {
         try {
             await sendFriendRequest(item.user_id);
-            Alert.alert("Sukces", "Zaproszenie wysłane");
+            ToastAndroid.show("Operacja zakończona pomyślnie.", ToastAndroid.SHORT);
         } catch (err: any) {
-            Alert.alert("Błąd", err?.message || "Nie udało się wysłać zaproszenia");
+            ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
         }
     };
 
     useEffect(() => {
         setDisplayContent(item.content);
-        setCommentValue(item.content);
+        setCommentValue(item.content.trim());
         setIsEdited(item.edited);
     }, [item.content, item.edited]);
 
 
     const handleEditComment = async () => {
         if (!commentValue || commentValue.trim() === '') {
-            Alert.alert("Komentarz nie może być pusty");
+            ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
             return;
         }
         try {
             await editComment(item.comment_id, commentValue);
-            Alert.alert("Komentarz edytowany");
+            ToastAndroid.show("Operacja zakończona pomyślnie.", ToastAndroid.SHORT);
             setIsEditing(false);
             setDisplayContent(commentValue);
             setIsEdited(true);
         } catch (error: any) {
-            Alert.alert("Błąd edytowania komentarza", error.message);
+            ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
         }
     };
 
     const handleDeleteComment = async () => {
         try {
             await deleteComment(item.comment_id);
-            Alert.alert("Komentarz usunięty");
+            ToastAndroid.show("Operacja zakończona pomyślnie.", ToastAndroid.SHORT);
             onDeleted();
         } catch (error: any) {
-            Alert.alert("Błąd usuwania komentarza", error.message);
+            ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
         }
     };
 
@@ -272,12 +272,6 @@ const CommentCard = ({
                 )}
 
                 <View style={styles.actionsRow}>
-                    <View style={styles.actionItem}>
-                        <View style={styles.actionIconContainer}>
-                            <AppIcon name="Heart" size={ACTION_ICON_SIZE} />
-                        </View>
-                        <Text style={styles.actionCount}>0</Text>
-                    </View>
 
                     <TouchableOpacity
                         style={styles.actionItem}

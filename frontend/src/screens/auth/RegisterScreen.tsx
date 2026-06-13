@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import {
-  Alert,
   Dimensions,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
   Text,
   View,
+  ToastAndroid,
 } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import Button from "../../components/Button";
@@ -104,34 +104,13 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
     try {
       await authService.register(username, email, password);
       setIsLoading(false);
-      Alert.alert(
-        "Rejestracja przebiegła pomyślnie!",
-        "Konto zostało utworzone. Potwierdź swoje konto przez link, który dostaniesz na maila.",
-        [
-          {
-            text: "Przejdź do logowania",
-            onPress: () => {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: "Login" }],
-              });
-            },
-          },
-        ],
-      );
+      ToastAndroid.show("Operacja zakończona pomyślnie.", ToastAndroid.SHORT);
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Login" }],
+      });
     } catch (error: any) {
-      if (error.response) {
-        Alert.alert(
-          "Błąd rejestracji",
-          error.response.data.message ||
-          "Taki użytkownik lub email już istnieje.",
-        );
-      } else {
-        Alert.alert(
-          "Błąd rejestracji",
-          "Wystąpił nieoczekiwany błąd. Spróbuj ponownie.",
-        );
-      }
+      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
     } finally {
       setIsLoading(false);
     }

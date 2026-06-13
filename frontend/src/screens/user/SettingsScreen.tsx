@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, Switch, ScrollView, TouchableOpacity, Alert } from "react-native";
+import { View, Text, StyleSheet, Switch, ScrollView, TouchableOpacity, ToastAndroid } from "react-native";
 import { useTheme } from "../../contexts/ThemeContext";
 import { THEME } from "../../utils/constants";
 import { useAuth } from "../../contexts/AuthContext";
@@ -12,25 +12,15 @@ const SettingsScreen = () => {
       const { isDark, toggleTheme, colors } = useTheme();
 
     const handleDeleteAccount = () => {
-        Alert.alert(
-            "Usunięcie konta",
-            "Czy na pewno chcesz bezpowrotnie usunąć swoje konto? Wszystkie twoje dane znikną bezpowrotnie.",
-            [
-                { text: "Anuluj", style: "cancel" },
-                { 
-                    text: "Usuń konto", 
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            await deleteAccount();
-                            logout();
-                        } catch (err: any) {
-                            Alert.alert("Błąd", err?.message || "Nie udało się usunąć konta.");
-                        }
-                    }
-                }
-            ]
-        );
+        (async () => {
+            try {
+                await deleteAccount();
+                ToastAndroid.show("Operacja zakończona pomyślnie.", ToastAndroid.SHORT);
+                logout();
+            } catch (err: any) {
+                ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
+            }
+        })();
     };
 
     return (

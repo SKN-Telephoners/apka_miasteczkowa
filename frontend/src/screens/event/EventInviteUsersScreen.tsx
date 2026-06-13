@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ToastAndroid, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRoute } from "@react-navigation/native";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useFriends } from "../../contexts/FriendsContext";
@@ -85,7 +85,7 @@ const EventInviteUsersScreen = () => {
     const isInvited = Boolean(invitedFriendIds[friendId]);
 
     if (!canInvite || !eventId || !friendId) {
-      Alert.alert("Błąd", "Nie można wysłać zaproszenia dla tego wydarzenia.");
+      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
       return;
     }
 
@@ -99,7 +99,7 @@ const EventInviteUsersScreen = () => {
       }
     } catch (error: any) {
       setInvitedFriendIds((prev) => ({ ...prev, [friendId]: isInvited }));
-      Alert.alert("Błąd zaproszenia", error?.message || "Nie udało się zaktualizować zaproszenia.");
+      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
     }
   };
 

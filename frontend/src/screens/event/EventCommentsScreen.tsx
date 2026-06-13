@@ -2,13 +2,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   View,
   Text,
-  Alert,
   FlatList,
   RefreshControl,
   StyleSheet,
   Keyboard,
   TouchableWithoutFeedback,
   TouchableOpacity,
+  ToastAndroid,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { tokenStorage } from "../../utils/storage";
@@ -80,7 +80,7 @@ const EventCommentsScreen = () => {
 
   const handleAddComment = async () => {
     if (!commentValue.trim()) {
-      Alert.alert("Komentarz nie może być pusty");
+      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
       return;
     }
 
@@ -96,7 +96,7 @@ const EventCommentsScreen = () => {
       setReplyTo(null);
       await refreshComments();
     } catch (err: any) {
-      Alert.alert("Błąd", err.message);
+      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
     }
   };
 

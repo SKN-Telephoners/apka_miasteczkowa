@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import {
-  Alert,
   Dimensions,
   KeyboardAvoidingView,
   Platform,
@@ -8,6 +7,7 @@ import {
   StyleSheet,
   Text,
   View,
+  ToastAndroid,
 } from "react-native";
 import Button from "../../components/Button";
 import InputField from "../../components/InputField";
@@ -39,7 +39,7 @@ const ResetPasswordScreen = ({ navigation }: { navigation: any }) => {
     }
     setEmailError("");
 
-    Alert.alert("Sukces", "Link do resetowania hasła został wysłany!");
+    ToastAndroid.show("Operacja zakończona pomyślnie.", ToastAndroid.SHORT);
   };
 
   return (

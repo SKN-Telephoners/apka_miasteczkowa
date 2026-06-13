@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Alert, StyleSheet, SafeAreaView, Image, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, SafeAreaView, Image, ScrollView, TouchableOpacity, ActivityIndicator, ToastAndroid } from "react-native";
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { createEvent, inviteToEvent, uploadEventPicture } from "../../services/events";
 import DatePicker from "../../components/DateTimePicker";
@@ -100,14 +100,14 @@ const AddEvent = () => {
 
   const uploadSelectedPicture = async (asset: ImagePicker.ImagePickerAsset) => {
     if (!asset.uri) {
-      Alert.alert("Błąd", "Nie udało się odczytać zdjęcia.");
+      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
       return;
     }
 
     const fileInfo = await FileSystem.getInfoAsync(asset.uri);
     const maxBytes = 15 * 1024 * 1024;
     if (fileInfo.exists && typeof fileInfo.size === "number" && fileInfo.size > maxBytes) {
-      Alert.alert("Plik za duży", "Wybierz zdjęcie mniejsze niż 15 MB.");
+      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
       return;
     }
 
@@ -118,7 +118,7 @@ const AddEvent = () => {
       setEventPicture({ ...uploadedPicture, url: uploadedPicture.url ?? asset.uri });
     } catch (error: any) {
       setEventPicturePreviewUri(null);
-      Alert.alert("Błąd zdjęcia", error?.message || "Nie udało się przesłać zdjęcia.");
+      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
     } finally {
       setIsPictureUploading(false);
     }
@@ -127,7 +127,8 @@ const AddEvent = () => {
   const takePhoto = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("Brak uprawnień", "Aplikacja potrzebuje dostępu do aparatu.");
+      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
+      
       return;
     }
 
@@ -145,7 +146,7 @@ const AddEvent = () => {
   const pickFromDevice = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("Brak uprawnień", "Aplikacja potrzebuje dostępu do galerii.");
+      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
       return;
     }
 
@@ -161,21 +162,7 @@ const AddEvent = () => {
   };
 
   const showPictureOptions = () => {
-    Alert.alert("Zdjęcie wydarzenia", "Wybierz źródło zdjęcia", [
-      { text: "Zrób zdjęcie", onPress: takePhoto },
-      { text: "Wybierz z urządzenia", onPress: pickFromDevice },
-      eventPicture
-        ? {
-          text: "Usuń zdjęcie",
-          style: "destructive",
-          onPress: () => {
-            setEventPicture(null);
-            setEventPicturePreviewUri(null);
-          },
-        }
-        : undefined,
-      { text: "Anuluj", style: "cancel" },
-    ].filter(Boolean) as any);
+    void pickFromDevice();
   };
 
 
@@ -254,7 +241,7 @@ const AddEvent = () => {
     setLocationError(locationValidation || "");
 
     if (dateTimeValidation) {
-      Alert.alert("Błąd", dateTimeValidation);
+      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
     }
 
     return (
@@ -267,12 +254,12 @@ const AddEvent = () => {
 
   const handleCreateEvent = async () => {
     if (isPictureUploading) {
-      Alert.alert("Poczekaj", "Trwa przesyłanie zdjęcia. Spróbuj ponownie za chwilę.");
+      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
       return;
     }
 
     if (eventPicture && !eventPicture.cloud_id) {
-      Alert.alert("Błąd zdjęcia", "Zdjęcie nie zostało poprawnie przesłane. Wybierz je ponownie.");
+      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
       return;
     }
 
@@ -304,7 +291,7 @@ const AddEvent = () => {
 
         const failedInvites = inviteResults.filter((result) => result.status === "rejected").length;
         if (failedInvites > 0) {
-          Alert.alert("Uwaga", `Wydarzenie utworzone, ale ${failedInvites} zaproszeń nie udało się wysłać.`);
+          ToastAndroid.show("Wydarzenie utworzone, ale część zaproszeń nie została wysłana.", ToastAndroid.SHORT);
         }
       }
 
@@ -321,25 +308,11 @@ const AddEvent = () => {
       setTitleError("");
       setLocationError("");
 
-      Alert.alert("Dodano wydarzenie", "", [
-        {
-          text: "OK",
-          onPress: () => navigation.navigate("EventScreen"),
-        },
-      ]);
+      ToastAndroid.show("Operacja zakończona pomyślnie.", ToastAndroid.SHORT);
+      navigation.navigate("EventScreen");
       return;
     } catch (error: any) {
-      if (error.response) {
-        Alert.alert(
-          "Dodawanie wyddarzenia się nie powiodło",
-          error.response.data.message
-        );
-      } else {
-        Alert.alert(
-          "Błąd dodawania wydarzenia",
-          "Wystąpił nieoczekiwany błąd. Spróbuj ponownie."
-        );
-      }
+      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
     }
 
   };
