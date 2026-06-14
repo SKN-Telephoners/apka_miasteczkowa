@@ -9,7 +9,7 @@ from backend.helpers import validate_uuid, sanitize_input, get_event_cache_key, 
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 from cloudinary.utils import cloudinary_url
 from sqlalchemy import or_
 import json
@@ -42,7 +42,7 @@ def get_event(event_id):
             return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Event ID")
 
         event = Event.query.options(
-            joinedload(Event.pictures),
+            selectinload(Event.pictures),
             joinedload(Event.creator)
         ).filter_by(event_id=e_uuid).first()
 
@@ -127,7 +127,7 @@ def feed():
 
         query = Event.query.options(
             joinedload(Event.creator),
-            joinedload(Event.pictures)
+            selectinload(Event.pictures)
         ).filter(
             or_(
                 Event.is_private == False,
