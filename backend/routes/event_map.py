@@ -11,6 +11,7 @@ from flask_jwt_extended import jwt_required, get_current_user
 from backend.helpers import sanitize_input
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import or_, and_, exists
+from sqlalchemy.orm import joinedload
 from .event_helpers import parse_location_coordinates, get_friend_ids
 from zoneinfo import ZoneInfo
 
@@ -77,6 +78,9 @@ def map_events():
         show_friends_only = request.args.get("friends_only", default="false").lower() == "true"
         show_friends_attending = request.args.get("friends_attending", default="false").lower() == "true"
 
+        query = Event.query.options(joinedload(Event.creator)).filter(
+            Event.date_and_time >= now_utc
+        )
 
         visibility_subquery = db.session.query(Event_visibility.event_id).filter(
             Event_visibility.event_id == Event.event_id,
@@ -88,8 +92,7 @@ def map_events():
             Event_participants.user_id == user_id
         )
 
-        query = Event.query.filter(
-            Event.date_and_time >= now_utc,
+        query = query.filter(
             or_(
                 Event.is_private == False,
                 Event.creator_id == user_id,
@@ -117,8 +120,6 @@ def map_events():
             query = query.filter(or_(*friend_conditions))
             current_app.logger.info(f"INFO: /map, user {user_id} filtered by friends_only={show_friends_only}, friends_attending={show_friends_attending}")
 
-        events = query.distinct().all() 
-
         if visibility == "public":
             query = query.filter(Event.is_private == False)
         elif visibility == "private":
@@ -131,8 +132,6 @@ def map_events():
             ).exists()
 
             query = query.filter(participation_exists if participation == "joined" else ~participation_exists)
-
-        events = query.distinct().order_by(Event.date_and_time.asc()).all()
 
         if created_window != "all":
             if created_window == "today":
@@ -159,35 +158,26 @@ def map_events():
         else:
             query = query.order_by(Event.date_and_time.asc())
 
-        creator_ids = {e.creator_id for e in events}
-        creator_users = User.query.filter(User.user_id.in_(creator_ids)).all() if creator_ids else []
-        creator_lookup = {str(u.user_id): u for u in creator_users}
+        events = query.distinct().order_by(Event.date_and_time.asc()).all()
 
         final_map_data = []
 
-        for event in events:
-            eid_str = str(event.event_id)
-            cached_val = redis_client.get(get_event_cache_key(eid_str))
-
-            if cached_val:
-                full_event_data = json.loads(cached_val)
-            else:
-                full_event_data = serialize_event_payload(event, None, creator_lookup, set())
-                cache_event_data(eid_str, full_event_data)
-                
+        for event in events:   
             coords = parse_location_coordinates(event.location)
             if coords is None:
                 continue
 
+            local_dt = event.date_and_time.astimezone(local_tz)
+
             map_item = {
-                "event_id": eid_str,
-                "name": full_event_data.get("name"),
-                "date": full_event_data.get("date"),
-                "time": full_event_data.get("time"),
-                "location": full_event_data.get("location"),
+                "event_id": str(event.event_id),
+                "name": event.event_name,
+                "date": local_dt.strftime("%d.%m.%Y"),
+                "time": local_dt.strftime("%H:%M"),
+                "location": event.location,
                 "location_coordinates": coords,
-                "creator_username": full_event_data.get("creator_username"),
-                "is_private": full_event_data.get("is_private")
+                "creator_username": event.creator.display_name if event.creator else "[deleted]",
+                "is_private": event.is_private
             }
             final_map_data.append(map_item)
 

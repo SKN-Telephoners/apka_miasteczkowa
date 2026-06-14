@@ -9,6 +9,7 @@ from backend.helpers import validate_uuid, sanitize_input, get_event_cache_key, 
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import joinedload
 from cloudinary.utils import cloudinary_url
 from sqlalchemy import or_
 import json
@@ -40,7 +41,10 @@ def get_event(event_id):
         if not e_uuid:
             return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Event ID")
 
-        event = db.session.get(Event, e_uuid)
+        event = Event.query.options(
+            joinedload(Event.pictures),
+            joinedload(Event.creator)
+        ).filter_by(event_id=e_uuid).first()
 
         if event is None:
             current_app.logger.warning(f"WARNING: /get_event, user {user.user_id} tried to access event {event_id} that does not exist")
@@ -52,9 +56,7 @@ def get_event(event_id):
                 current_app.logger.warning(f"WARNING: /get_event, user {user.user_id} tried to access private event {event_id} without permission")
                 return make_api_response(ResponseTypes.FORBIDDEN, message="This event is private")
 
-        creator = db.session.get(User, event.creator_id)
-        creator_lookup = {str(event.creator_id): creator} if creator else {}
-
+        creator_lookup = {str(event.creator_id): event.creator}
         event_data = serialize_event_payload(event, None, creator_lookup, set())
 
         is_joined = (event.creator_id == user.user_id)
@@ -123,7 +125,10 @@ def feed():
             Event_participants.user_id == user_id
         )
 
-        query = Event.query.filter(
+        query = Event.query.options(
+            joinedload(Event.creator),
+            joinedload(Event.pictures)
+        ).filter(
             or_(
                 Event.is_private == False,
                 Event.creator_id == user_id,
@@ -214,11 +219,6 @@ def feed():
 
         final_event_list = []
 
-        creator_ids = {e.creator_id for e in pagination.items if e.creator_id}
-        user_query = db.select(User).filter(User.user_id.in_(creator_ids))
-        creator_users = db.session.execute(user_query, bind_arguments={'bind_key': 'readonly'}).scalars().all() if creator_ids else []
-        creator_lookup = {str(u.user_id): u for u in creator_users}
-
         for event in pagination.items:
             eid_str = str(event.event_id)
             cached_val = redis_client.get(get_event_cache_key(eid_str))
@@ -226,6 +226,7 @@ def feed():
             if cached_val:
                 event_data = json.loads(cached_val)
             else:
+                creator_lookup = {str(event.creator_id): event.creator}
                 event_data = serialize_event_payload(event, None, creator_lookup, set())
                 cache_event_data(eid_str, event_data)
             
