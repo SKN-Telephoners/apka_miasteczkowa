@@ -12,7 +12,7 @@ from backend.helpers import sanitize_input
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import or_, and_, exists
 from sqlalchemy.orm import joinedload
-from .event_helpers import parse_location_coordinates, get_friend_ids
+from .event_helpers import parse_location_coordinates, get_friend_ids, calculate_distance
 from zoneinfo import ZoneInfo
 
 map_bp = Blueprint("map", __name__, url_prefix="/api/events")
@@ -46,10 +46,10 @@ def get_coordinates():
     return make_api_response(ResponseTypes.SUCCESS, data={"coordinates": str(coordinates)})
 
 '''
-/api/events/map?visibility=all&participation=all&created_window=all&friends_only=false&friends_attending=false
+/api/events/map?visibility=all&participation=all&created_window=all&friends_only=false&friends_attending=false&lat=50.0614&lng=19.9365&radius=2000
 Input: Header { "Authorization": "Bearer <Access_Token>" } 
        Query Params: visibility (all/public/private), participation (all/joined/not_joined), 
-       friends_only (bool), friends_attending (bool).
+       friends_only (bool), friends_attending (bool), lattitude, longitude & radius (float) in meters 
 Action: Retrieves all upcoming events visible to the user that contain valid coordinate data for map
 Data sent to the frontend: {"data": [{
     "event_id": <str>, 
@@ -77,6 +77,9 @@ def map_events():
         sort_mode = request.args.get("sort_mode", default="default", type=str).lower()
         show_friends_only = request.args.get("friends_only", default="false").lower() == "true"
         show_friends_attending = request.args.get("friends_attending", default="false").lower() == "true"
+        user_lat = request.args.get("lat", type=float)
+        user_lng = request.args.get("lng", type=float)
+        radius = request.args.get("radius", type=float)
 
         query = Event.query.options(joinedload(Event.creator)).filter(
             Event.date_and_time >= now_utc
@@ -166,6 +169,13 @@ def map_events():
             coords = parse_location_coordinates(event.location)
             if coords is None:
                 continue
+
+            event_lng, event_lat = coords[0], coords[1]
+
+            if user_lat is not None and user_lng is not None and radius is not None:
+                dist = calculate_distance(event_lat, event_lng, user_lat, user_lng)
+                if dist > radius:
+                    continue
 
             local_dt = event.date_and_time.astimezone(local_tz)
 

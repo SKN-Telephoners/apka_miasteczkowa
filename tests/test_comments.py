@@ -254,3 +254,31 @@ def test_get_comments_deleted(client, logged_in_user, event, app):
 
         assert c["deleted"] is True
         assert c["content"] == "[deleted]"
+
+
+def test_comment_structure_with_usernames(client, logged_in_user, event, app):
+    with app.app_context():
+        user, token = logged_in_user
+
+        parent = Comment(user_id=user.user_id, event_id=event.event_id, content="Parent")
+        db.session.add(parent)
+        db.session.flush()
+        
+        child = Comment(user_id=user.user_id, event_id=event.event_id, 
+                        content="Child", parent_comment_id=parent.comment_id)
+        db.session.add(child)
+        db.session.commit()
+
+        response = client.get(f"/api/comments/event/{event.event_id}", 
+                              headers={"Authorization": f"Bearer {token}"})
+        
+        assert response.status_code == 200
+        comments = response.get_json()["comments"]
+
+        assert comments[0]["content"] == "Parent"
+        assert comments[0]["username"] == user.username
+        
+        assert len(comments[0]["replies"]) == 1
+        reply = comments[0]["replies"][0]
+        assert reply["content"] == "Child"
+        assert reply["username"] == user.username

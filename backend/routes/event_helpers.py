@@ -6,6 +6,7 @@ import json
 from zoneinfo import ZoneInfo
 from backend.models import Friendship
 from sqlalchemy import or_
+import math
 
 local_tz = ZoneInfo("Europe/Warsaw")
 
@@ -154,3 +155,22 @@ def get_friend_ids(user_id):
     except Exception as e:
         current_app.logger.error(f"ERROR: get_friend_ids function, exception occured: {e}")
         return []
+    
+"""
+Input: latitude and longitude of 2 point on the map
+Action: Calculates (using Haversine equation) discance between 2 points on the map
+Data sent to the frontend: N/A (Internal use)
+Output: calculated distance
+"""
+def calculate_distance(lat1, lon1, lat2, lon2):
+    R_earth = 6371000
+
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    
+    a = math.sin(dphi / 2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2)**2
+    
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    
+    return R_earth * c
