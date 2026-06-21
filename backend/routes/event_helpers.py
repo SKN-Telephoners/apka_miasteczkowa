@@ -1,8 +1,12 @@
+from flask import current_app
 from backend.constants import Constants
 from backend.helpers import sanitize_input
 from cloudinary.utils import cloudinary_url
 import json
 from zoneinfo import ZoneInfo
+from backend.models import Friendship
+from sqlalchemy import or_
+import math
 
 local_tz = ZoneInfo("Europe/Warsaw")
 
@@ -135,3 +139,38 @@ def serialize_event_payload(event, user_id, creator_lookup, participating_event_
         "is_private": event.is_private,
         "location_coordinates": parse_location_coordinates(event.location),
     }
+
+"""
+Input: id of a user
+Action: Searches the datatbase for friends of the specified user by user_id
+Data sent to the frontend: N/A (Internal use)
+Output: list of user_ids
+"""
+def get_friend_ids(user_id):
+    try:
+        friendships = Friendship.query.filter(
+            or_(Friendship.user_id == user_id, Friendship.friend_id == user_id)
+        ).all()
+        return [f.friend_id if f.user_id == user_id else f.user_id for f in friendships]
+    except Exception as e:
+        current_app.logger.error(f"ERROR: get_friend_ids function, exception occured: {e}")
+        return []
+    
+"""
+Input: latitude and longitude of 2 point on the map
+Action: Calculates (using Haversine equation) discance between 2 points on the map
+Data sent to the frontend: N/A (Internal use)
+Output: calculated distance
+"""
+def calculate_distance(lat1, lon1, lat2, lon2):
+    R_earth = 6371000
+
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    
+    a = math.sin(dphi / 2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2)**2
+    
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    
+    return R_earth * c

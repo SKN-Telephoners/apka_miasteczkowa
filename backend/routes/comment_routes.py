@@ -6,6 +6,7 @@ from backend.responses import ResponseTypes, make_api_response
 from flask_jwt_extended import jwt_required, get_current_user
 from backend.helpers import validate_uuid, sanitize_input, has_event_access,  get_event_cache_key, invalidate_event_cache, get_cached_event, cache_event_data
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import joinedload
 from backend.notifications.signals import event_new_comment, comment_reply_created
 
 comments_bp = Blueprint("comments", __name__, url_prefix="/api/comments")
@@ -256,27 +257,25 @@ def get_comments_list(event_id):
         return make_api_response(ResponseTypes.FORBIDDEN, message="You do not have access to this event")
 
     try:
-        comments = Comment.query.filter_by(event_id=event_id).order_by(Comment.created_at.asc()).all()
+        comments = Comment.query.options(
+            joinedload(Comment.user)
+        ).filter_by(event_id=event_id).order_by(Comment.created_at.asc()).all()
 
         if not comments:
             current_app.logger.info(f"INFO: /get_comment, no comments available in event {event_id}")
             return make_api_response(ResponseTypes.SUCCESS, message="Empty comments list", data={"comments": []})
 
-        user_ids = {c.user_id for c in comments if c.user_id is not None and not c.deleted}
-        users = User.query.filter(User.user_id.in_(user_ids)).all() if user_ids else []
-        usernames_by_id = {str(user.user_id): user.display_name for user in users}
-
         top_level_comments = [c for c in comments if c.parent_comment_id is None]
-        comments_tree = [c.to_dict() for c in top_level_comments]
 
-        def attach_usernames(comment_node):
-            comment_user_id = comment_node.get("user_id")
-            comment_node["username"] = usernames_by_id.get(comment_user_id) if comment_user_id else None
-            for reply in comment_node.get("replies", []):
-                attach_usernames(reply)
+        def build_tree(comment_obj):
+            data = comment_obj.to_dict()
+            data["username"] = comment_obj.user.display_name if comment_obj.user else "[deleted]"
 
-        for comment_node in comments_tree:
-            attach_usernames(comment_node)
+            if comment_obj.replies:
+                data["replies"] = [build_tree(r) for r in comment_obj.replies]
+            return data 
+        
+        comments_tree = [build_tree(c) for c in top_level_comments]
 
         current_app.logger.info(f"INFO: /get_comment, comments in event {event_id} sent to frontend")
         return make_api_response(ResponseTypes.SUCCESS, message="Comments list", data={"comments": comments_tree})

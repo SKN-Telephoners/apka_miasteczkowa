@@ -9,10 +9,11 @@ from backend.helpers import validate_uuid, sanitize_input, get_event_cache_key, 
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import joinedload, selectinload
 from cloudinary.utils import cloudinary_url
 from sqlalchemy import or_
 import json
-from .event_helpers import serialize_event_payload
+from .event_helpers import serialize_event_payload, get_friend_ids
 
 getters_bp = Blueprint("event_getters", __name__, url_prefix="/api/events")
 local_tz = ZoneInfo("Europe/Warsaw")
@@ -40,7 +41,10 @@ def get_event(event_id):
         if not e_uuid:
             return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid Event ID")
 
-        event = db.session.get(Event, e_uuid)
+        event = Event.query.options(
+            selectinload(Event.pictures),
+            joinedload(Event.creator)
+        ).filter_by(event_id=e_uuid).first()
 
         if event is None:
             current_app.logger.warning(f"WARNING: /get_event, user {user.user_id} tried to access event {event_id} that does not exist")
@@ -52,9 +56,7 @@ def get_event(event_id):
                 current_app.logger.warning(f"WARNING: /get_event, user {user.user_id} tried to access private event {event_id} without permission")
                 return make_api_response(ResponseTypes.FORBIDDEN, message="This event is private")
 
-        creator = db.session.get(User, event.creator_id)
-        creator_lookup = {str(event.creator_id): creator} if creator else {}
-
+        creator_lookup = {str(event.creator_id): event.creator}
         event_data = serialize_event_payload(event, None, creator_lookup, set())
 
         is_joined = (event.creator_id == user.user_id)
@@ -70,8 +72,7 @@ def get_event(event_id):
         return make_api_response(ResponseTypes.SUCCESS, data=event_data)
 
     except Exception as e:
-        current_app.logger.error(f"ERROR: /get_event, exception occured: {e}")
-        return make_api_response(ResponseTypes.SERVER_ERROR)
+        current_app.logger.error(f"ERROR: /get_event, exception occuregERVER_ERROR")
 
 '''
 /api/events/feed?page=1&limit=20&visibility=all&participation=all&created_window=all&sort_mode=default
@@ -104,6 +105,8 @@ def feed():
         participation = request.args.get("participation", default="all", type=str).lower()
         created_window = request.args.get("created_window", default="all", type=str).lower()
         sort_mode = request.args.get("sort_mode", default="default", type=str).lower()
+        show_friends_only = request.args.get("friends_only", default="false").lower() == "true"
+        show_friends_attending = request.args.get("friends_attending", default="false").lower() == "true"
 
         if page < 1:
             page = 1
@@ -119,17 +122,40 @@ def feed():
 
         participation_subquery = db.session.query(Event_participants.event_id).filter(
             Event_participants.event_id == Event.event_id,
-            Event_participants.user_id == user_id,
+            Event_participants.user_id == user_id
         )
 
-        query = Event.query.filter(
+        query = Event.query.options(
+            joinedload(Event.creator),
+            selectinload(Event.pictures)
+        ).filter(
             or_(
                 Event.is_private == False,
                 Event.creator_id == user_id,
                 visibility_subquery.exists(),
-                participation_subquery.exists(),
+                participation_subquery.exists()
             )
         )
+
+        if show_friends_only or show_friends_attending:
+            friend_ids = get_friend_ids(user_id)
+            
+            if not friend_ids:
+                query = query.filter(Event.event_id == None)
+                current_app.logger.info(f"INFO: /feed, user {user_id} filtered by friends but has no friends :(")
+            else:
+                friend_conditions = []
+                if show_friends_only:
+                    friend_conditions.append(Event.creator_id.in_(friend_ids))
+                
+                if show_friends_attending:
+                    friends_in_event = db.session.query(Event_participants.event_id).filter(
+                        Event_participants.user_id.in_(friend_ids)
+                    )
+                    friend_conditions.append(Event.event_id.in_(friends_in_event))
+                
+                query = query.filter(or_(*friend_conditions))
+                current_app.logger.info(f"INFO: /feed, user {user_id} filtered by friends_only={show_friends_only}, friends_attending={show_friends_attending}")
 
         if q:
             search_filter = f"%{q}%"
@@ -193,11 +219,6 @@ def feed():
 
         final_event_list = []
 
-        creator_ids = {e.creator_id for e in pagination.items if e.creator_id}
-        user_query = db.select(User).filter(User.user_id.in_(creator_ids))
-        creator_users = db.session.execute(user_query, bind_arguments={'bind_key': 'readonly'}).scalars().all() if creator_ids else []
-        creator_lookup = {str(u.user_id): u for u in creator_users}
-
         for event in pagination.items:
             eid_str = str(event.event_id)
             cached_val = redis_client.get(get_event_cache_key(eid_str))
@@ -205,6 +226,7 @@ def feed():
             if cached_val:
                 event_data = json.loads(cached_val)
             else:
+                creator_lookup = {str(event.creator_id): event.creator}
                 event_data = serialize_event_payload(event, None, creator_lookup, set())
                 cache_event_data(eid_str, event_data)
             

@@ -7,6 +7,7 @@ from flask_jwt_extended import jwt_required, get_current_user
 from backend.helpers import validate_uuid
 import uuid
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.orm import joinedload
 from sqlalchemy import or_, and_
 from backend.notifications.signals import friend_request_created, friend_request_accepted
 
@@ -218,37 +219,37 @@ Output: 200 OK (or 500 on error)
 def get_pending_requests():
     user = get_current_user()
     
-    incoming_pending_requests = FriendRequest.query.filter_by(
+    incoming_pending_requests = FriendRequest.query.options(
+        joinedload(FriendRequest.sender)
+    ).filter_by(
         receiver_id=user.user_id,
         status=FriendRequestStatus.pending
     ).all()
     
-    outgoing_pending_requests = FriendRequest.query.filter_by(
+    outgoing_pending_requests = FriendRequest.query.options(
+        joinedload(FriendRequest.receiver)
+    ).filter_by(
         sender_id=user.user_id,
         status=FriendRequestStatus.pending
     ).all()
 
     incoming_requests_data = []
     for req in incoming_pending_requests:
-        sender = User.query.filter_by(user_id=req.sender_id).first()
-        if sender:
-            incoming_requests_data.append({
-                "request_id": str(req.request_id),
-                "sender_id": str(sender.user_id),
-                "sender_username": sender.display_name,
-                "requested_at": req.requested_at.isoformat()
-            })
+        incoming_requests_data.append({
+            "request_id": str(req.request_id),
+            "sender_id": str(req.sender.user_id),
+            "sender_username": req.sender.display_name,
+            "requested_at": req.requested_at.isoformat()
+        })
 
     outgoing_requests_data = []
     for req in outgoing_pending_requests:
-        receiver = User.query.filter_by(user_id=req.receiver_id).first()
-        if receiver:
-            outgoing_requests_data.append({
-                "request_id": str(req.request_id),
-                "receiver_id": str(receiver.user_id), 
-                "receiver_username": receiver.display_name, 
-                "requested_at": req.requested_at.isoformat()
-            })
+        outgoing_requests_data.append({
+            "request_id": str(req.request_id),
+            "receiver_id": str(req.receiver.user_id), 
+            "receiver_username": req.receiver.display_name, 
+            "requested_at": req.requested_at.isoformat()
+        })
 
     current_app.logger.info(f"INFO: /get_pending_friend_requests, success in retrieving pending friend requests")
     return make_api_response(

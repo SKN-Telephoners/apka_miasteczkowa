@@ -1,14 +1,18 @@
 from flask import Blueprint, request, current_app
-from backend.models.event import Event, Event_visibility, Location
+from backend.models.event import Event, Event_visibility, Location, Event_participants
 from backend.models import User
-from backend.extensions import db, limiter
+from backend.extensions import db, limiter, redis_client
 from backend.constants import Constants
 from backend.responses import ResponseTypes, make_api_response
+from backend.helpers import validate_uuid, sanitize_input, get_event_cache_key, cache_event_data
+from .event_helpers import serialize_event_payload
+import json
 from flask_jwt_extended import jwt_required, get_current_user
 from backend.helpers import sanitize_input
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from sqlalchemy import or_, and_, exists
-from .event_helpers import parse_location_coordinates
+from sqlalchemy.orm import joinedload
+from .event_helpers import parse_location_coordinates, get_friend_ids, calculate_distance
 from zoneinfo import ZoneInfo
 
 map_bp = Blueprint("map", __name__, url_prefix="/api/events")
@@ -42,7 +46,10 @@ def get_coordinates():
     return make_api_response(ResponseTypes.SUCCESS, data={"coordinates": str(coordinates)})
 
 '''
-Input: Header { "Authorization": "Bearer <Access_Token>" }
+/api/events/map?visibility=all&participation=all&created_window=all&friends_only=false&friends_attending=false&lat=50.0614&lng=19.9365&radius=2000
+Input: Header { "Authorization": "Bearer <Access_Token>" } 
+       Query Params: visibility (all/public/private), participation (all/joined/not_joined), 
+       friends_only (bool), friends_attending (bool), lattitude, longitude & radius (float) in meters 
 Action: Retrieves all upcoming events visible to the user that contain valid coordinate data for map
 Data sent to the frontend: {"data": [{
     "event_id": <str>, 
@@ -64,43 +71,127 @@ def map_events():
         user_id = user.user_id
         now_utc = datetime.now(timezone.utc)
 
-        visibility_exists = exists().where(
-            and_(
-                Event_visibility.event_id == Event.event_id,
-                Event_visibility.shared_with == user_id,
-            )
+        visibility = request.args.get("visibility", default="all", type=str).lower()
+        participation = request.args.get("participation", default="all", type=str).lower()
+        created_window = request.args.get("created_window", default="all", type=str).lower()
+        sort_mode = request.args.get("sort_mode", default="default", type=str).lower()
+        show_friends_only = request.args.get("friends_only", default="false").lower() == "true"
+        show_friends_attending = request.args.get("friends_attending", default="false").lower() == "true"
+        user_lat = request.args.get("lat", type=float)
+        user_lng = request.args.get("lng", type=float)
+        radius = request.args.get("radius", type=float)
+
+        query = Event.query.options(joinedload(Event.creator)).filter(
+            Event.date_and_time >= now_utc
         )
 
-        events = db.session.query(Event, User.username).join(
-            User, Event.creator_id == User.user_id
-        ).filter(
-            Event.date_and_time >= now_utc,
+        visibility_subquery = db.session.query(Event_visibility.event_id).filter(
+            Event_visibility.event_id == Event.event_id,
+            Event_visibility.shared_with == user_id,
+        )
+
+        participation_subquery = db.session.query(Event_participants.event_id).filter(
+            Event_participants.event_id == Event.event_id,
+            Event_participants.user_id == user_id
+        )
+
+        query = query.filter(
             or_(
                 Event.is_private == False,
                 Event.creator_id == user_id,
-                visibility_exists,
+                visibility_subquery.exists(),
+                participation_subquery.exists()
             )
-        ).order_by(Event.date_and_time.asc()).all()
+        )
+
+        if show_friends_only or show_friends_attending:
+            friend_ids = get_friend_ids(user_id)
+
+            if not friend_ids:
+                current_app.logger.info(f"INFO: /map, user {user_id} filtered by friends but has no friends :(")
+                return make_api_response(ResponseTypes.SUCCESS, data={"data": []})
+            
+            friend_conditions = []
+            if show_friends_only:
+                friend_conditions.append(Event.creator_id.in_(friend_ids))
+            if show_friends_attending:
+                friends_in_event = db.session.query(Event_participants.event_id).filter(
+                    Event_participants.user_id.in_(friend_ids)
+                )
+                friend_conditions.append(Event.event_id.in_(friends_in_event))
+            
+            query = query.filter(or_(*friend_conditions))
+            current_app.logger.info(f"INFO: /map, user {user_id} filtered by friends_only={show_friends_only}, friends_attending={show_friends_attending}")
+
+        if visibility == "public":
+            query = query.filter(Event.is_private == False)
+        elif visibility == "private":
+            query = query.filter(Event.is_private == True)
+
+        if participation != "all":
+            participation_exists = db.session.query(Event_participants.event_id).filter(
+                Event_participants.event_id == Event.event_id,
+                Event_participants.user_id == user_id
+            ).exists()
+
+            query = query.filter(participation_exists if participation == "joined" else ~participation_exists)
+
+        if created_window != "all":
+            if created_window == "today":
+                start_date = now_utc - timedelta(days=1)
+            elif created_window == "week":
+                start_date = now_utc - timedelta(weeks=1)
+            elif created_window == "month":
+                start_date = now_utc - timedelta(days=30)
+            elif created_window == "year":
+                start_date = now_utc - timedelta(days=365)
+            if created_window == "older":
+                query = query.filter(Event.created_at < (now_utc - timedelta(days=365)))
+            else:
+                query = query.filter(Event.created_at >= start_date)
+
+        if sort_mode == "members_asc": 
+            query = query.order_by(Event.participant_count.asc())
+        elif sort_mode == "members_desc": 
+            query = query.order_by(Event.participant_count.desc())
+        elif sort_mode == "comments_asc": 
+            query = query.order_by(Event.comment_count.asc())
+        elif sort_mode == "comments_desc": 
+            query = query.order_by(Event.comment_count.desc())
+        else:
+            query = query.order_by(Event.date_and_time.asc())
+
+        events = query.distinct().order_by(Event.date_and_time.asc()).all()
 
         final_map_data = []
 
-        for event, creator_name in events:
+        for event in events:   
             coords = parse_location_coordinates(event.location)
             if coords is None:
                 continue
 
+            event_lng, event_lat = coords[0], coords[1]
+
+            if user_lat is not None and user_lng is not None and radius is not None:
+                dist = calculate_distance(event_lat, event_lng, user_lat, user_lng)
+                if dist > radius:
+                    continue
+
             local_dt = event.date_and_time.astimezone(local_tz)
 
-            final_map_data.append({
+            map_item = {
                 "event_id": str(event.event_id),
                 "name": event.event_name,
                 "date": local_dt.strftime("%d.%m.%Y"),
                 "time": local_dt.strftime("%H:%M"),
                 "location": event.location,
                 "location_coordinates": coords,
-                "creator_username": creator_name,
+                "creator_username": event.creator.display_name if event.creator else "[deleted]",
                 "is_private": event.is_private
-            })
+            }
+            final_map_data.append(map_item)
+
+        current_app.logger.info(f"INFO: /map, user {user_id} fetched {len(final_map_data)} events for map")
 
         return make_api_response(
             ResponseTypes.SUCCESS,
