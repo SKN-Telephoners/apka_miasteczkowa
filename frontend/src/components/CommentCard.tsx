@@ -7,7 +7,7 @@ import {
 } from "react-native";
 import { useEffect, useState } from "react";
 import { Comment } from "../types/comment";
-import { editComment, deleteComment, replyToComment } from "../services/comments";
+import { editComment, deleteComment } from "../services/comments";
 import UserCard from "./UserCard";
 import { THEME } from "../utils/constants";
 import AppIcon from "./AppIcon";
@@ -15,6 +15,8 @@ import { useTheme } from "../contexts/ThemeContext";
 import { useMemo } from "react";
 import { useNavigation } from "@react-navigation/native";
 import { useFriends } from "../contexts/FriendsContext";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { commentsQueryKey } from "../screens/event/EventCommentsScreen";
 
 const ACTION_ICON_SIZE = 16;
 const REPLY_INDENT = 12;
@@ -87,6 +89,7 @@ const CommentCard = ({
     const styles = useMemo(() => getStyles(colors), [colors]);
     const navigation = useNavigation<any>();
     const { friends, sendFriendRequest } = useFriends();
+    const queryClient = useQueryClient();
 
     const [showReplies, setShowReplies] = useState(false);
     const [isCommentAuthorFriend, setIsCommentAuthorFriend] = useState(false);
@@ -149,30 +152,42 @@ const CommentCard = ({
     }, [item.content, item.edited]);
 
 
-    const handleEditComment = async () => {
+    const editCommentMutation = useMutation({
+        mutationFn: (content: string) => editComment(item.comment_id, content),
+        onSuccess: (_, content) => {
+            ToastAndroid.show("Operacja zakończona pomyślnie.", ToastAndroid.SHORT);
+            setIsEditing(false);
+            setDisplayContent(content);
+            setIsEdited(true);
+            queryClient.invalidateQueries({ queryKey: commentsQueryKey(item.event_id) });
+        },
+        onError: () => {
+            ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
+        },
+    });
+
+    const deleteCommentMutation = useMutation({
+        mutationFn: () => deleteComment(item.comment_id),
+        onSuccess: () => {
+            ToastAndroid.show("Operacja zakończona pomyślnie.", ToastAndroid.SHORT);
+            queryClient.invalidateQueries({ queryKey: commentsQueryKey(item.event_id) });
+            onDeleted();
+        },
+        onError: () => {
+            ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
+        },
+    });
+
+    const handleEditComment = () => {
         if (!commentValue || commentValue.trim() === '') {
             ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
             return;
         }
-        try {
-            await editComment(item.comment_id, commentValue);
-            ToastAndroid.show("Operacja zakończona pomyślnie.", ToastAndroid.SHORT);
-            setIsEditing(false);
-            setDisplayContent(commentValue);
-            setIsEdited(true);
-        } catch (error: any) {
-            ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
-        }
+        editCommentMutation.mutate(commentValue);
     };
 
-    const handleDeleteComment = async () => {
-        try {
-            await deleteComment(item.comment_id);
-            ToastAndroid.show("Operacja zakończona pomyślnie.", ToastAndroid.SHORT);
-            onDeleted();
-        } catch (error: any) {
-            ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
-        }
+    const handleDeleteComment = () => {
+        deleteCommentMutation.mutate();
     };
 
     return (

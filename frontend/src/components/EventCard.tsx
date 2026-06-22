@@ -10,6 +10,7 @@ import UserCard from "./UserCard";
 import AppIcon from "./AppIcon";
 import { useTheme } from "../contexts/ThemeContext";
 import { useFriends } from "../contexts/FriendsContext";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 const parseEventDateTime = (event: Event): Date | null => {
     if (!event?.date || !event?.time) return null;
@@ -88,13 +89,13 @@ const EventCard = ({
     const navigation = useNavigation<any>();
     const { colors } = useTheme();
     const { friends, sendFriendRequest } = useFriends();
+    const queryClient = useQueryClient();
     const styles = useMemo(() => getStyles(colors), [colors]);
     const eventDateTime = parseEventDateTime(item);
     const isPastEvent = eventDateTime ? eventDateTime.getTime() < Date.now() : false;
     const [userID, setUserID] = useState('');
     const [isOwner, setIsOwner] = useState(false);
     const [isParticipating, setIsParticipating] = useState(Boolean(item?.is_participating));
-    const [isParticipationLoading, setIsParticipationLoading] = useState(false);
     const [participantCount, setParticipantCount] = useState<number>(Number(item?.participant_count ?? 0));
     const [isCreatorFriend, setIsCreatorFriend] = useState(false);
 
@@ -165,41 +166,34 @@ const EventCard = ({
         }
     };
 
-    const handleJoinEvent = async () => {
-        if (isParticipationLoading) return;
-
-        if (isParticipating && isPrivateEvent) {
-            try {
-                setIsParticipationLoading(true);
-                await leaveEvent(item.id);
-                setIsParticipating(false);
-                setParticipantCount((prev) => Math.max(prev - 1, 0));
+    const joinEventMutation = useMutation({
+        mutationFn: () => (isParticipating ? leaveEvent(item.id) : joinEvent(item.id)),
+        onMutate: () => {
+            const wasParticipating = isParticipating;
+            setIsParticipating(!wasParticipating);
+            setParticipantCount((prev) => Math.max(prev + (wasParticipating ? -1 : 1), 0));
+            return { wasParticipating };
+        },
+        onSuccess: (_data, _vars, context) => {
+            if (isPrivateEvent && context?.wasParticipating) {
                 ToastAndroid.show("Operacja zakończona pomyślnie.", ToastAndroid.SHORT);
-            } catch (err: any) {
-                ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
-            } finally {
-                setIsParticipationLoading(false);
             }
-            return;
-        }
-
-        try {
-            setIsParticipationLoading(true);
-
-            if (isParticipating) {
-                await leaveEvent(item.id);
-                setIsParticipating(false);
-                setParticipantCount((prev) => Math.max(prev - 1, 0));
-            } else {
-                await joinEvent(item.id);
-                setIsParticipating(true);
-                setParticipantCount((prev) => prev + 1);
+        },
+        onError: (_err, _vars, context) => {
+            if (context) {
+                setIsParticipating(context.wasParticipating);
+                setParticipantCount((prev) => Math.max(prev + (context.wasParticipating ? 1 : -1), 0));
             }
-        } catch (err: any) {
             ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
-        } finally {
-            setIsParticipationLoading(false);
-        }
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ["events-feed"] });
+        },
+    });
+
+    const handleJoinEvent = () => {
+        if (joinEventMutation.isPending) return;
+        joinEventMutation.mutate();
     };
 
     const handleOpenOnMap = () => {
@@ -289,7 +283,7 @@ const EventCard = ({
                             <Button
                                 title={isParticipating ? "Opuść wydarzenie" : "Dołącz"}
                                 onPress={handleJoinEvent}
-                                loading={isParticipationLoading}
+                                loading={joinEventMutation.isPending}
                                 type={isParticipating ? "secondary" : "primary"}
                             />
                         </View>

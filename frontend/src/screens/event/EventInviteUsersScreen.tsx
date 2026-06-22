@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ToastAndroid, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRoute } from "@react-navigation/native";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useFriends } from "../../contexts/FriendsContext";
 import { useUser } from "../../contexts/UserContext";
@@ -15,17 +16,20 @@ type EventInviteRouteParams = {
   event?: Event;
 };
 
+const sentInvitesQueryKey = (eventId: string) => ["sent-invites", eventId] as const;
+
 const EventInviteUsersScreen = () => {
   const route = useRoute<any>();
   const { event } = (route.params || {}) as EventInviteRouteParams;
+  const eventId = String(event?.id || "");
 
   const { colors } = useTheme();
   const { user } = useUser();
   const { friends, fetchFriends } = useFriends();
+  const queryClient = useQueryClient();
   const styles = useMemo(() => getStyles(colors), [colors]);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [invitedFriendIds, setInvitedFriendIds] = useState<Record<string, boolean>>({});
 
   const isPrivateEvent =
     event?.is_private === true ||
@@ -37,37 +41,13 @@ const EventInviteUsersScreen = () => {
     fetchFriends();
   }, [fetchFriends]);
 
-  useEffect(() => {
-    let mounted = true;
+  const { data: invitedIds = [] } = useQuery({
+    queryKey: sentInvitesQueryKey(eventId),
+    queryFn: () => getSentInvitesForEvent(eventId),
+    enabled: Boolean(eventId),
+  });
 
-    const loadSentInvites = async () => {
-      const eventId = String(event?.id || "");
-      if (!eventId) {
-        return;
-      }
-
-      try {
-        const invitedIds = await getSentInvitesForEvent(eventId);
-        if (!mounted) {
-          return;
-        }
-
-        const nextState: Record<string, boolean> = {};
-        invitedIds.forEach((id) => {
-          nextState[String(id)] = true;
-        });
-        setInvitedFriendIds(nextState);
-      } catch (error) {
-        console.error("Failed to load sent invites:", error);
-      }
-    };
-
-    loadSentInvites();
-
-    return () => {
-      mounted = false;
-    };
-  }, [event?.id]);
+  const invitedFriendIds = useMemo(() => new Set(invitedIds.map(String)), [invitedIds]);
 
   const filteredFriends = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -80,27 +60,38 @@ const EventInviteUsersScreen = () => {
     );
   }, [friends, searchQuery]);
 
-  const handleInviteToggle = async (friendId: string) => {
-    const eventId = String(event?.id || "");
-    const isInvited = Boolean(invitedFriendIds[friendId]);
+  const toggleInviteMutation = useMutation({
+    mutationFn: ({ friendId, isInvited }: { friendId: string; isInvited: boolean }) =>
+      isInvited ? deleteInviteToEvent(eventId, friendId) : inviteToEvent(eventId, friendId),
+    onMutate: async ({ friendId, isInvited }) => {
+      await queryClient.cancelQueries({ queryKey: sentInvitesQueryKey(eventId) });
+      const previous = queryClient.getQueryData<string[]>(sentInvitesQueryKey(eventId)) ?? [];
+      const next = isInvited
+        ? previous.filter((id) => String(id) !== friendId)
+        : [...previous, friendId];
+      queryClient.setQueryData(sentInvitesQueryKey(eventId), next);
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(sentInvitesQueryKey(eventId), context.previous);
+      }
+      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: sentInvitesQueryKey(eventId) });
+    },
+  });
+
+  const handleInviteToggle = (friendId: string) => {
+    const isInvited = invitedFriendIds.has(friendId);
 
     if (!canInvite || !eventId || !friendId) {
       ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
       return;
     }
 
-    setInvitedFriendIds((prev) => ({ ...prev, [friendId]: !isInvited }));
-
-    try {
-      if (isInvited) {
-        await deleteInviteToEvent(eventId, friendId);
-      } else {
-        await inviteToEvent(eventId, friendId);
-      }
-    } catch (error: any) {
-      setInvitedFriendIds((prev) => ({ ...prev, [friendId]: isInvited }));
-      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
-    }
+    toggleInviteMutation.mutate({ friendId, isInvited });
   };
 
   if (!event?.id) {
@@ -136,7 +127,7 @@ const EventInviteUsersScreen = () => {
           ) : filteredFriends.length > 0 ? (
             filteredFriends.map((friend) => {
               const friendId = String(friend?.id || "");
-              const isInvited = Boolean(invitedFriendIds[friendId]);
+              const isInvited = invitedFriendIds.has(friendId);
 
               return (
                 <View key={friend.id} style={[styles.listItem, styles.friendRow, { borderColor: colors.border }]}> 

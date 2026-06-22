@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, ToastAndro
 import { useAuth } from "../../contexts/AuthContext";
 import { useUser } from "../../contexts/UserContext";
 import { useFriends } from "../../contexts/FriendsContext";
-import { useEvents } from "../../contexts/EventContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useNavigation, useRoute, useFocusEffect } from "@react-navigation/native";
 import { THEME } from "../../utils/constants";
@@ -22,7 +21,6 @@ const UserScreen = () => {
   const { userId } = useAuth();
   const { user: currentUser } = useUser();
   const { friends, outgoingRequests, sendFriendRequest, removeFriend, fetchFriends } = useFriends();
-  const { events } = useEvents();
   const { colors } = useTheme();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
