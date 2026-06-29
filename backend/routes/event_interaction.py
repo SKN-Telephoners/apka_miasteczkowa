@@ -108,7 +108,8 @@ def invite_to_event(event_id):
         
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /invite, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /invite, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
     
     return make_api_response(ResponseTypes.CREATED, message="Invite created successfully")
@@ -147,7 +148,8 @@ def delete_invite(event_id):
         current_app.logger.info(f"INFO: /delete_invite, user {u_uuid} successfully deleted invite for user {i_uuid}")
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /delete_invite, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /delete_invite, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
     
     return make_api_response(ResponseTypes.SUCCESS, message="Invite deleted successfully")
@@ -236,7 +238,8 @@ def change_invite_status(invite_id):
         current_app.logger.info(f"INFO: /change_invite_status, user {u_uuid} successfully set status to {new_status} for invite {invite_id}")
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /change_invite_status, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /change_invite_status, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
     
     return make_api_response(ResponseTypes.SUCCESS, message="Invite status changed successfully")
@@ -294,7 +297,8 @@ def join_event(event_id):
 
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /join, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /join, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
     return make_api_response(ResponseTypes.SUCCESS, message="Joined event successfully", data={
@@ -339,7 +343,8 @@ def leave_event(event_id):
         current_app.logger.info(f"INFO: /leave_event, user {user.user_id} successfully left event {event_id}")
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /leave_event, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /leave_event, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
     return make_api_response(ResponseTypes.SUCCESS, message="Left event successfully", data={

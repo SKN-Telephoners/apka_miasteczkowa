@@ -7,6 +7,7 @@ from flask_jwt_extended import create_access_token
 from datetime import datetime, timezone, timedelta
 from re import search
 from backend.extensions import redis_client
+from unittest.mock import patch, MagicMock
 
 @pytest.fixture(scope="session")
 def app():
@@ -126,3 +127,23 @@ def event(client, logged_in_user):
     client.post("/api/events/create", headers={"Authorization": f"Bearer {token}"}, json=payload)
     event = Event.query.filter_by(event_name="event1").first()
     return event
+
+@pytest.fixture(autouse=True)
+def mock_aws_and_r2():
+    with patch("backend.tasks.get_r2_client") as mock_r2_client_func, \
+         patch("backend.tasks.boto3.client") as mock_boto_client_func, \
+         patch("backend.routes.user_routes.delete_from_r2_task.delay"), \
+         patch("backend.routes.event_routes.delete_from_r2_task.delay"):
+
+        mock_r2 = MagicMock()
+        mock_r2_client_func.return_value = mock_r2
+        mock_r2.get_object.return_value = {
+            'Body': MagicMock(read=lambda: b"fake_image_bytes")
+        }
+
+        mock_rekognition = MagicMock()
+        mock_boto_client_func.return_value = mock_rekognition
+        
+        mock_rekognition.detect_moderation_labels.return_value = {'ModerationLabels': []}
+
+        yield mock_r2, mock_rekognition

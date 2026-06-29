@@ -1,13 +1,14 @@
-from flask import Flask, jsonify, make_response
+from flask import Flask, jsonify, make_response, current_app
 from backend.extensions import db, bcrypt, jwt, mail, limiter, CORS, celery_init_app, load_static_data
 from backend.config import Config, TestConfig
 from werkzeug.exceptions import HTTPException
+from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_talisman import Talisman
 import logging
 from backend.routes import register_blueprints
-import cloudinary
 import os
 from logging.handlers import RotatingFileHandler
+
 
 '''
 Input: test_mode: <bool>, dev_mode: <bool>
@@ -16,7 +17,9 @@ Output: <Flask_Application_Object> (or 500 on error).
 '''
 def create_app(test_mode=False, dev_mode=False):
     app = Flask(__name__)
-    CORS(app, resources={r"/api/*": {"origins": "https://production-api.com"}})
+
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+    CORS(app, resources={r"/api/*": {"origins": "https://brzeczka.kolo.kt.agh.edu.pl"}})
 
     if test_mode:
         app.config.from_object(TestConfig)
@@ -46,8 +49,7 @@ def create_app(test_mode=False, dev_mode=False):
     mail.init_app(app)
     limiter.init_app(app)
     celery_init_app(app)
-    
-    cloudinary.config(secure=True)
+
 
     register_blueprints(app)
 

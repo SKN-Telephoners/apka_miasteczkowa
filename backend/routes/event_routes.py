@@ -4,12 +4,13 @@ from backend.models import User, Friendship
 from backend.extensions import db, limiter
 from backend.constants import Constants
 from backend.responses import ResponseTypes, make_api_response
+from backend.tasks import delete_from_r2_task, verify_event_image_task
 from flask_jwt_extended import jwt_required, get_current_user
 from backend.helpers import validate_uuid, sanitize_input, invalidate_event_cache, cache_event_data
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from sqlalchemy.exc import SQLAlchemyError
-import cloudinary.uploader
+import json
 from sqlalchemy import or_
 from backend.notifications.signals import (
     joined_event_updated,
@@ -31,8 +32,8 @@ Input: JSON {
     "location": <str> OR [<float:lng>, <float:lat>], 
     "is_private": <bool>, 
     "shared_list": [<uuid>], 
-    "pictures": [{"cloud_id": <str>}] }
-Action: Creates an event, handles time conversion to UTC, saves location format, and sets privacy visibility.
+    "pictures": [{"r2_id": <str>}] }
+Action: Creates an event, handles time conversion to UTC, saves location format, and sets privacy visibility. Processes multiple images synchronously (Pillow + R2 upload), saves the event and picture references to the DB, and triggers asynchronous safety verification for each image.
 Data sent to the frontend: {"event_id": <uuid>, "message": "Event created successfully"}
 Output: 201 Created (or 400/404/500 on error)
 '''
@@ -114,17 +115,22 @@ def create_event():
         db.session.add(new_event)
         db.session.flush()
 
+        pics_to_verify = []
         for pic in pictures_data:
             pub_id = pic.get("cloud_id")
-            
             if pub_id:
                 new_picture = Pictures(
                     event_id=new_event.event_id,
-                    cloud_id=pub_id
+                    cloud_id=pub_id,
+                    image_status="pending"
                 )
                 db.session.add(new_picture)
+                pics_to_verify.append(pub_id)
 
         db.session.commit()
+
+        for pid in pics_to_verify:
+            verify_event_image_task.delay(pid)
 
         creator_participant = Event_participants(event_id=new_event.event_id, user_id=user.user_id)
         db.session.add(creator_participant)
@@ -191,7 +197,8 @@ def create_event():
 
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /create_event, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /create_event, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
     return make_api_response(ResponseTypes.CREATED, message="Event created successfully", data={"event_id": str(new_event.event_id)})
 
@@ -230,10 +237,7 @@ def delete_event(event_id):
         event_name_cache = event.event_name
 
         for picture in event.pictures:
-            try:
-                cloudinary.uploader.destroy(picture.cloud_id)
-            except Exception as cloud_err:
-                current_app.logger.error(f"ERROR: /delete_event, failed to delete picture {picture.cloud_id} from Cloudinary: {cloud_err}")
+            delete_from_r2_task.delay(picture.cloud_id, image_type="event")
 
         db.session.delete(event)
         db.session.commit()
@@ -250,7 +254,8 @@ def delete_event(event_id):
         current_app.logger.info(f"INFO: /delete_event, user {user.user_id} deleted event {event_id}")
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /delete_event, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /delete_event, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
     return make_api_response(ResponseTypes.SUCCESS, message="Event deleted successfully")
@@ -265,7 +270,7 @@ Input: URL Parameter <uuid:event_id>, Header { "Authorization": "Bearer <Access_
         "shared_list": [<uuid>], 
         "date": "DD.MM.YYYY", 
         "time": "HH:MM", 
-        "pictures": [{"cloud_id": <str>}] } (all fields optional).
+        "pictures": [{"r2_id": <str>}] } (all fields optional).
 Action: Updates event details. It handles synchronization for private event visibility (adding/removing users), updates dates/times in UTC, and manages Cloudinary image cleanup for removed pictures.
 Data sent to the frontend: {"message": "Event edited successfully"}
 Output: 200 OK (or 404/403/400/500 on error)
@@ -396,21 +401,22 @@ def edit_event(event_id):
 
         for pic_id in ids_to_delete:
             pic_to_remove = existing_pictures_map[pic_id]
-            try:
-                cloudinary.uploader.destroy(pic_id)
-            except Exception as cloud_err:
-                current_app.logger.error(f"ERROR: /edit_event, Cloudinary delete error: {cloud_err}")
-
+            delete_from_r2_task.delay(pic_id, image_type="event")
             event.pictures.remove(pic_to_remove)
 
+        pics_to_verify = []
         for new_id in ids_to_add:
-            new_picture = Pictures(cloud_id=new_id, event_id=event.event_id)
+            new_picture = Pictures(cloud_id=new_id, event_id=event.event_id, image_status="pending")
             event.pictures.append(new_picture)
+            pics_to_verify.append(new_id)
 
     try:
         event.is_edited = True
         db.session.commit()
         invalidate_event_cache(str(event.event_id))
+        
+        for pid in pics_to_verify:
+            verify_event_image_task.delay(pid)
 
         #get all participants except the creator who is editing the event
         participants = Event_participants.query.filter(
@@ -431,7 +437,8 @@ def edit_event(event_id):
         current_app.logger.info(f"INFO: /edit_event, user {user.user_id} successfully edited event {event_id}")
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /edit_event, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /edit_event, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
     return make_api_response(ResponseTypes.SUCCESS, message="Event edited successfully")
