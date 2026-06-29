@@ -56,7 +56,7 @@ Output: None
 '''
 @shared_task(ignore_result=True)
 def verify_event_image_task(image_key):
-    r2 = get_r2_client()
+    r2 = get_r2_client(permission="read")
     try:
         r2_obj = r2.get_object(Bucket=current_app.config["BUCKET_EVENTS"], Key=image_key)
         image_bytes = r2_obj['Body'].read()
@@ -98,7 +98,7 @@ Output: None
 '''
 @shared_task(ignore_result=True)
 def verify_profile_image_task(user_id, image_key):
-    r2 = get_r2_client()
+    r2 = get_r2_client(permission="read")
     try:
         r2_obj = r2.get_object(Bucket=current_app.config["BUCKET_PROFILES"], Key=image_key)
         image_bytes = r2_obj['Body'].read()
@@ -140,7 +140,7 @@ Output: None
 @shared_task(ignore_result=True)
 def delete_from_r2_task(image_key, image_type="event"):
 
-    r2 = get_r2_client()
+    r2 = get_r2_client(permission="upload")
     
     bucket_name = (
         current_app.config["BUCKET_PROFILES"] 

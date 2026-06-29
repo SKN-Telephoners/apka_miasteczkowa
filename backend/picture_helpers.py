@@ -7,15 +7,22 @@ import magic
 from backend.constants import Constants
 
 '''
-Input: nothing lol 
-Action: Initializes boto3 client with defined keys, that is responsible for picture uploading 
+Input: permission: <str> ("read" or "upload")
+Action: Initializes boto3 client with defined keys based on required permissions
 Output: boto3.client object
 '''
-def get_r2_client():
+def get_r2_client(permission="read"):
+    if permission == "upload":
+        access_key = current_app.config["CF_R2_ACCESS_KEY_ID_UPLOAD"]
+        secret_key = current_app.config["CF_R2_SECRET_ACCESS_KEY_UPLOAD"]
+    else:
+        access_key = current_app.config["CF_R2_ACCESS_KEY_ID_READ"]
+        secret_key = current_app.config["CF_R2_SECRET_ACCESS_KEY_READ"]
+
     return boto3.client(
         "s3",
-        aws_access_key_id=current_app.config["CF_R2_ACCESS_KEY_ID"],
-        aws_secret_access_key=current_app.config["CF_R2_SECRET_ACCESS_KEY"],
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
         endpoint_url=current_app.config["CF_R2_ENDPOINT_URL"],
         region_name="auto"
     )
@@ -77,7 +84,7 @@ Action: Connects to R2 Cloudflare using boto3, generates a unique filename with 
 Output: <str:s3_key> (the unique path to the file) or None on failure.
 '''
 def upload_to_r2(file_data, image_type="event"):
-    s3 = get_r2_client()
+    s3 = get_r2_client(permission="upload")
 
     bucket_name = (
         current_app.config["BUCKET_PROFILES"] if image_type == "profile" else current_app.config["BUCKET_EVENTS"]

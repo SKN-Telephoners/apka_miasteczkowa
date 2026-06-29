@@ -24,6 +24,7 @@ class Config:
     MAIL_USE_SSL = os.getenv("MAIL_USE_SSL", "False") == "True"
     MAIL_USERNAME = os.getenv("MAIL_USERNAME")
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
+    MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER")
 
     MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH"))
     MAX_FORM_MEMORY_SIZE = 16777216  
@@ -36,9 +37,11 @@ class Config:
         task_ignore_result=True,
     )
     # Cloudflare R2 (S3 Compatible)
-    CF_R2_ACCESS_KEY_ID = os.getenv("CF_R2_ACCESS_KEY_ID_UPLOAD")
-    CF_R2_SECRET_ACCESS_KEY = os.getenv("CF_R2_SECRET_ACCESS_KEY_UPLOAD")
-    CF_R2_ENDPOINT_URL = os.getenv("CF_R2_ENDPOINT_URL")  # https://<accountid>.r2.cloudflarestorage.com
+    CF_R2_ACCESS_KEY_ID_UPLOAD = os.getenv("CF_R2_ACCESS_KEY_ID_UPLOAD")
+    CF_R2_SECRET_ACCESS_KEY_UPLOAD = os.getenv("CF_R2_SECRET_ACCESS_KEY_UPLOAD")
+    CF_R2_ACCESS_KEY_ID_READ = os.getenv("CF_R2_ACCESS_KEY_ID_READ")
+    CF_R2_SECRET_ACCESS_KEY_READ = os.getenv("CF_R2_SECRET_ACCESS_KEY_READ")
+    CF_R2_ENDPOINT_URL = os.getenv("CF_R2_ENDPOINT_URL") 
 
     BUCKET_EVENTS = "app-event-media"
     BUCKET_PROFILES = "app-profile-pictures"
