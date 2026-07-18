@@ -1,4 +1,4 @@
-from flask import Blueprint, request, url_for, current_app
+from flask import Blueprint, request, url_for, current_app, render_template
 from backend.models import User
 from backend.extensions import db, mail, limiter
 from backend.constants import Constants
@@ -26,27 +26,32 @@ def verify_request():
         return make_api_response(ResponseTypes.BAD_REQUEST)
     
     email=user_data["email"]
-    user = User.query.filter_by(email=email).first()
+    #user = User.query.filter_by(email=email).first()
 
-    if user and not user.is_confirmed:
-        try:
-            revoke_all_user_tokens(user.user_id, token_type="email_verification")
-            auth_token = create_access_token(
-                identity=user.user_id, 
-                expires_delta=timedelta(hours=24),
-                additional_claims={"type": "email_verification"}
-                )
-            add_token_to_db(auth_token)
-            auth_url = url_for("email.verify", token=auth_token, _external=True)
-
-            msg = Message(
-                'Auth account',
-                recipients=[email],
-                body=f"Hello! Click the link to authorize your account: {auth_url}"
+    #if user and not user.is_confirmed:
+    try:
+        #revoke_all_user_tokens(user.user_id, token_type="email_verification")
+        auth_token = create_access_token(
+            identity='lksjdfhalkshdfas', #user.user_id, 
+            expires_delta=timedelta(hours=24),
+            additional_claims={"type": "email_verification"}
             )
-            mail.send(msg)
-        except Exception as e:
-            current_app.logger.error(f"ERROR: /verify_request, DB exception occured: {e}")
+        #add_token_to_db(auth_token)
+        auth_url = "sdahfashdfliwhdf" #url_for("email.verify", token=auth_token, _external=True)
+
+        text_body = render_template('emails/verify_account.txt', auth_url=auth_url)
+        html_body = render_template('emails/verify_account.html', auth_url=auth_url)
+
+        msg = Message(
+            subject='Verify your account',
+            recipients=[email],
+            body=text_body,
+            html=html_body
+        )
+        mail.send(msg)
+
+    except Exception as e:
+        current_app.logger.error(f"ERROR: /verify_request, DB exception occured: {e}")
 
     current_app.logger.info(f"INFO: /verify_request, sending email for user: {email}")
     return make_api_response(ResponseTypes.SUCCESS, message="If the account exists and is not verified, an email has been sent")
