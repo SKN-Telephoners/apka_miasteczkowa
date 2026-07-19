@@ -4,7 +4,6 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./contexts/AuthContext";
 import { UserProvider } from "./contexts/UserContext";
-import { EventProvider } from "./contexts/EventContext";
 import { FriendsProvider } from "./contexts/FriendsContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import AppNavigator from "./navigation/AppNavigator";
@@ -54,12 +53,10 @@ const App = () => {
         <ThemeProvider>
           <AuthProvider>
             <UserProvider>
-              <EventProvider>
-                <FriendsProvider>
-                  <StatusBar barStyle="dark-content" />
-                  <AppNavigator />
-                </FriendsProvider>
-              </EventProvider>
+              <FriendsProvider>
+                <StatusBar barStyle="dark-content" />
+                <AppNavigator />
+              </FriendsProvider>
             </UserProvider>
           </AuthProvider>
         </ThemeProvider>

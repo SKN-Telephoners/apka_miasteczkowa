@@ -1,14 +1,5 @@
-//API; Pamiętać o API!;
-
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import React, { createContext, useCallback, useContext, useMemo } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as friendsService from "../services/friends";
 import { Request, User } from "../types/friends";
 
@@ -26,179 +17,103 @@ interface FriendsContextType {
   searchUsers: (query: string) => Promise<User[]>; // Akcja zwracająca wynik
 }
 
-const FRIENDS_CACHE_KEY = "friendsCache";
-const CONTEXT_DEFAULT_VALUE: FriendsContextType = {
-  friends: [],
-  incomingRequests: [],
-  outgoingRequests: [],
-  loading: false, // Don't load anything on startup
-  error: null,
-  // Zastępcze funkcje dla typowania:
-  fetchFriends: async () => {},
-  sendFriendRequest: async () => {},
-  acceptRequest: async () => {},
-  declineRequest: async () => {},
-  removeFriend: async () => {},
-  searchUsers: async () => [],
-};
-
 const FriendsContext = createContext<FriendsContextType | undefined>(undefined);
+
+const FRIENDS_KEY = ["friends"] as const;
+const PENDING_REQUESTS_KEY = ["friend-requests", "pending"] as const;
 
 export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  // --- STAN LOKALNY ---
-  const [friends, setFriends] = useState<User[]>([]);
-  const [incomingRequests, setIncomingRequests] = useState<Request[]>([]);
-  const [outgoingRequests, setOutgoingRequests] = useState<Request[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  // --- ZAPISYWANIE DANYCH DO CACHE ---
-  const saveCache = useCallback(
-    async (data: {
-      friends: User[];
-      incomingRequests: Request[];
-      outgoingRequests: Request[];
-    }) => {
-      try {
-        await AsyncStorage.setItem(FRIENDS_CACHE_KEY, JSON.stringify(data));
-      } catch (e) {
-        console.error("Failed to save friends cache", e);
-      }
+  const friendsQuery = useQuery({
+    queryKey: FRIENDS_KEY,
+    queryFn: friendsService.getFriendsList,
+  });
+
+  const pendingQuery = useQuery({
+    queryKey: PENDING_REQUESTS_KEY,
+    queryFn: friendsService.getPendingRequests,
+  });
+
+  const friends = friendsQuery.data?.friends ?? [];
+  const incomingRequests =
+    pendingQuery.data?.incomingRequests ?? friendsQuery.data?.incomingRequests ?? [];
+  const outgoingRequests =
+    pendingQuery.data?.outgoingRequests ?? friendsQuery.data?.outgoingRequests ?? [];
+
+  const loading = friendsQuery.isFetching || pendingQuery.isFetching;
+  const error = (friendsQuery.error as any)?.message || (pendingQuery.error as any)?.message || null;
+
+  const fetchFriends = useCallback(async () => {
+    await Promise.all([friendsQuery.refetch(), pendingQuery.refetch()]);
+  }, [friendsQuery.refetch, pendingQuery.refetch]);
+
+  const invalidateFriendsData = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: FRIENDS_KEY });
+    queryClient.invalidateQueries({ queryKey: PENDING_REQUESTS_KEY });
+  }, [queryClient]);
+
+  const sendFriendRequestMutation = useMutation({
+    mutationFn: friendsService.addFriend,
+    onMutate: async (userId: string) => {
+      const tempRequest: Request = {
+        id: `temp_${Date.now()}`,
+        senderId: "",
+        receiverId: userId,
+        createdAt: new Date().toISOString(),
+        user: { id: userId, username: "Wysyłanie...", email: "" } as User,
+      };
+      queryClient.setQueryData(PENDING_REQUESTS_KEY, (prev: any) => ({
+        incomingRequests: prev?.incomingRequests ?? [],
+        outgoingRequests: [...(prev?.outgoingRequests ?? []), tempRequest],
+      }));
     },
-    [],
-  );
+    onSettled: invalidateFriendsData,
+  });
 
-  const fetchFriends = useCallback(
-    async (isInitialLoad: boolean = false) => {
-      setError(null);
-      if (!isInitialLoad) {
-        setLoading(true);
-      }
+  const acceptRequestMutation = useMutation({
+    mutationFn: friendsService.acceptFriend,
+    onSettled: invalidateFriendsData,
+  });
 
-      try {
-        const [friendsRes, pendingRes] = await Promise.all([
-          friendsService.getFriendsList().catch(() => null),
-          friendsService.getPendingRequests().catch(() => null)
-        ]);
+  const declineRequestMutation = useMutation({
+    mutationFn: friendsService.rejectFriend,
+    onSettled: invalidateFriendsData,
+  });
 
-        const data = friendsRes || {
-          friends: [],
-          incomingRequests: [],
-          outgoingRequests: [],
-        };
-
-        const finalIncoming = pendingRes?.incomingRequests || data.incomingRequests || [];
-        const finalOutgoing = pendingRes?.outgoingRequests || data.outgoingRequests || [];
-
-        setFriends(data.friends || []);
-        setIncomingRequests(finalIncoming);
-        setOutgoingRequests(finalOutgoing);
-
-        // Synchronizacja cache po pomyślnym pobraniu
-        await saveCache({
-          friends: data.friends || [],
-          incomingRequests: finalIncoming,
-          outgoingRequests: finalOutgoing
-        });
-      } catch (err) {
-        setError("Nie udało się załadować danych o znajomych.");
-        console.error("Error fetching friends data:", err);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [saveCache]
-  );
+  const removeFriendMutation = useMutation({
+    mutationFn: friendsService.removeFriend,
+    onSettled: invalidateFriendsData,
+  });
 
   const sendFriendRequest = useCallback(
     async (userId: string) => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        // Optimistic UI update
-        const tempRequest: Request = {
-            id: `temp_${Date.now()}`,
-            senderId: "", 
-            receiverId: userId,
-            createdAt: new Date().toISOString(),
-            user: { id: userId, username: "Wysyłanie...", email: "" } as User
-        };
-        setOutgoingRequests(prev => [...prev, tempRequest]);
-
-        await friendsService.addFriend(userId);
-        await fetchFriends(); // Odświeżenie listy po akcji
-      } catch (err: any) {
-        const errorMsg = err?.response?.data?.message || err?.message || "Nie udało się wysłać zaproszenia.";
-        setError(errorMsg);
-        // Always try to refresh to sync state
-        try {
-          await fetchFriends();
-        } catch (refreshErr) {
-          console.error("Failed to refresh friends list", refreshErr);
-        }
-        throw new Error(errorMsg);
-      } finally {
-        setLoading(false);
-      }
+      await sendFriendRequestMutation.mutateAsync(userId);
     },
-    [friends, incomingRequests, outgoingRequests, saveCache],
+    [sendFriendRequestMutation],
   );
 
   const acceptRequest = useCallback(
     async (requestId: string) => {
-      try {
-        setLoading(true);
-        await friendsService.acceptFriend(requestId);
-        await fetchFriends(); // Odświeżenie listy po akcji
-      } catch (err) {
-        setError("Nie udało się zaakceptować zaproszenia.");
-      } finally {
-        setLoading(false);
-      }
+      await acceptRequestMutation.mutateAsync(requestId);
     },
-    [friends, incomingRequests, outgoingRequests, saveCache],
+    [acceptRequestMutation],
   );
 
   const declineRequest = useCallback(
     async (requestId: string) => {
-      try {
-        setLoading(true);
-        await friendsService.rejectFriend(requestId);
-        await fetchFriends(); // Odświeżenie listy po akcji
-      } catch (err) {
-        setError("Nie udało się odrzucić zaproszenia.");
-      } finally {
-        setLoading(false);
-      }
+      await declineRequestMutation.mutateAsync(requestId);
     },
-    [friends, incomingRequests, outgoingRequests, saveCache],
+    [declineRequestMutation],
   );
 
   const removeFriend = useCallback(
     async (friendId: string) => {
-      try {
-        setLoading(true);
-        setError(null);
-        await friendsService.removeFriend(friendId);
-        await fetchFriends(); // Odświeżenie listy po akcji
-      } catch (err: any) {
-        const errorMsg = err?.response?.data?.message || err?.message || "Nie udało się usunąć znajomego.";
-        setError(errorMsg);
-        // Always try to refresh to sync state
-        try {
-          await fetchFriends();
-        } catch (refreshErr) {
-          console.error("Failed to refresh friends list", refreshErr);
-        }
-        throw new Error(errorMsg);
-      } finally {
-        setLoading(false);
-      }
+      await removeFriendMutation.mutateAsync(friendId);
     },
-    [friends, incomingRequests, outgoingRequests, saveCache],
+    [removeFriendMutation],
   );
 
   const searchUsers = useCallback(async (query: string): Promise<User[]> => {
@@ -210,26 +125,6 @@ export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
-  // Load cached data on startup (NO API CALLS)
-  useEffect(() => {
-    const loadCache = async () => {
-      try {
-        const cachedData = await AsyncStorage.getItem(FRIENDS_CACHE_KEY);
-        if (cachedData) {
-          const parsedData = JSON.parse(cachedData);
-          setFriends(parsedData.friends || []);
-          setIncomingRequests(parsedData.incomingRequests || []);
-          setOutgoingRequests(parsedData.outgoingRequests || []);
-        }
-      } catch (e) {
-        console.error("Failed to load friends cache", e);
-      }
-    };
-
-    loadCache();
-  }, []);
-
-  // --- KONTEKSTOWA WARTOŚĆ (Użycie useMemo dla optymalizacji) ---
   const contextValue = useMemo(
     () => ({
       friends,

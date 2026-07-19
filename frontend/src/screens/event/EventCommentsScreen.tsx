@@ -11,6 +11,7 @@ import {
   ToastAndroid,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { tokenStorage } from "../../utils/storage";
 import { getComments, createComment, replyToComment } from "../../services/comments";
 import { Comment } from "../../types/comment";
@@ -22,19 +23,19 @@ import { useTheme } from "../../contexts/ThemeContext";
 
 const SEND_ICON_SIZE = 28;
 
+export const commentsQueryKey = (eventId: string) => ["comments", eventId] as const;
+
 const EventCommentsScreen = () => {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
   const { event } = route.params;
   const { colors } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
+  const queryClient = useQueryClient();
 
   const [userID, setUserID] = useState("");
-  const [commentCount, setCommentCount] = useState<number>(Number(event?.comment_count ?? 0));
-  const [comments, setComments] = useState<Comment[]>([]);
   const [commentValue, setCommentValue] = useState("");
   const [replyTo, setReplyTo] = useState<Comment | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -52,52 +53,48 @@ const EventCommentsScreen = () => {
     });
   }, [navigation, event?.name]);
 
-  const refreshComments = async () => {
-    const data = await getComments(event.id);
-    setComments(data.comments);
-    if (typeof data.comment_count === "number") {
-      setCommentCount(data.comment_count);
-    }
-  };
+  const {
+    data,
+    isFetching: refreshing,
+    refetch,
+  } = useQuery({
+    queryKey: commentsQueryKey(event.id),
+    queryFn: () => getComments(event.id),
+  });
 
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      await refreshComments();
-    } finally {
-      setRefreshing(false);
-    }
-  }, [event.id]);
+  const comments: Comment[] = data?.comments ?? [];
+  const commentCount = data?.comment_count ?? Number(event?.comment_count ?? 0);
 
-  useEffect(() => {
-    refreshComments();
-  }, [event.id]);
+  const handleRefresh = useCallback(() => {
+    refetch();
+  }, [refetch]);
 
-  const handleCommentDeleted = async () => {
-    setCommentCount((prev) => Math.max(prev - 1, 0));
-    await refreshComments();
-  };
+  const addCommentMutation = useMutation({
+    mutationFn: () =>
+      replyTo
+        ? replyToComment(replyTo.comment_id, event.id, commentValue)
+        : createComment(event.id, commentValue),
+    onSuccess: () => {
+      setCommentValue("");
+      setReplyTo(null);
+      queryClient.invalidateQueries({ queryKey: commentsQueryKey(event.id) });
+    },
+    onError: () => {
+      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
+    },
+  });
 
-  const handleAddComment = async () => {
+  const handleCommentDeleted = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: commentsQueryKey(event.id) });
+  }, [queryClient, event.id]);
+
+  const handleAddComment = () => {
     if (!commentValue.trim()) {
       ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
       return;
     }
 
-    try {
-      if (replyTo) {
-        await replyToComment(replyTo.comment_id, event.id, commentValue);
-      } else {
-        await createComment(event.id, commentValue);
-      }
-
-      setCommentCount((prev) => prev + 1);
-      setCommentValue("");
-      setReplyTo(null);
-      await refreshComments();
-    } catch (err: any) {
-      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
-    }
+    addCommentMutation.mutate();
   };
 
   useEffect(() => {
