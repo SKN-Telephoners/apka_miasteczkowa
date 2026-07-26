@@ -59,7 +59,8 @@ const BaseSpriteCropper: React.FC<BaseSpriteCropperProps> = ({
       {
         width: size,
         height: size,
-        opacity: focused ? 1 : 0.75
+        opacity: focused ? 1 : 0.75,
+        overflow: 'hidden'
       },
       style
     ]}>

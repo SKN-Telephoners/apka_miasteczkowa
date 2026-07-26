@@ -4,6 +4,7 @@ import {
   MapView,
   ShapeSource,
   SymbolLayer,
+  UserLocation,
 } from "@maplibre/maplibre-react-native";
 import {
   useFocusEffect,
@@ -12,7 +13,7 @@ import {
 } from "@react-navigation/native";
 import Constants from "expo-constants";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Location from "expo-location";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -29,6 +30,7 @@ import { useTheme } from "../../contexts/ThemeContext";
 import { getMapEvents } from "../../services/events";
 import { Event } from "../../types";
 import { MESSAGES } from "../../utils/constants";
+import { THEME } from "../../utils/constants";
 
 const DEFAULT_CAMERA = {
   centerCoordinate: [19.9061, 50.0686] as [number, number],
@@ -37,175 +39,6 @@ const DEFAULT_CAMERA = {
 };
 
 const MAP_REFRESH_COOLDOWN_MS = 60_000;
-
-function useMapStyles() {
-  const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
-
-  return useMemo(
-    () =>
-      StyleSheet.create({
-        container: { flex: 1, justifyContent: "center", alignItems: "center" },
-        mapcontainer: { width: "100%", height: "100%", position: "relative" },
-        map: { flex: 1 },
-        resetButton: {
-          position: "absolute",
-          bottom: 0,
-          right: 5,
-          maxWidth: 80,
-        },
-        eventsPanel: {
-          position: "absolute",
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: 280,
-          zIndex: 10,
-          elevation: 10,
-        },
-        eventsPanelHeader: {
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-          paddingHorizontal: 15,
-          paddingTop: insets.top,
-          // paddingVertical: 12,
-          minHeight: 50 + insets.top,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
-          backgroundColor: colors.highlight,
-        },
-        eventsPanelTitle: {
-          fontSize: 16,
-          fontWeight: "700",
-          color: colors.textSecondary,
-        },
-        eventsPanelHeaderButtons: {
-          flexDirection: "row",
-          gap: 25,
-          alignItems: "center",
-        },
-        closePanelButton: {
-          fontSize: 20,
-          fontWeight: "bold",
-          color: colors.textSecondary,
-        },
-        filterPanelButton: {
-          marginTop: 3,
-        },
-        eventsListContent: {
-          flex: 1,
-        },
-        eventListItem: {
-          paddingHorizontal: 15,
-          paddingVertical: 12,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
-        },
-        eventListItemSelected: {
-          backgroundColor: colors.transparentHighlight,
-          borderLeftWidth: 4,
-          borderLeftColor: colors.highlight,
-          paddingLeft: 11,
-        },
-        eventListItemName: {
-          fontSize: 14,
-          fontWeight: "600",
-          color: colors.text,
-          marginBottom: 4,
-        },
-        eventListItemNameSelected: {
-          color: colors.textSecondary,
-        },
-        eventListItemTime: {
-          fontSize: 12,
-          color: colors.searchWord,
-        },
-        toggleListButton: {
-          position: "absolute",
-          left: 10,
-          top: 10 + insets.top,
-          width: 40,
-          height: 40,
-        },
-        toggleListButtonText: {
-          fontSize: 20,
-          color: colors.textSecondary,
-        },
-        loadingContainer: {
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-        },
-        emptyState: {
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          paddingHorizontal: 15,
-        },
-        emptyStateText: {
-          fontSize: 14,
-          color: colors.searchWord,
-          textAlign: "center",
-        },
-        filterContainer: {
-          padding: 15,
-          flex: 1,
-        },
-        filterLabel: {
-          fontSize: 14,
-          fontWeight: "600",
-          color: colors.text,
-          marginBottom: 8,
-          marginTop: 15,
-        },
-        filterInput: {
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: 8,
-          padding: 10,
-          color: colors.text,
-          backgroundColor: colors.background,
-        },
-        timeRangeRow: {
-          flexDirection: "row",
-          gap: 10,
-          alignItems: "center",
-        },
-        timeInput: {
-          flex: 1,
-        },
-        privacyRow: {
-          flexDirection: "row",
-          gap: 10,
-        },
-        privacyButton: {
-          flex: 1,
-          paddingVertical: 8,
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: 8,
-          alignItems: "center",
-        },
-        privacyButtonActive: {
-          backgroundColor: colors.highlight,
-          borderColor: colors.highlight,
-        },
-        privacyButtonText: {
-          color: colors.text,
-          fontSize: 13,
-          fontWeight: "500",
-        },
-        privacyButtonTextActive: {
-          color: colors.textSecondary,
-        },
-        clearFiltersBtn: {
-          marginTop: 30,
-        },
-      }),
-    [colors, insets.top],
-  );
-}
 
 export default function MapScreen() {
   const navigation = useNavigation<any>();
@@ -223,8 +56,8 @@ export default function MapScreen() {
   const [filterTimeStart, setFilterTimeStart] = useState("");
   const [filterTimeEnd, setFilterTimeEnd] = useState("");
   const [filterPrivacy, setFilterPrivacy] = useState<
-    "all" | "public" | "private"
-  >("all");
+    "Wszystko" | "Publiczne" | "Prywatne"
+  >("Wszystko");
 
   const MAPTILER_KEY = Constants.expoConfig?.extra?.MAPTILER_KEY || "";
   const hasLoadedOnceRef = useRef(false);
@@ -232,7 +65,7 @@ export default function MapScreen() {
   const inFlightRef = useRef<Promise<void> | null>(null);
 
   const { colors } = useTheme();
-  const styles = useMapStyles();
+  const styles = useMemo(() => getStyles(colors), [colors]);
 
   const fetchMapEvents = useCallback(
     async ({
@@ -283,6 +116,16 @@ export default function MapScreen() {
     fetchMapEvents({ force: true });
   }, [fetchMapEvents]);
 
+  useEffect(() => {
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        console.error("Permission to access location was denied");
+        return;
+      }
+    })();
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       fetchMapEvents();
@@ -326,7 +169,7 @@ export default function MapScreen() {
         setCameraPosition((prev) => ({
           ...prev,
           centerCoordinate: coords,
-          zoomLevel: 22,
+          zoomLevel: 17,
         }));
       } catch {
         // Ignore invalid location payload.
@@ -367,10 +210,10 @@ export default function MapScreen() {
         }
       }
 
-      if (filterPrivacy !== "all") {
+      if (filterPrivacy !== "Wszystko") {
         const isEventPrivate = !!(event as any).isPrivate;
-        if (filterPrivacy === "public" && isEventPrivate) return false;
-        if (filterPrivacy === "private" && !isEventPrivate) return false;
+        if (filterPrivacy === "Publiczne" && isEventPrivate) return false;
+        if (filterPrivacy === "Prywatne" && !isEventPrivate) return false;
       }
 
       // filter assumes time is in format "HH:mm"
@@ -457,7 +300,7 @@ export default function MapScreen() {
     setFilterAuthor("");
     setFilterTimeStart("");
     setFilterTimeEnd("");
-    setFilterPrivacy("all");
+    setFilterPrivacy("Wszystko");
   };
 
   return (
@@ -469,6 +312,11 @@ export default function MapScreen() {
           logoEnabled={false}
           attributionPosition={{ bottom: 8, right: 8 }}
         >
+          <UserLocation
+            visible={true}
+            androidRenderMode="gps"
+            showsUserHeadingIndicator={true}
+          />
           <Camera
             ref={cameraRef}
             zoomLevel={cameraPosition.zoomLevel}
@@ -476,7 +324,7 @@ export default function MapScreen() {
             animationMode="flyTo"
             animationDuration={1500}
             heading={cameraPosition.heading}
-            minZoomLevel={16.5}
+            minZoomLevel={10}
             maxZoomLevel={23}
           />
           <ShapeSource
@@ -525,21 +373,21 @@ export default function MapScreen() {
               style={{
                 circleRadius: selectedEventId
                   ? [
-                    "case",
-                    ["==", ["get", "id"], selectedEventId],
-                    13, // when selected
-                    10, // default
-                  ]
+                      "case",
+                      ["==", ["get", "id"], selectedEventId],
+                      13, // when selected
+                      10, // default
+                    ]
                   : 10,
                 circleStrokeColor: colors.highlight,
                 circleStrokeWidth: 5,
                 circleColor: selectedEventId
                   ? [
-                    "case",
-                    ["==", ["get", "id"], selectedEventId],
-                    colors.highlight, // when selected
-                    colors.background, // default
-                  ]
+                      "case",
+                      ["==", ["get", "id"], selectedEventId],
+                      colors.highlight, // when selected
+                      colors.background, // default
+                    ]
                   : colors.background,
               }}
             />
@@ -570,7 +418,7 @@ export default function MapScreen() {
                       hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                     >
                       <View style={styles.filterPanelButton}>
-                        <AppIcon name="Sliders" size={20} color={colors.textSecondary} />
+                        <AppIcon name="Sliders" size={20} color={colors.text} />
                       </View>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -597,49 +445,30 @@ export default function MapScreen() {
                   onChangeText={setFilterAuthor}
                 />
 
-                <Text style={styles.filterLabel}>
-                  {MESSAGES.MAP.TIME_RANGE}
-                </Text>
-                <View style={styles.timeRangeRow}>
-                  <TextInput
-                    style={[styles.filterInput, styles.timeInput]}
-                    placeholder="Start e.g. 09:00"
-                    placeholderTextColor={colors.searchWord}
-                    value={filterTimeStart}
-                    onChangeText={setFilterTimeStart}
-                  />
-                  <Text style={{ color: colors.text }}>-</Text>
-                  <TextInput
-                    style={[styles.filterInput, styles.timeInput]}
-                    placeholder="End e.g. 17:00"
-                    placeholderTextColor={colors.searchWord}
-                    value={filterTimeEnd}
-                    onChangeText={setFilterTimeEnd}
-                  />
-                </View>
-
                 <Text style={styles.filterLabel}>{MESSAGES.MAP.PRIVACY}</Text>
                 <View style={styles.privacyRow}>
-                  {(["all", "public", "private"] as const).map((type) => (
-                    <TouchableOpacity
-                      key={type}
-                      style={[
-                        styles.privacyButton,
-                        filterPrivacy === type && styles.privacyButtonActive,
-                      ]}
-                      onPress={() => setFilterPrivacy(type)}
-                    >
-                      <Text
+                  {(["Wszystko", "Publiczne", "Prywatne"] as const).map(
+                    (type) => (
+                      <TouchableOpacity
+                        key={type}
                         style={[
-                          styles.privacyButtonText,
-                          filterPrivacy === type &&
-                          styles.privacyButtonTextActive,
+                          styles.privacyButton,
+                          filterPrivacy === type && styles.privacyButtonActive,
                         ]}
+                        onPress={() => setFilterPrivacy(type)}
                       >
-                        {type.charAt(0).toUpperCase() + type.slice(1)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                        <Text
+                          style={[
+                            styles.privacyButtonText,
+                            filterPrivacy === type &&
+                              styles.privacyButtonTextActive,
+                          ]}
+                        >
+                          {type.charAt(0).toUpperCase() + type.slice(1)}
+                        </Text>
+                      </TouchableOpacity>
+                    ),
+                  )}
                 </View>
 
                 <Button
@@ -669,7 +498,7 @@ export default function MapScreen() {
                   <View style={styles.emptyState}>
                     <Text style={styles.emptyStateText}>
                       {events.length > 0
-                        ? "No events match your filters."
+                        ? "Brak wydarzeń spełniających kryteria"
                         : MESSAGES.MAP.NO_EVENTS}
                     </Text>
                   </View>
@@ -680,7 +509,7 @@ export default function MapScreen() {
                       style={[
                         styles.eventListItem,
                         selectedEventId === event.id &&
-                        styles.eventListItemSelected,
+                          styles.eventListItemSelected,
                       ]}
                       onPress={() => handleEventSelect(event)}
                     >
@@ -688,7 +517,7 @@ export default function MapScreen() {
                         style={[
                           styles.eventListItemName,
                           selectedEventId === event.id &&
-                          styles.eventListItemNameSelected,
+                            styles.eventListItemNameSelected,
                         ]}
                       >
                         {event.name}
@@ -723,3 +552,166 @@ export default function MapScreen() {
     </View>
   );
 }
+
+const getStyles = (colors: typeof THEME.colors.light) =>
+  StyleSheet.create({
+    container: { flex: 1, justifyContent: "center", alignItems: "center" },
+    mapcontainer: { width: "100%", height: "100%", position: "relative" },
+    map: { flex: 1 },
+    resetButton: {
+      position: "absolute",
+      bottom: 0,
+      right: 5,
+      maxWidth: 80,
+    },
+    eventsPanel: {
+      backgroundColor: colors.background,
+      position: "absolute",
+      left: 0,
+      top: 0,
+      bottom: 0,
+      width: 280,
+      zIndex: 10,
+      elevation: 10,
+    },
+    eventsPanelHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: 15,
+      paddingTop: 10,
+      minHeight: 60,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      //backgroundColor: colors.highlight,
+    },
+    eventsPanelTitle: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: colors.text,
+    },
+    eventsPanelHeaderButtons: {
+      flexDirection: "row",
+      gap: 25,
+      alignItems: "center",
+    },
+    closePanelButton: {
+      fontSize: 20,
+      fontWeight: "bold",
+      color: colors.text,
+    },
+    filterPanelButton: {
+      marginTop: 3,
+    },
+    eventsListContent: {
+      flex: 1,
+    },
+    eventListItem: {
+      paddingHorizontal: 15,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    eventListItemSelected: {
+      backgroundColor: colors.transparentHighlight,
+      borderLeftWidth: 4,
+      borderLeftColor: colors.highlight,
+      paddingLeft: 11,
+    },
+    eventListItemName: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: colors.text,
+      marginBottom: 4,
+    },
+    eventListItemNameSelected: {
+      color: colors.textSecondary,
+    },
+    eventListItemTime: {
+      fontSize: 12,
+      color: colors.searchWord,
+    },
+    toggleListButton: {
+      position: "absolute",
+      left: 10,
+      top: 20,
+      width: 40,
+      height: 40,
+    },
+    toggleListButtonText: {
+      fontSize: 20,
+      color: colors.textSecondary,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    emptyState: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingHorizontal: 15,
+      paddingVertical: 10,
+    },
+    emptyStateText: {
+      fontSize: 14,
+      color: colors.searchWord,
+      textAlign: "center",
+    },
+    filterContainer: {
+      backgroundColor: colors.background,
+      padding: 15,
+      flex: 1,
+    },
+    filterLabel: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: colors.text,
+      marginBottom: 8,
+      marginTop: 15,
+    },
+    filterInput: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      padding: 10,
+      color: colors.text,
+      backgroundColor: colors.background,
+    },
+    timeRangeRow: {
+      flexDirection: "row",
+      gap: 10,
+      alignItems: "center",
+    },
+    timeInput: {
+      flex: 1,
+    },
+    privacyRow: {
+      flexDirection: "row",
+      gap: 10,
+    },
+    privacyButton: {
+      flex: 1,
+      paddingVertical: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      alignItems: "center",
+    },
+    privacyButtonActive: {
+      backgroundColor: colors.highlight,
+      borderColor: colors.highlight,
+    },
+    privacyButtonText: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: "500",
+    },
+    privacyButtonTextActive: {
+      color: colors.text,
+    },
+    clearFiltersBtn: {
+      marginTop: 30,
+    },
+  });

@@ -25,7 +25,7 @@ const parseEventDateTime = (event: Event): Date | null => {
     return new Date(year, month - 1, day, hours, minutes, 0, 0);
 };
 
-const formatCreatedAt = (createdAt?: string): string => {
+export const formatCreatedAt = (createdAt?: string): string => {
     if (!createdAt) return "brak daty dodania";
 
     const date = new Date(createdAt);

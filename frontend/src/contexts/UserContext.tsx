@@ -19,7 +19,7 @@ export interface UserProfile {
   course?: string;
   year?: number;
   academic_clubs?: string[];
-  joinedDate?: string;
+  created_at?: string;
 }
 
 interface UserContextType {
@@ -43,7 +43,7 @@ const mapProfile = (profileData: any): UserProfile => ({
   course: profileData.course,
   year: profileData.year,
   academic_clubs: profileData.academic_clubs,
-  joinedDate: "Marzec 2024", // TODO: Backend musi zwrócić created_at
+  created_at: profileData.created_at || "", 
 });
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
