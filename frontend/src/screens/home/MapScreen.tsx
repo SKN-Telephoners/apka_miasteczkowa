@@ -191,11 +191,11 @@ export default function MapScreen() {
   }, [route.params?.focusEvent, navigation, focusEventOnMap]);
 
   const handleEventSelect = (event: Event) => {
-    focusEventOnMap(event.id, event.location);
+    focusEventOnMap(event.event_id, event.location);
   };
 
   const openEventDetails = (event: Event) => {
-    setSelectedEventId(event.id);
+    setSelectedEventId(event.event_id);
     navigation.navigate("EventDetails", { event });
   };
 
@@ -237,12 +237,13 @@ export default function MapScreen() {
             const coordinates = JSON.parse(event.location) as [number, number];
             return {
               type: "Feature" as const,
+              id: event.event_id, // Root ID
               geometry: {
                 type: "Point" as const,
                 coordinates,
               },
               properties: {
-                id: event.id,
+                eventId: String(event.event_id), // Custom property name as a String
                 name: event.name,
               },
             };
@@ -260,7 +261,6 @@ export default function MapScreen() {
   const handleShapePress = (event: any) => {
     const feature =
       event?.features?.[0] ?? event?.nativeEvent?.payload?.features?.[0];
-
     if (!feature) {
       return;
     }
@@ -284,13 +284,13 @@ export default function MapScreen() {
       }));
       return;
     }
+    const eventId = feature.properties?.eventId ?? feature.id;
 
-    const eventId = feature?.properties?.id;
     if (!eventId) {
       return;
     }
 
-    const clickedEvent = filteredEvents.find((item) => item.id === eventId);
+    const clickedEvent = filteredEvents.find((item) => item.event_id === eventId);
     if (clickedEvent) {
       openEventDetails(clickedEvent);
     }
@@ -328,7 +328,7 @@ export default function MapScreen() {
             maxZoomLevel={23}
           />
           <ShapeSource
-            id="events"
+            id={`events-source-${events.length}`}
             shape={eventsGeoJSON}
             onPress={handleShapePress}
             cluster={true}
@@ -374,7 +374,7 @@ export default function MapScreen() {
                 circleRadius: selectedEventId
                   ? [
                       "case",
-                      ["==", ["get", "id"], selectedEventId],
+                      ["==", ["get", "eventId"], selectedEventId],
                       13, // when selected
                       10, // default
                     ]
@@ -505,10 +505,10 @@ export default function MapScreen() {
                 ) : (
                   filteredEvents.map((event) => (
                     <TouchableOpacity
-                      key={event.id}
+                      key={event.event_id}
                       style={[
                         styles.eventListItem,
-                        selectedEventId === event.id &&
+                        selectedEventId === event.event_id &&
                           styles.eventListItemSelected,
                       ]}
                       onPress={() => handleEventSelect(event)}
@@ -516,7 +516,7 @@ export default function MapScreen() {
                       <Text
                         style={[
                           styles.eventListItemName,
-                          selectedEventId === event.id &&
+                          selectedEventId === event.event_id &&
                             styles.eventListItemNameSelected,
                         ]}
                       >

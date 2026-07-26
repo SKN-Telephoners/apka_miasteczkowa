@@ -42,7 +42,7 @@ export const DEFAULT_EVENT_FILTERS: EventFilterState = {
 };
 
 export type Event = {
-    id: string;
+    event_id: string;
     name: string;
     description: string;
     date: string;

@@ -289,7 +289,7 @@ const UserScreen = () => {
             {userCreatedEvents.length > 0 ? (
               userCreatedEvents.map((event) => (
                 <TouchableOpacity
-                  key={event.id || (event as any).event_id}
+                  key={event.event_id || (event as any).event_id}
                   style={[styles.listItem, { borderColor: colors.border }]}
                   activeOpacity={0.8}
                   onPress={() => navigation.navigate("MyEventPreview", { event, screenTitle: "Moje wydarzenie", allowEdit: true })}
@@ -309,7 +309,7 @@ const UserScreen = () => {
             {userJoinedEvents.length > 0 ? (
               userJoinedEvents.map((event) => (
                 <TouchableOpacity
-                  key={event.id || (event as any).event_id}
+                  key={event.event_id || (event as any).event_id}
                   style={[styles.listItem, { borderColor: colors.border }]}
                   activeOpacity={0.8}
                   onPress={() => navigation.navigate("MyEventPreview", { event, screenTitle: "Zapisane wydarzenie", allowEdit: false })}

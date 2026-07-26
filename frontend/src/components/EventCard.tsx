@@ -167,7 +167,7 @@ const EventCard = ({
     };
 
     const joinEventMutation = useMutation({
-        mutationFn: () => (isParticipating ? leaveEvent(item.id) : joinEvent(item.id)),
+        mutationFn: () => (isParticipating ? leaveEvent(item.event_id) : joinEvent(item.event_id)),
         onMutate: () => {
             const wasParticipating = isParticipating;
             setIsParticipating(!wasParticipating);
@@ -208,7 +208,7 @@ const EventCard = ({
             }
             navigation.navigate("Mapa", {
                 focusEvent: {
-                    id: item.id,
+                    id: item.event_id,
                     location: item.location,
                 },
             });
@@ -218,7 +218,7 @@ const EventCard = ({
     };
 
     return (
-        <View key={item.id} style={[styles.container, isPastEvent && styles.pastContainer]}>
+        <View key={item.event_id} style={[styles.container, isPastEvent && styles.pastContainer]}>
             <View>
                 <View style={styles.eventHeaderRow}>
                     <Text style={[styles.title, styles.eventTitle, isPastEvent && styles.pastTextColor]}>{item.name}</Text>
