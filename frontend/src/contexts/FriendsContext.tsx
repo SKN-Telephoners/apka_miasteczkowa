@@ -14,7 +14,8 @@ interface FriendsContextType {
   acceptRequest: (requestId: string) => Promise<void>;
   declineRequest: (requestId: string) => Promise<void>;
   removeFriend: (friendId: string) => Promise<void>;
-  searchUsers: (query: string) => Promise<User[]>; // Akcja zwracająca wynik
+  cancelRequest: (friendId: string) => Promise<void>;
+  searchUsers: (query: string) => Promise<User[]>;
 }
 
 const FriendsContext = createContext<FriendsContextType | undefined>(undefined);
@@ -88,6 +89,11 @@ export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({
     onSettled: invalidateFriendsData,
   });
 
+  const cancelRequestMutation = useMutation({
+    mutationFn: friendsService.cancelRequest,
+    onSettled: invalidateFriendsData,
+  });
+
   const sendFriendRequest = useCallback(
     async (userId: string) => {
       await sendFriendRequestMutation.mutateAsync(userId);
@@ -116,6 +122,13 @@ export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({
     [removeFriendMutation],
   );
 
+  const cancelRequest = useCallback(
+    async (friendId: string) => {
+      await cancelRequestMutation.mutateAsync(friendId);
+    },
+    [cancelRequestMutation],
+  );
+
   const searchUsers = useCallback(async (query: string): Promise<User[]> => {
     try {
       return await friendsService.searchUsers(query);
@@ -137,6 +150,7 @@ export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({
       acceptRequest,
       declineRequest,
       removeFriend,
+      cancelRequest,
       searchUsers,
     }),
     [
@@ -150,6 +164,7 @@ export const FriendsProvider: React.FC<{ children: React.ReactNode }> = ({
       acceptRequest,
       declineRequest,
       removeFriend,
+      cancelRequest,
       searchUsers,
     ],
   );

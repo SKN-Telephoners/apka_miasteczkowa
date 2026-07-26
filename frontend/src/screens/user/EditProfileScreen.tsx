@@ -23,7 +23,6 @@ const EditProfileScreen = () => {
 
     const styles = useMemo(() => getStyles(colors), [colors]);
 
-    // Lokalne stany dla formularza
     const [username, setUsername] = useState(user?.username || "");
     const [email, setEmail] = useState(user?.email || "");
     const [description, setDescription] = useState(user?.description || "");
@@ -301,7 +300,7 @@ const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
     },
     bioInput: {
         height: 100,
-        textAlignVertical: 'top', // Wyrównanie do góry na Androidzie
+        textAlignVertical: 'top',
     },
     hint: {
         ...THEME.typography.text,

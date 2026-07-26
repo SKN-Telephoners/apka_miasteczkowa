@@ -25,7 +25,6 @@ const UserScreen = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
 
-  // Przechwytywanie trybu
   const visitedUser = route.params?.visitedUser;
   const visitedUserId = visitedUser?.user_id || visitedUser?.id;
   const hasVisitedUser = Boolean(visitedUserId);
@@ -68,7 +67,6 @@ const UserScreen = () => {
 
   const styles = useMemo(() => getStyles(colors), [colors]);
 
-  // Refresh friends list when this screen comes into focus
   useFocusEffect(
     useCallback(() => {
       fetchFriends();
@@ -78,7 +76,7 @@ const UserScreen = () => {
   useEffect(() => {
     const loadUserData = async () => {
       const targetId = isOwner ? (currentUser?.id || currentUser?.user_id) : (visitedUser?.user_id || visitedUser?.id);
-      
+
       if (!targetId) {
         if (!isOwner) {
           setVisitedProfileData(visitedUser);
@@ -119,7 +117,6 @@ const UserScreen = () => {
     loadUserData();
   }, [isOwner, visitedUser?.id, visitedUser?.user_id, currentUser?.id, currentUser?.user_id]);
 
-  // Check if visitedUser is already a friend (runs whenever friends list updates)
   useEffect(() => {
     if (!isOwner && visitedUser) {
       const userIsFriend = friends.some(
@@ -168,6 +165,17 @@ const UserScreen = () => {
     try {
       if (profileData?.id || profileData?.user_id) {
         await sendFriendRequest(profileData.id || profileData.user_id);
+      }
+    } catch (err: any) {
+      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
+    }
+  }
+
+  const handleCancelRequest = async () => {
+    try {
+      if (profileData?.id || profileData?.user_id) {
+        await cancelRequest(profileData.id || profileData.user_id);
+        ToastAndroid.show("Zaproszenie anulowane.", ToastAndroid.SHORT);
       }
     } catch (err: any) {
       ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
@@ -240,12 +248,17 @@ const UserScreen = () => {
           onPress={handleRemoveFriend}
           style={[styles.editButton, { backgroundColor: colors.icon }]}
         />
+      ) : hasSentRequest ? (
+        <Button
+          title="Anuluj zaproszenie"
+          onPress={handleCancelRequest}
+          style={[styles.editButton, { backgroundColor: THEME.colors.lightGray }]}
+        />
       ) : (
         <Button
-          title={hasSentRequest ? "Wysłano zaproszenie" : "Wyślij zaproszenie"}
-          onPress={hasSentRequest ? undefined : handleSendRequest}
-          style={[styles.editButton, hasSentRequest && { backgroundColor: THEME.colors.lightGray }]}
-          disabled={hasSentRequest}
+          title="Wyślij zaproszenie"
+          onPress={handleSendRequest}
+          style={styles.editButton}
         />
       )}
 
