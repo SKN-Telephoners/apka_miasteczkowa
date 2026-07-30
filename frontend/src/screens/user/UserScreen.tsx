@@ -16,6 +16,7 @@ import { getUserCreatedEvents, getUserParticipatingEvents } from "../../services
 import { Event } from "../../types";
 import InputField from "../../components/InputField";
 import UserCard from "../../components/UserCard";
+import { formatCreatedAt } from "../../components/EventCard"
 
 const UserScreen = () => {
   const { userId } = useAuth();
@@ -55,7 +56,7 @@ const UserScreen = () => {
         return (
           <Text
             key={index}
-            style={{ color: colors.primary, textDecorationLine: "underline" }}
+            style={{ color: colors.text, textDecorationLine: "underline" }}
             onPress={() => Linking.openURL(part).catch(() => ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT))}
           >
             {part}
@@ -202,7 +203,7 @@ const UserScreen = () => {
                 Znajomi: <Text style={styles.statsNumber}>{friends.length}</Text>
               </Text>
               <Text style={styles.statsText}>
-                Dołączył: <Text style={styles.statsNumber}>{profileData?.joinedDate || "Nieznana"}</Text>
+                Dołączył: <Text style={styles.statsNumber}>{formatCreatedAt(profileData?.created_at) || ""}</Text>
               </Text>
             </>
           )}
@@ -244,7 +245,7 @@ const UserScreen = () => {
         <Button
           title={hasSentRequest ? "Wysłano zaproszenie" : "Wyślij zaproszenie"}
           onPress={hasSentRequest ? undefined : handleSendRequest}
-          style={[styles.editButton, hasSentRequest && { backgroundColor: THEME.colors.lightGray }]}
+          style={[styles.editButton, hasSentRequest && { backgroundColor: THEME.colors.light.textSecondary }]}
           disabled={hasSentRequest}
         />
       )}
@@ -288,7 +289,7 @@ const UserScreen = () => {
             {userCreatedEvents.length > 0 ? (
               userCreatedEvents.map((event) => (
                 <TouchableOpacity
-                  key={event.id || (event as any).event_id}
+                  key={event.event_id || (event as any).event_id}
                   style={[styles.listItem, { borderColor: colors.border }]}
                   activeOpacity={0.8}
                   onPress={() => navigation.navigate("MyEventPreview", { event, screenTitle: "Moje wydarzenie", allowEdit: true })}
@@ -308,7 +309,7 @@ const UserScreen = () => {
             {userJoinedEvents.length > 0 ? (
               userJoinedEvents.map((event) => (
                 <TouchableOpacity
-                  key={event.id || (event as any).event_id}
+                  key={event.event_id || (event as any).event_id}
                   style={[styles.listItem, { borderColor: colors.border }]}
                   activeOpacity={0.8}
                   onPress={() => navigation.navigate("MyEventPreview", { event, screenTitle: "Zapisane wydarzenie", allowEdit: false })}
