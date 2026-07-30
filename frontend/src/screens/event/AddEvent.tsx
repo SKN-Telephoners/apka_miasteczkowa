@@ -1,9 +1,23 @@
 import React from "react";
-import { View, Text, StyleSheet, SafeAreaView, Image, ScrollView, TouchableOpacity, ActivityIndicator, ToastAndroid } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  Image,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  ToastAndroid,
+} from "react-native";
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
-import { createEvent, inviteToEvent, uploadEventPicture } from "../../services/events";
+import {
+  createEvent,
+  inviteToEvent,
+  uploadEventPicture,
+} from "../../services/events";
 import DatePicker from "../../components/DateTimePicker";
-import Checkbox from 'expo-checkbox';
+import Checkbox from "expo-checkbox";
 import UserCard from "../../components/UserCard";
 import { THEME } from "../../utils/constants";
 import { TextInput } from "react-native";
@@ -28,15 +42,15 @@ interface SelectedLocationParam {
   timestamp: number;
 }
 
-
 const AddEvent = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const selectedLocation = route.params?.selectedLocation as SelectedLocationParam | undefined;
+  const selectedLocation = route.params?.selectedLocation as
+    | SelectedLocationParam
+    | undefined;
   const { colors } = useTheme();
   const { user: currentUser } = useUser();
   const PREVIEW_ICON_SIZE = 22;
-
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -45,14 +59,20 @@ const AddEvent = () => {
   const [time, setTime] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [eventPicture, setEventPicture] = useState<EventPicture | null>(null);
-  const [eventPicturePreviewUri, setEventPicturePreviewUri] = useState<string | null>(null);
+  const [eventPicturePreviewUri, setEventPicturePreviewUri] = useState<
+    string | null
+  >(null);
   const [isPictureUploading, setIsPictureUploading] = useState(false);
   const { friends } = useFriends();
   const [searchQuery, setSearchQuery] = useState("");
-  const [queuedInviteIds, setQueuedInviteIds] = useState<Record<string, boolean>>({});
+  const [queuedInviteIds, setQueuedInviteIds] = useState<
+    Record<string, boolean>
+  >({});
   const DESCRIPTION_LINE_HEIGHT = 20;
   const DESCRIPTION_MIN_HEIGHT = DESCRIPTION_LINE_HEIGHT * 5 + 20;
-  const [descriptionInputHeight, setDescriptionInputHeight] = useState(DESCRIPTION_MIN_HEIGHT);
+  const [descriptionInputHeight, setDescriptionInputHeight] = useState(
+    DESCRIPTION_MIN_HEIGHT,
+  );
 
   useEffect(() => {
     if (selectedLocation?.coordinates?.length === 2) {
@@ -63,7 +83,11 @@ const AddEvent = () => {
   }, [selectedLocation, navigation]);
 
   const previewEvent = useMemo(() => {
-    const resolvedLocation = location || (selectedLocation?.coordinates ? JSON.stringify(selectedLocation.coordinates) : "");
+    const resolvedLocation =
+      location ||
+      (selectedLocation?.coordinates
+        ? JSON.stringify(selectedLocation.coordinates)
+        : "");
     return buildEventPreview({
       title,
       description,
@@ -77,18 +101,36 @@ const AddEvent = () => {
       picture: eventPicture,
       pictureUri: eventPicturePreviewUri,
     });
-  }, [title, description, location, selectedLocation, date, time, isPrivate, currentUser, eventPicture, eventPicturePreviewUri]);
+  }, [
+    title,
+    description,
+    location,
+    selectedLocation,
+    date,
+    time,
+    isPrivate,
+    currentUser,
+    eventPicture,
+    eventPicturePreviewUri,
+  ]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
         <TouchableOpacity
-          onPress={() => navigation.navigate("EventPreview", { event: previewEvent })}
-            style={{ marginRight: 16, width: PREVIEW_ICON_SIZE, height: PREVIEW_ICON_SIZE, overflow: "hidden" }}
+          onPress={() =>
+            navigation.navigate("EventPreview", { event: previewEvent })
+          }
+          style={{
+            marginRight: 16,
+            width: PREVIEW_ICON_SIZE,
+            height: PREVIEW_ICON_SIZE,
+            overflow: "hidden",
+          }}
           activeOpacity={0.8}
-            accessibilityLabel="Podgląd"
+          accessibilityLabel="Podgląd"
         >
-            <AppIcon name="Preview" size={PREVIEW_ICON_SIZE} />
+          <AppIcon name="Preview" size={PREVIEW_ICON_SIZE} />
         </TouchableOpacity>
       ),
     });
@@ -100,25 +142,44 @@ const AddEvent = () => {
 
   const uploadSelectedPicture = async (asset: ImagePicker.ImagePickerAsset) => {
     if (!asset.uri) {
-      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
+      ToastAndroid.show(
+        "Wystąpił problem. Spróbuj ponownie.",
+        ToastAndroid.SHORT,
+      );
       return;
     }
 
     const fileInfo = await FileSystem.getInfoAsync(asset.uri);
     const maxBytes = 15 * 1024 * 1024;
-    if (fileInfo.exists && typeof fileInfo.size === "number" && fileInfo.size > maxBytes) {
-      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
+    if (
+      fileInfo.exists &&
+      typeof fileInfo.size === "number" &&
+      fileInfo.size > maxBytes
+    ) {
+      ToastAndroid.show(
+        "Wystąpił problem. Spróbuj ponownie.",
+        ToastAndroid.SHORT,
+      );
       return;
     }
 
     setEventPicturePreviewUri(asset.uri);
     setIsPictureUploading(true);
     try {
-      const uploadedPicture = await uploadEventPicture(asset.uri, asset.fileName ?? "event-picture.jpg");
-      setEventPicture({ ...uploadedPicture, url: uploadedPicture.url ?? asset.uri });
+      const uploadedPicture = await uploadEventPicture(
+        asset.uri,
+        asset.fileName ?? "event-picture.jpg",
+      );
+      setEventPicture({
+        ...uploadedPicture,
+        url: uploadedPicture.url ?? asset.uri,
+      });
     } catch (error: any) {
       setEventPicturePreviewUri(null);
-      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
+      ToastAndroid.show(
+        "Wystąpił problem. Spróbuj ponownie.",
+        ToastAndroid.SHORT,
+      );
     } finally {
       setIsPictureUploading(false);
     }
@@ -127,8 +188,11 @@ const AddEvent = () => {
   const takePhoto = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
-      
+      ToastAndroid.show(
+        "Wystąpił problem. Spróbuj ponownie.",
+        ToastAndroid.SHORT,
+      );
+
       return;
     }
 
@@ -146,7 +210,10 @@ const AddEvent = () => {
   const pickFromDevice = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
+      ToastAndroid.show(
+        "Wystąpił problem. Spróbuj ponownie.",
+        ToastAndroid.SHORT,
+      );
       return;
     }
 
@@ -164,7 +231,6 @@ const AddEvent = () => {
   const showPictureOptions = () => {
     void pickFromDevice();
   };
-
 
   const validateTitle = (text: string): string | null => {
     if (!text) {
@@ -213,8 +279,8 @@ const AddEvent = () => {
       return "Pole data i czas są wymagane";
     }
 
-    const [day, month, year] = date.split('.').map(Number);
-    const [hours, minutes] = time.split(':').map(Number);
+    const [day, month, year] = date.split(".").map(Number);
+    const [hours, minutes] = time.split(":").map(Number);
 
     if ([day, month, year, hours, minutes].some(Number.isNaN)) {
       return "Nieprawidłowy format daty lub godziny";
@@ -232,7 +298,11 @@ const AddEvent = () => {
 
   const validateInputs = () => {
     const titleValidation = validateTitle(title);
-    const resolvedLocation = location || (selectedLocation?.coordinates ? JSON.stringify(selectedLocation.coordinates) : "");
+    const resolvedLocation =
+      location ||
+      (selectedLocation?.coordinates
+        ? JSON.stringify(selectedLocation.coordinates)
+        : "");
     const locationValidation = validateLocation(resolvedLocation);
     const descriptionValidation = validateDescription(description);
     const dateTimeValidation = validateDateTime(date, time);
@@ -241,7 +311,10 @@ const AddEvent = () => {
     setLocationError(locationValidation || "");
 
     if (dateTimeValidation) {
-      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
+      ToastAndroid.show(
+        "Wystąpił problem. Spróbuj ponownie.",
+        ToastAndroid.SHORT,
+      );
     }
 
     return (
@@ -254,12 +327,18 @@ const AddEvent = () => {
 
   const handleCreateEvent = async () => {
     if (isPictureUploading) {
-      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
+      ToastAndroid.show(
+        "Wystąpił problem. Spróbuj ponownie.",
+        ToastAndroid.SHORT,
+      );
       return;
     }
 
     if (eventPicture && !eventPicture.cloud_id) {
-      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
+      ToastAndroid.show(
+        "Wystąpił problem. Spróbuj ponownie.",
+        ToastAndroid.SHORT,
+      );
       return;
     }
 
@@ -267,18 +346,20 @@ const AddEvent = () => {
       return;
     }
     try {
-      const resolvedLocation = location || (selectedLocation?.coordinates ? JSON.stringify(selectedLocation.coordinates) : "");
-      const createdEvent = await createEvent(
-        {
-          name: title,
-          description: description,
-          date: date,
-          time: time,
-          location: resolvedLocation,
-          is_private: isPrivate,
-          picture: eventPicture,
-        }
-      );
+      const resolvedLocation =
+        location ||
+        (selectedLocation?.coordinates
+          ? JSON.stringify(selectedLocation.coordinates)
+          : "");
+      const createdEvent = await createEvent({
+        name: title,
+        description: description,
+        date: date,
+        time: time,
+        location: resolvedLocation,
+        is_private: isPrivate,
+        picture: eventPicture,
+      });
 
       const selectedInviteIds = Object.entries(queuedInviteIds)
         .filter(([, queued]) => queued)
@@ -286,12 +367,19 @@ const AddEvent = () => {
 
       if (createdEvent?.event_id && selectedInviteIds.length > 0) {
         const inviteResults = await Promise.allSettled(
-          selectedInviteIds.map((friendId) => inviteToEvent(createdEvent.event_id, friendId))
+          selectedInviteIds.map((friendId) =>
+            inviteToEvent(createdEvent.event_id, friendId),
+          ),
         );
 
-        const failedInvites = inviteResults.filter((result) => result.status === "rejected").length;
+        const failedInvites = inviteResults.filter(
+          (result) => result.status === "rejected",
+        ).length;
         if (failedInvites > 0) {
-          ToastAndroid.show("Wydarzenie utworzone, ale część zaproszeń nie została wysłana.", ToastAndroid.SHORT);
+          ToastAndroid.show(
+            "Wydarzenie utworzone, ale część zaproszeń nie została wysłana.",
+            ToastAndroid.SHORT,
+          );
         }
       }
 
@@ -312,12 +400,17 @@ const AddEvent = () => {
       navigation.navigate("EventScreen");
       return;
     } catch (error: any) {
-      ToastAndroid.show("Wystąpił problem. Spróbuj ponownie.", ToastAndroid.SHORT);
+      ToastAndroid.show(
+        "Wystąpił problem. Spróbuj ponownie.",
+        ToastAndroid.SHORT,
+      );
     }
-
   };
 
-  const handleDateTimeSelected = (selectedDate: string, selectedTime: string) => {
+  const handleDateTimeSelected = (
+    selectedDate: string,
+    selectedTime: string,
+  ) => {
     setDate(selectedDate);
     setTime(selectedTime);
   };
@@ -340,7 +433,7 @@ const AddEvent = () => {
     }
 
     return friends.filter((friend) =>
-      (friend.username || "").toLowerCase().includes(normalizedQuery)
+      (friend.username || "").toLowerCase().includes(normalizedQuery),
     );
   }, [friends, searchQuery]);
 
@@ -373,7 +466,9 @@ const AddEvent = () => {
             importantForAutofill="no"
             autoCorrect={false}
           ></TextInput>
-          {titleError ? <Text style={styles.errorText}>{titleError}</Text> : null}
+          {titleError ? (
+            <Text style={styles.errorText}>{titleError}</Text>
+          ) : null}
           <TouchableOpacity
             style={styles.photoPlaceholderButton}
             onPress={showPictureOptions}
@@ -382,24 +477,41 @@ const AddEvent = () => {
           >
             {isPictureUploading ? (
               <View style={styles.photoPlaceholderContent}>
-                <ActivityIndicator size="large" color={colors.transparentHighlight} />
-                <Text style={styles.photoPlaceholderTitle}>Przesyłanie zdjęcia...</Text>
+                <ActivityIndicator
+                  size="large"
+                  color={colors.transparentHighlight}
+                />
+                <Text style={styles.photoPlaceholderTitle}>
+                  Przesyłanie zdjęcia...
+                </Text>
               </View>
-            ) : (eventPicture?.url || eventPicturePreviewUri) ? (
-              <Image source={{ uri: eventPicture?.url ?? eventPicturePreviewUri! }} style={styles.photo} />
+            ) : eventPicture?.url || eventPicturePreviewUri ? (
+              <Image
+                source={{ uri: eventPicture?.url ?? eventPicturePreviewUri! }}
+                style={styles.photo}
+              />
             ) : (
               <>
-                <Image source={require("../../../assets/photo_icon.jpg")} style={styles.photo} />
+                <Image
+                  source={require("../../../assets/photo_icon.jpg")}
+                  style={styles.photo}
+                />
                 <View style={styles.photoOverlay}>
                   <Text style={styles.photoOverlayTitle}>Dodaj zdjęcie</Text>
-                  <Text style={styles.photoOverlaySubtitle}>Zrób zdjęcie lub wybierz z urządzenia</Text>
+                  <Text style={styles.photoOverlaySubtitle}>
+                    Zrób zdjęcie lub wybierz z urządzenia
+                  </Text>
                 </View>
               </>
             )}
           </TouchableOpacity>
           <TextInput
             placeholder="Dodaj tekst... "
-            style={[styles.textInput, styles.descriptionInput, { height: descriptionInputHeight }]}
+            style={[
+              styles.textInput,
+              styles.descriptionInput,
+              { height: descriptionInputHeight },
+            ]}
             numberOfLines={5}
             multiline
             value={description}
@@ -409,30 +521,51 @@ const AddEvent = () => {
             autoCorrect={false}
             onContentSizeChange={(event) => {
               const contentHeight = event.nativeEvent.contentSize.height;
-              setDescriptionInputHeight(Math.max(DESCRIPTION_MIN_HEIGHT, contentHeight));
+              setDescriptionInputHeight(
+                Math.max(DESCRIPTION_MIN_HEIGHT, contentHeight),
+              );
             }}
           ></TextInput>
           <ItemSeparator></ItemSeparator>
-          <CollapsibleSection title="Lokalizacja" initialExpanded={true} style={{ padding: 10 }}>
-            <TouchableOpacity
-              style={styles.mapPlaceholderButton}
-              onPress={() => navigation.navigate("EventMap", { returnTo: "AddEvent", sourceRouteKey: route.key })}
-              activeOpacity={0.85}
-            >
-              <Image source={require("../../../assets/map_selection.jpg")} style={styles.mapPlaceholderImage} />
-              <View style={styles.mapPlaceholderOverlay}>
-                <Text style={styles.mapPlaceholderTitle}>Wybierz lokalizację na mapie</Text>
-                <Text style={styles.mapPlaceholderSubtitle}>
-                  {location ? "Lokalizacja wybrana" : "Dotknij, aby wskazać miejsce"}
-                </Text>
-              </View>
-            </TouchableOpacity>
-            {locationError ? <Text style={styles.errorText}>{locationError}</Text> : null}
-          </CollapsibleSection>
+          <Text style={{ padding: 10, ...THEME.typography.eventTitle }}>
+            Lokalizacja
+          </Text>
+          <TouchableOpacity
+            style={styles.mapPlaceholderButton}
+            onPress={() =>
+              navigation.navigate("EventMap", {
+                returnTo: "AddEvent",
+                sourceRouteKey: route.key,
+              })
+            }
+            activeOpacity={0.85}
+          >
+            <Image
+              source={require("../../../assets/map_selection.jpg")}
+              style={styles.mapPlaceholderImage}
+            />
+            <View style={styles.mapPlaceholderOverlay}>
+              <Text style={styles.mapPlaceholderTitle}>
+                Wybierz lokalizację na mapie
+              </Text>
+              <Text style={styles.mapPlaceholderSubtitle}>
+                {location
+                  ? "Lokalizacja wybrana"
+                  : "Dotknij, aby wskazać miejsce"}
+              </Text>
+            </View>
+          </TouchableOpacity>
+          {locationError ? (
+            <Text style={styles.errorText}>{locationError}</Text>
+          ) : null}
 
           <ItemSeparator></ItemSeparator>
 
-          <CollapsibleSection title="Zaproś znajomych" initialExpanded={true} style={{ padding: 10 }}>
+          <CollapsibleSection
+            title="Zaproś znajomych"
+            initialExpanded={false}
+            style={{ padding: 10 }}
+          >
             <InputField
               placeholder="Szukaj znajomych..."
               value={searchQuery}
@@ -448,11 +581,24 @@ const AddEvent = () => {
                 const isQueued = Boolean(queuedInviteIds[friendId]);
 
                 return (
-                  <View key={friend.id} style={[styles.listItem, styles.friendRow, { borderColor: colors.border }]}> 
+                  <View
+                    key={friend.id}
+                    style={[
+                      styles.listItem,
+                      styles.friendRow,
+                      { borderColor: colors.border },
+                    ]}
+                  >
                     <View style={styles.friendInfo}>
                       <UserCard
                         creatorDisplayName={friend.username}
-                        avatarUri={friend?.profile_picture?.url || friend?.avatarUrl || (typeof friend?.profile_picture === "string" ? friend?.profile_picture : undefined)}
+                        avatarUri={
+                          friend?.profile_picture?.url ||
+                          friend?.avatarUrl ||
+                          (typeof friend?.profile_picture === "string"
+                            ? friend?.profile_picture
+                            : undefined)
+                        }
                         createdAtDisplay=""
                         showCreatedAt={false}
                         showMetaIcon={false}
@@ -473,7 +619,9 @@ const AddEvent = () => {
                 );
               })
             ) : searchQuery.trim().length > 0 ? (
-              <Text style={styles.infoText}>Brak znajomych pasujących do wyszukiwania</Text>
+              <Text style={styles.infoText}>
+                Brak znajomych pasujących do wyszukiwania
+              </Text>
             ) : (
               <Text style={styles.infoText}>Brak znajomych na liście</Text>
             )}
@@ -481,186 +629,201 @@ const AddEvent = () => {
 
           <ItemSeparator></ItemSeparator>
 
-          <CollapsibleSection title="Data i czas" initialExpanded={true} style={{ padding: 10 }}>
-            <DatePicker
-              onDateSelected={handleDateTimeSelected}
-              initialDate={new Date()}
-              initialTime={new Date()}
-            />
-          </CollapsibleSection>
+          <Text style={{ padding: 10, ...THEME.typography.eventTitle }}>
+            Data i czas
+          </Text>
+          <DatePicker
+            onDateSelected={handleDateTimeSelected}
+            initialDate={new Date()}
+            initialTime={new Date()}
+          />
 
           <ItemSeparator></ItemSeparator>
-          <View style={{ flexDirection: "row", marginVertical: 10, padding: 10 }}>
+          <View
+            style={{ flexDirection: "row", marginVertical: 10, padding: 10 }}
+          >
             <Checkbox
               value={isPrivate}
               onValueChange={setIsPrivate}
               color={isPrivate ? colors.transparentHighlight : undefined}
             />
-            <Text style={{ marginLeft: 10, color: colors.text }}>Wydarzenie prywatne</Text>
+            <Text style={{ marginLeft: 10, ...THEME.typography.text }}>
+              Wydarzenie prywatne
+            </Text>
           </View>
 
-          <Button onPress={handleCreateEvent} title={isPictureUploading ? "Przesyłanie zdjęcia..." : "Opublikuj"} disabled={isPictureUploading}>
-          </Button>
-
+          <Button
+            onPress={handleCreateEvent}
+            title={isPictureUploading ? "Przesyłanie zdjęcia..." : "Opublikuj"}
+            disabled={isPictureUploading}
+          ></Button>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 };
 
-const getStyles = (colors: typeof THEME.colors.light) => StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollView: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollContent: {
-    paddingBottom: 24,
-    backgroundColor: colors.background,
-  },
-  container: {
-    paddingLeft: 10,
-    paddingRight: 10,
-    paddingTop: 10,
-    paddingBottom: 10,
-    backgroundColor: colors.background,
-  },
-  titleInput: {
-    paddingBottom: 10,
-    paddingTop: 25,
-    padding: 10,
-    ...THEME.typography.title,
-    fontWeight: "700",
-    color: colors.text,
-  },
+const getStyles = (colors: typeof THEME.colors.light) =>
+  StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    scrollView: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    scrollContent: {
+      paddingBottom: 24,
+      backgroundColor: colors.background,
+    },
+    container: {
+      paddingLeft: 10,
+      paddingRight: 10,
+      paddingTop: 10,
+      paddingBottom: 10,
+      backgroundColor: colors.background,
+    },
+    titleInput: {
+      marginVertical: 10,
+      paddingVertical: 10,
+      marginHorizontal: 10,
+      ...THEME.typography.title,
+      fontWeight: "700",
+      color: colors.text,
+      borderBottomWidth: 1,
+      borderColor: THEME.colors.light.icon
+    },
 
-  infoText: {
-    ...THEME.typography.text,
-    color: colors.icon,
-    fontStyle: "italic",
-    textAlign: "center",
-    padding: THEME.spacing.m,
-  },
-  listItem: {
-    width: "100%",
-    paddingVertical: THEME.spacing.s,
-    borderBottomWidth: 1,
-  },
-  friendRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  friendInfo: {
-    flex: 1,
-  },
-  inviteButton: {
-    width: "auto",
-    marginVertical: 0,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    minHeight: 40,
-  },
-  inviteButtonText: {
-    fontWeight: "700",
-  },
+    infoText: {
+      ...THEME.typography.text,
+      color: colors.icon,
+      fontStyle: "italic",
+      textAlign: "center",
+      padding: THEME.spacing.m,
+    },
+    listItem: {
+      width: "100%",
+      paddingVertical: THEME.spacing.s,
+      borderBottomWidth: 1,
+    },
+    friendRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 10,
+    },
+    friendInfo: {
+      flex: 1,
+    },
+    inviteButton: {
+      width: "auto",
+      marginVertical: 0,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      minHeight: 40,
+    },
+    inviteButtonText: {
+      fontWeight: "700",
+    },
 
-  textInput: {
-    padding: 10,
-    color: colors.text,
-  },
-  descriptionInput: {
-    textAlignVertical: "top",
-  },
-  errorText: {
-    color: colors.aghRed,
-    fontSize: 12,
-    marginTop: 4,
-    marginLeft: 10,
-  },
-  photo: {
-    height: 250,
-    width: "100%",
-    borderRadius: 16,
-  },
-  photoPlaceholderButton: {
-    position: "relative",
-    borderRadius: 16,
-    overflow: "hidden",
-    marginHorizontal: 10,
-    marginVertical: 10,
-  },
-  photoOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.28)",
-    paddingHorizontal: 20,
-  },
-  photoOverlayTitle: {
-    ...THEME.typography.eventTitle,
-    color: "#fff",
-    textAlign: "center",
-  },
-  photoOverlaySubtitle: {
-    ...THEME.typography.text,
-    color: "#fff",
-    marginTop: 6,
-    textAlign: "center",
-  },
-  photoPlaceholderContent: {
-    height: 250,
-    width: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.border,
-    borderRadius: 16,
-  },
-  photoPlaceholderTitle: {
-    ...THEME.typography.text,
-    marginTop: 10,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  mapPlaceholderButton: {
-    borderRadius: 16,
-    overflow: "hidden",
-    marginHorizontal: 10,
-  },
-  mapPlaceholderImage: {
-    width: "100%",
-    height: 160,
-  },
-  mapPlaceholderOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.30)",
-    paddingHorizontal: 18,
-  },
-  mapPlaceholderTitle: {
-    ...THEME.typography.eventTitle,
-    color: "#fff",
-    textAlign: "center",
-  },
-  mapPlaceholderSubtitle: {
-    ...THEME.typography.text,
-    color: "#fff",
-    marginTop: 6,
-    textAlign: "center",
-  }
-});
+    textInput: {
+      padding: 10,
+      marginVertical: 10, 
+      marginHorizontal: 10,
+      ...THEME.typography.text,
+    },
+    descriptionInput: {
+      textAlignVertical: "top",
+      borderWidth: 0.5,
+      borderColor: THEME.colors.light.icon,
+      borderRadius: THEME.borderRadius.xl
+    },
+    errorText: {
+      color: colors.aghRed,
+      fontSize: 12,
+      marginTop: 4,
+      marginLeft: 10,
+    },
+    photo: {
+      height: 250,
+      width: "100%",
+      borderRadius: 16,
+    },
+    photoPlaceholderButton: {
+      position: "relative",
+      borderRadius: 16,
+      overflow: "hidden",
+      marginHorizontal: 10,
+      marginVertical: 10,
+    },
+    photoOverlay: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: "rgba(0, 0, 0, 0.28)",
+      paddingHorizontal: 20,
+    },
+    photoOverlayTitle: {
+      ...THEME.typography.eventTitle,
+      color: "#fff",
+      textAlign: "center",
+    },
+    photoOverlaySubtitle: {
+      ...THEME.typography.text,
+      color: "#fff",
+      marginTop: 6,
+      textAlign: "center",
+    },
+    photoPlaceholderContent: {
+      height: 250,
+      width: "100%",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.border,
+      borderRadius: THEME.borderRadius.xl,
+    },
+    photoPlaceholderTitle: {
+      ...THEME.typography.text,
+      marginTop: 10,
+      fontWeight: "700",
+      color: colors.text,
+    },
+    mapPlaceholderButton: {
+      borderRadius: THEME.borderRadius.xl,
+      overflow: "hidden",
+      marginHorizontal: 10,
+    },
+    mapPlaceholderImage: {
+      width: "100%",
+      height: 160,
+    },
+    mapPlaceholderOverlay: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: "rgba(0, 0, 0, 0.30)",
+      paddingHorizontal: 18,
+    },
+    mapPlaceholderTitle: {
+      ...THEME.typography.eventTitle,
+      color: "#fff",
+      textAlign: "center",
+    },
+    mapPlaceholderSubtitle: {
+      ...THEME.typography.text,
+      color: "#fff",
+      marginTop: 6,
+      textAlign: "center",
+    },
+  });
 
 export default AddEvent;
