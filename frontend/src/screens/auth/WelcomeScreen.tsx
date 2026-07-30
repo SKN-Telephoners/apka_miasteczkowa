@@ -1,61 +1,39 @@
 import { Asset } from "expo-asset";
-import * as SplashScreen from "expo-splash-screen";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { Image, SafeAreaView, StyleSheet, View } from "react-native";
-import Svg, { Text, TSpan } from "react-native-svg";
+import Svg, { Text as SvgText, TSpan } from "react-native-svg";
 import Button from "../../components/Button";
-
 import { useTheme } from "../../contexts/ThemeContext";
-import { MESSAGES, THEME } from "../../utils/constants";
-
-// zapobieganie automatycznemu ukryciu splash screena
-SplashScreen.preventAutoHideAsync();
+import { MESSAGES } from "../../utils/constants";
 
 const WelcomeScreen = ({ navigation }: { navigation: any }) => {
-  const [isReady, setIsReady] = useState(false);
-  const imageAsset = require("../../../assets/logo_light.png");
   const { colors } = useTheme();
+  const imageAsset = require("../../../assets/logo_light.png");
 
   useEffect(() => {
     async function loadResources() {
       try {
-        // cyk do pamięci podręcznej
         await Asset.loadAsync(imageAsset);
       } catch (error) {
-        console.warn(error);
+        console.warn("Asset load error:", error);
       } finally {
-        setIsReady(true);
       }
     }
     loadResources();
   }, []);
 
-  // jak sie załaduje ukrywamy splash screen
-  const onLayoutRootView = useCallback(async () => {
-    if (isReady) {
-      await SplashScreen.hideAsync();
-    }
-  }, [isReady]);
-
-  if (!isReady) {
-    // jak obraz sie nie załadował to splashscreen
-    return null;
-  }
-
   return (
-    <SafeAreaView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      onLayout={onLayoutRootView}
-    >
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <View style={styles.container}>
         <Image
           source={imageAsset}
           style={styles.backgroundImage}
           resizeMode="contain"
         />
+
         <View style={styles.svgContainer}>
           <Svg width="100%" height="100%" viewBox="0 0 350 250">
-            <Text
+            <SvgText
               stroke="white"
               strokeWidth={30}
               strokeLinejoin="round"
@@ -71,9 +49,9 @@ const WelcomeScreen = ({ navigation }: { navigation: any }) => {
               <TSpan x="175" dy="55">
                 Miasteczkowa
               </TSpan>
-            </Text>
+            </SvgText>
 
-            <Text
+            <SvgText
               fill="black"
               fontSize={45}
               fontWeight="bold"
@@ -87,10 +65,10 @@ const WelcomeScreen = ({ navigation }: { navigation: any }) => {
               <TSpan x="175" dy="55">
                 Miasteczkowa
               </TSpan>
-            </Text>
+            </SvgText>
           </Svg>
         </View>
-        <Text>{MESSAGES.WELCOME.QUOTE}</Text>
+
         <View style={styles.buttonContainer}>
           <Button
             type="primary"
