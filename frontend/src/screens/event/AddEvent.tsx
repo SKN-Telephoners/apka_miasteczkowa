@@ -48,7 +48,7 @@ const AddEvent = () => {
   const selectedLocation = route.params?.selectedLocation as
     | SelectedLocationParam
     | undefined;
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { user: currentUser } = useUser();
   const PREVIEW_ICON_SIZE = 22;
 
@@ -493,7 +493,11 @@ const AddEvent = () => {
             ) : (
               <>
                 <Image
-                  source={require("../../../assets/photo_icon.jpg")}
+                  source={
+                    isDark
+                      ? require("../../../assets/photo_icon_dark.jpg")
+                      : require("../../../assets/photo_icon.jpg")
+                  }
                   style={styles.photo}
                 />
                 <View style={styles.photoOverlay}>
@@ -512,6 +516,7 @@ const AddEvent = () => {
               styles.descriptionInput,
               { height: descriptionInputHeight },
             ]}
+            placeholderTextColor={colors.searchWord}
             numberOfLines={5}
             multiline
             value={description}
@@ -647,7 +652,13 @@ const AddEvent = () => {
               onValueChange={setIsPrivate}
               color={isPrivate ? colors.transparentHighlight : undefined}
             />
-            <Text style={{ marginLeft: 10, ...THEME.typography.text }}>
+            <Text
+              style={{
+                marginLeft: 10,
+                ...THEME.typography.text,
+                color: colors.text,
+              }}
+            >
               Wydarzenie prywatne
             </Text>
           </View>
@@ -689,10 +700,9 @@ const getStyles = (colors: typeof THEME.colors.light) =>
       paddingVertical: 10,
       marginHorizontal: 10,
       ...THEME.typography.title,
-      fontWeight: "700",
       color: colors.text,
       borderBottomWidth: 1,
-      borderColor: THEME.colors.light.icon
+      borderColor: THEME.colors.light.icon,
     },
 
     infoText: {
@@ -729,15 +739,16 @@ const getStyles = (colors: typeof THEME.colors.light) =>
 
     textInput: {
       padding: 10,
-      marginVertical: 10, 
+      marginVertical: 10,
       marginHorizontal: 10,
       ...THEME.typography.text,
+      color: colors.text,
     },
     descriptionInput: {
       textAlignVertical: "top",
       borderWidth: 0.5,
       borderColor: THEME.colors.light.icon,
-      borderRadius: THEME.borderRadius.xl
+      borderRadius: THEME.borderRadius.xl,
     },
     errorText: {
       color: colors.aghRed,

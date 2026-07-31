@@ -19,8 +19,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
   initialDate,
   initialTime,
 }) => {
-  Platform.OS === "ios";
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
 
   const [eventDate, setEventDate] = useState(initialDate);
   const [eventTime, setEventTime] = useState(initialTime);
@@ -72,6 +71,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
           is24Hour={true}
           display="default"
           onChange={onEventDateChange}
+          themeVariant={isDark ? 'dark' : 'light'}
         />
       </View>
       <View style={{ marginHorizontal: 10 }}>
@@ -81,6 +81,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
           is24Hour={true}
           display="default"
           onChange={onTimeChange}
+          themeVariant={isDark ? 'dark' : 'light'}
         />
       </View>
     </View>
