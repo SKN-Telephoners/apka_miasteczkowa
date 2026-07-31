@@ -71,7 +71,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
           is24Hour={true}
           display="default"
           onChange={onEventDateChange}
-          themeVariant={isDark ? 'dark' : 'light'}
+          themeVariant={isDark ? "dark" : "light"}
         />
       </View>
       <View style={{ marginHorizontal: 10 }}>
@@ -81,7 +81,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
           is24Hour={true}
           display="default"
           onChange={onTimeChange}
-          themeVariant={isDark ? 'dark' : 'light'}
+          themeVariant={isDark ? "dark" : "light"}
         />
       </View>
     </View>
@@ -89,19 +89,11 @@ const DatePicker: React.FC<DatePickerProps> = ({
     <View style={{ flex: 1, justifyContent: "center", flexDirection: "row" }}>
       <View style={{ marginHorizontal: 10 }}>
         <Button
-          title="Wybierz datę"
+          title={eventDate.toLocaleDateString("pl-PL")}
           onPress={() => setShowDatePicker(true)}
           style={{ width: "auto", marginVertical: 0, paddingHorizontal: 25 }}
-          textStyle={{ color: colors.background }}
+          textStyle={{ color: colors.text }}
         />
-        <Text
-          style={[
-            THEME.typography.text,
-            { color: colors.text, paddingVertical: 10, alignSelf: "center" },
-          ]}
-        >
-          {eventDate.toLocaleDateString("pl-PL")}
-        </Text>
         {showDatePicker && (
           <DateTimePickerNative
             value={eventDate}
@@ -114,24 +106,16 @@ const DatePicker: React.FC<DatePickerProps> = ({
       </View>
       <View style={{ marginHorizontal: 10 }}>
         <Button
-          title="Wybierz godzinę"
-          onPress={() => setShowTimePicker(true)}
-          style={{ width: "auto", marginVertical: 0, paddingHorizontal: 20 }}
-          textStyle={{ color: colors.background }}
-        />
-
-        <Text
-          style={[
-            THEME.typography.text,
-            { color: colors.text, paddingVertical: 10, alignSelf: "center" },
-          ]}
-        >
-          {eventTime.toLocaleTimeString("pl-PL", {
+          title={eventTime.toLocaleTimeString("pl-PL", {
             hour: "2-digit",
             minute: "2-digit",
             hour12: false,
           })}
-        </Text>
+          onPress={() => setShowTimePicker(true)}
+          style={{ width: "auto", marginVertical: 0, paddingHorizontal: 20 }}
+          textStyle={{ color: colors.text }}
+        />
+
         {showTimePicker && (
           <DateTimePickerNative
             value={eventTime}
