@@ -253,7 +253,7 @@ const UserScreen = () => {
         <Button
           title="Anuluj zaproszenie"
           onPress={handleCancelRequest}
-          style={[styles.editButton, { backgroundColor: THEME.colors.lightGray }]}
+          style={[styles.editButton, { backgroundColor: THEME.colors.light.textSecondary }]}
         />
       ) : (
         <Button
