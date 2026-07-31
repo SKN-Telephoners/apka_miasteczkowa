@@ -4,11 +4,7 @@ import {
   getFocusedRouteNameFromRoute,
 } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
-import {
-  ActivityIndicator,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, TouchableOpacity, View } from "react-native";
 import AppIcon from "../components/AppIcon";
 import Avatar from "../components/Avatar";
 import { useAuth } from "../contexts/AuthContext";
@@ -27,6 +23,7 @@ import NotificationsScreen from "../screens/home/NotificationsScreen";
 import UserScreen from "../screens/user/UserScreen";
 import EventStack from "./EventStack";
 import ProfileStack from "./ProfileStack";
+import { Platform } from "react-native";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -43,6 +40,7 @@ const AuthStack = () => {
   );
 };
 
+const HEADER_HEIGHT = Platform.OS === "ios" ? 100 : 50;
 const ICON_SIZE = 30;
 const SearchScreen = require("../screens/user/SearchScreen").default;
 
@@ -64,7 +62,6 @@ const MainTabs = () => {
       initialRouteName="Mapa"
       screenOptions={({ route, navigation }) => ({
         headerStyle: {
-          height: 50,
           elevation: 0,
           shadowOpacity: 0,
           borderBottomWidth: 0,
@@ -83,11 +80,17 @@ const MainTabs = () => {
         tabBarShowLabel: false,
         tabBarActiveTintColor: colors.highlight,
         tabBarInactiveTintColor: colors.icon,
+        //translucent: false,
 
         headerRight: () => {
           if (route.name === "Przewodnik po miasteczku") {
             return (
-              <View style={{ flexDirection: "row" }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                }}
+              >
                 <TouchableOpacity
                   style={{ marginHorizontal: 20 }}
                   onPress={() => navigation.navigate("Search")}
@@ -123,29 +126,40 @@ const MainTabs = () => {
 
           if (route.name === "Mapa") {
             return (
-              <View style={{ flexDirection: "row", gap: 40, marginRight: 20 }} pointerEvents="box-none">
-                <TouchableOpacity onPress={() => ({})}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                }}
+              >
+                <TouchableOpacity
+                  style={{ marginHorizontal: 20 }}
+                  onPress={() => navigation.navigate("Search")}
+                >
                   <AppIcon name="Search" size={28} />
                 </TouchableOpacity>
                 <TouchableOpacity
+                  style={{ marginHorizontal: 20 }}
                   onPress={() => navigation.navigate("Notifications")}
                 >
-                  <AppIcon name="Bell" size={28} focused={hasNotifications} />
-                  {hasNotifications && (
-                    <View
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        right: 0,
-                        width: 10,
-                        height: 10,
-                        borderRadius: 5,
-                        backgroundColor: colors.highlight,
-                        borderWidth: 1,
-                        borderColor: colors.background,
-                      }}
-                    />
-                  )}
+                  <View>
+                    <AppIcon name="Bell" size={28} focused={hasNotifications} />
+                    {hasNotifications && (
+                      <View
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          right: 0,
+                          width: 10,
+                          height: 10,
+                          borderRadius: 5,
+                          backgroundColor: colors.highlight,
+                          borderWidth: 1,
+                          borderColor: colors.background,
+                        }}
+                      />
+                    )}
+                  </View>
                 </TouchableOpacity>
               </View>
             );
@@ -162,7 +176,12 @@ const MainTabs = () => {
           }
 
           return (
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+              }}
+            >
               <TouchableOpacity
                 style={{ marginHorizontal: 20 }}
                 onPress={() =>

@@ -21,8 +21,20 @@ export default {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.skntelephoners.aplikacjamiasteczkowa",
+
+      infoPlist: {
+        ITSAppUsesNonExemptEncryption: false,
+        NSLocationWhenInUseUsageDescription:
+          "This app needs access to your location to show where you are on the map.",
+      },
     },
     android: {
+      permissions: [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+      ],
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#ffffff",
