@@ -58,7 +58,7 @@ const normalizePictures = (
     return normalizedPictures.length > 0 ? normalizedPictures : undefined;
 };
 
-export const uploadEventPicture = async (uri: string, fileName = "event-picture.jpg") : Promise<EventPicture> => {
+export const uploadEventPicture = async (uri: string, fileName = "event-picture.jpg"): Promise<EventPicture> => {
     try {
         const derivedName = fileName || uri.split("/").pop() || "event-picture.jpg";
         const ext = derivedName.split(".").pop()?.toLowerCase();
@@ -176,7 +176,7 @@ export interface EventInviteNotification {
 }
 
 // Create event
-export const createEvent = async(eventData: CreateEventData) : Promise<CreateEventResponse> =>{ // check promise
+export const createEvent = async (eventData: CreateEventData): Promise<CreateEventResponse> => { // check promise
     try {
         const { picture, pictures, ...baseData } = eventData;
         const normalizedPictures = normalizePictures(pictures ?? picture);
@@ -186,9 +186,9 @@ export const createEvent = async(eventData: CreateEventData) : Promise<CreateEve
             ...(normalizedPictures ? { pictures: normalizedPictures } : {}),
         });
         return response.data;
-        }
-        // error handling 
-         catch (err: any) {
+    }
+    // error handling 
+    catch (err: any) {
         const msg = err?.response?.data?.message || err?.message || "Network error";
         throw new Error(msg);
     }
@@ -344,7 +344,7 @@ export const getSentInvitesForEvent = async (eventId: string): Promise<string[]>
 
 export const getIncomingEventInvites = async (): Promise<EventInviteNotification[]> => {
     try {
-        const response = await api.get<{ 
+        const response = await api.get<{
             data?: Array<{
                 notification_id: string;
                 type: string;
@@ -416,8 +416,18 @@ export const editEvent = async (eventId: string, data: EditEventData): Promise<s
             ...(normalizedPictures ? { pictures: normalizedPictures } : hasExplicitPictureField ? { pictures: [] } : {}),
         });
         return response.data.message ?? "Event Edited";
-    } catch (err: any){
+    } catch (err: any) {
         const msg = err?.response?.data?.message || err?.message || "Network error";
         throw new Error(msg);
     }
 }
+
+export const getEventById = async (eventId: string): Promise<Event> => {
+    try {
+        const response = await api.get<{ data: Event }>(`/api/events/get/${eventId}`);
+        return response.data.data;
+    } catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || "Network error";
+        throw new Error(msg);
+    }
+};

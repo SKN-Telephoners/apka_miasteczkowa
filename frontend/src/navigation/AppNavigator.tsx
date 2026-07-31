@@ -9,6 +9,7 @@ import AppIcon from "../components/AppIcon";
 import Avatar from "../components/Avatar";
 import { useAuth } from "../contexts/AuthContext";
 import { useFriends } from "../contexts/FriendsContext";
+import { useNotifications } from "../contexts/NotificationsContext";
 import { useTheme } from "../contexts/ThemeContext";
 import { useUser } from "../contexts/UserContext";
 import LoginScreen from "../screens/auth/LoginScreen";
@@ -53,8 +54,8 @@ const ROUTE_ICON_MAP: Record<string, string> = {
 const MainTabs = () => {
   const { colors } = useTheme();
   const { user } = useUser();
-  const { incomingRequests } = useFriends();
-  const hasNotifications = incomingRequests.length > 0;
+  const { unreadCount } = useNotifications();
+  const hasNotifications = (unreadCount ?? 0) > 0;
 
   return (
     <Tab.Navigator

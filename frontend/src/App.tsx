@@ -3,6 +3,7 @@ import { StatusBar } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./contexts/AuthContext";
+import { NotificationsProvider } from "./contexts/NotificationsContext";
 import { UserProvider } from "./contexts/UserContext";
 import { FriendsProvider } from "./contexts/FriendsContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -66,12 +67,14 @@ const App = () => {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <AuthProvider>
-            <UserProvider>
-              <FriendsProvider>
-                <StatusBar barStyle="dark-content" />
-                <AppNavigator />
-              </FriendsProvider>
-            </UserProvider>
+            <NotificationsProvider>
+              <UserProvider>
+                <FriendsProvider>
+                  <StatusBar barStyle="dark-content" />
+                  <AppNavigator />
+                </FriendsProvider>
+              </UserProvider>
+            </NotificationsProvider>
           </AuthProvider>
         </ThemeProvider>
       </QueryClientProvider>

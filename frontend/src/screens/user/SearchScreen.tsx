@@ -15,7 +15,7 @@ const SearchScreen = () => {
   const navigation = useNavigation<any>();
   const { colors } = useTheme();
   const { userId } = useAuth();
-  const { sendFriendRequest } = useFriends();
+  const { sendFriendRequest, outgoingRequests } = useFriends();
   const queryClient = useQueryClient();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -57,6 +57,7 @@ const SearchScreen = () => {
     const course = item.course || undefined;
     const isFriend = Boolean(item.is_friend);
     const isSelf = item.id === userId || Boolean((item as any).is_self);
+    const hasPendingRequest = outgoingRequests.some(req => String(req.receiverId || req.user?.id) === String(item.id));
 
     return (
       <View style={styles.cardWrap}>
@@ -67,8 +68,8 @@ const SearchScreen = () => {
           yearOfStudy={item.year ?? undefined}
           showCreatedAt={false}
           showMetaIcon={true}
-          showUsernameIcon={!isFriend && !isSelf}
-          onUsernameIconPress={!isFriend && !isSelf ? () => handleSendRequest(item.id) : undefined}
+          showUsernameIcon={!isFriend && !isSelf && !hasPendingRequest}
+          onUsernameIconPress={!isFriend && !isSelf && !hasPendingRequest ? () => handleSendRequest(item.id) : undefined}
           onMetaIconPress={() =>
             navigation.navigate("Main", {
               screen: "Profil",

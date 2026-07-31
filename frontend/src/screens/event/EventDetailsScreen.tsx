@@ -1,17 +1,33 @@
-import React from "react";
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useState, useEffect } from "react";
+import { SafeAreaView, ScrollView, StyleSheet, Text, View, ActivityIndicator } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import EventCard from "../../components/EventCard";
 import { Event } from "../../types";
 import { useTheme } from "../../contexts/ThemeContext";
 import { THEME } from "../../utils/constants";
+import { getEventById } from "../../services/events";
 
 const EventDetailsScreen = () => {
     const { colors } = useTheme();
     const styles = React.useMemo(() => createStyles(colors), [colors]);
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
-    const event = route.params?.event as Event | undefined;
+
+    const [event, setEvent] = useState<Event | undefined>(route.params?.event as Event | undefined);
+    const [isLoading, setIsLoading] = useState(!route.params?.event && !!route.params?.eventId);
+    const eventId = route.params?.eventId;
+
+    useEffect(() => {
+        if (!event && eventId) {
+            getEventById(eventId).then(data => {
+                setEvent(data);
+                setIsLoading(false);
+            }).catch(e => {
+                console.warn(e);
+                setIsLoading(false);
+            });
+        }
+    }, [event, eventId]);
 
     React.useLayoutEffect(() => {
         navigation.setOptions?.({
@@ -21,6 +37,16 @@ const EventDetailsScreen = () => {
             headerTitleStyle: { color: colors.text },
         });
     }, [navigation, colors.background, colors.text, event?.name]);
+
+    if (isLoading) {
+        return (
+            <SafeAreaView style={styles.screen}>
+                <View style={styles.emptyState}>
+                    <ActivityIndicator size="large" color={colors.highlight} />
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     if (!event) {
         return (
