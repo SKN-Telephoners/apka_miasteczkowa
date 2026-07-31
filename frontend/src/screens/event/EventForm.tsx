@@ -15,6 +15,13 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
 import Checkbox from "expo-checkbox";
+import {
+  Camera,
+  CircleLayer,
+  MapView,
+  ShapeSource,
+} from "@maplibre/maplibre-react-native";
+import Constants from "expo-constants";
 
 import {
   createEvent,
@@ -39,12 +46,11 @@ import { THEME } from "../../utils/constants";
 import { EventPicture } from "../../types";
 import { buildEventPreview } from "../../utils/eventPreview";
 
-interface SelectedLocationParam {
-  coordinates: [number, number];
-  lat: number;
-  lng: number;
-  timestamp: number;
-}
+// Stałe zgodne z MapScreen
+const DEFAULT_CAMERA = {
+  centerCoordinate: [19.9061, 50.0686] as [number, number],
+  zoomLevel: 14,
+};
 
 const EventForm = () => {
   const navigation = useNavigation<any>();
@@ -52,6 +58,9 @@ const EventForm = () => {
   const { colors, isDark } = useTheme();
   const { user: currentUser } = useUser();
   const { friends } = useFriends();
+
+  const MAPTILER_KEY = Constants.expoConfig?.extra?.MAPTILER_KEY || "";
+  const mapStyle = `https://api.maptiler.com/maps/streets-v4/style.json?key=${MAPTILER_KEY}`;
 
   const isEdit = route.name === "EditEvent" || !!route.params?.event;
   const editData = route.params?.event;
@@ -104,6 +113,32 @@ const EventForm = () => {
 
   const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
 
+  const parsedCoords = useMemo((): [number, number] | null => {
+    try {
+      const coords: [number, number] = JSON.parse(location);
+      return Array.isArray(coords) && coords.length === 2 ? coords : null;
+    } catch {
+      return null;
+    }
+  }, [location]);
+
+  const locationGeoJSON = useMemo(() => {
+    if (!parsedCoords) return null;
+    return {
+      type: "FeatureCollection" as const,
+      features: [
+        {
+          type: "Feature" as const,
+          geometry: {
+            type: "Point" as const,
+            coordinates: parsedCoords,
+          },
+          properties: {},
+        },
+      ],
+    };
+  }, [parsedCoords]);
+
   useEffect(() => {
     if (isEdit) {
       const eventId = editData?.id || editData?.event_id;
@@ -118,9 +153,7 @@ const EventForm = () => {
   }, [isEdit, editData]);
 
   useEffect(() => {
-    const selected = route.params?.selectedLocation as
-      | SelectedLocationParam
-      | undefined;
+    const selected = route.params?.selectedLocation as any;
     if (selected?.coordinates?.length === 2) {
       setLocation(JSON.stringify(selected.coordinates));
       setLocationError("");
@@ -170,7 +203,7 @@ const EventForm = () => {
         </TouchableOpacity>
       ),
     });
-  }, [navigation, previewEvent, isEdit]);
+  }, [navigation, previewEvent, isEdit, styles]);
 
   const uploadSelectedPicture = async (asset: ImagePicker.ImagePickerAsset) => {
     if (!asset.uri) return;
@@ -391,27 +424,61 @@ const EventForm = () => {
           <ItemSeparator />
 
           <Text style={styles.sectionTitle}>Lokalizacja</Text>
-          <TouchableOpacity
-            style={styles.mapButton}
-            onPress={() =>
-              navigation.navigate("EventMap", {
-                returnTo: "EventForm",
-                sourceRouteKey: route.key,
-              })
-            }
-          >
-            <Image
-              source={require("../../../assets/map_selection.jpg")}
-              style={styles.mapImage}
-            />
-            <View style={styles.mapOverlay}>
-              <Text style={styles.mapOverlayTitle}>
-                {location
-                  ? "Lokalizacja wybrana"
-                  : "Wybierz lokalizację na mapie"}
-              </Text>
-            </View>
-          </TouchableOpacity>
+          <View style={styles.mapWrapper}>
+            <MapView
+              style={styles.mapPreview}
+              mapStyle={mapStyle}
+              logoEnabled={false}
+              attributionEnabled={false}
+              scrollEnabled={false}
+              pitchEnabled={false}
+              rotateEnabled={false}
+              zoomEnabled={false}
+            >
+              <Camera
+                zoomLevel={parsedCoords ? 15 : DEFAULT_CAMERA.zoomLevel}
+                centerCoordinate={
+                  parsedCoords ?? DEFAULT_CAMERA.centerCoordinate
+                }
+                animationMode="flyTo"
+              />
+
+              {locationGeoJSON && (
+                <ShapeSource
+                  id="selectedLocationSource"
+                  shape={locationGeoJSON}
+                >
+                  <CircleLayer
+                    id="selectedLocationCircle"
+                    style={{
+                      circleRadius: 8,
+                      circleColor: colors.highlight,
+                      circleStrokeWidth: 3,
+                      circleStrokeColor: "#fff",
+                    }}
+                  />
+                </ShapeSource>
+              )}
+            </MapView>
+            <TouchableOpacity
+              style={styles.mapOverlay}
+              activeOpacity={0.7}
+              onPress={() =>
+                navigation.navigate("EventMap", {
+                  returnTo: "EventForm",
+                  sourceRouteKey: route.key,
+                })
+              }
+            >
+              {!parsedCoords && (
+                <View style={styles.mapPlaceholderContent}>
+                  <Text style={styles.mapOverlayTitle}>
+                    Wybierz lokalizację na mapie
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
           {!!locationError && (
             <Text style={styles.errorText}>{locationError}</Text>
           )}
@@ -549,18 +616,25 @@ const getStyles = (colors: any, isDark: boolean) =>
       alignItems: "center",
     },
     photoOverlayTitle: { ...THEME.typography.eventTitle, color: "#fff" },
-    mapButton: {
+    mapWrapper: {
       marginHorizontal: 10,
       borderRadius: THEME.borderRadius.xl,
       overflow: "hidden",
-      height: 160,
+      height: 180,
+      position: "relative",
+      backgroundColor: colors.border,
     },
-    mapImage: { width: "100%", height: "100%" },
+    mapPreview: { flex: 1 },
     mapOverlay: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: "rgba(0,0,0,0.3)",
+      backgroundColor: "rgba(0,0,0,0.1)",
       justifyContent: "center",
       alignItems: "center",
+    },
+    mapPlaceholderContent: {
+      backgroundColor: "rgba(0,0,0,0.4)",
+      padding: 10,
+      borderRadius: 8,
     },
     mapOverlayTitle: {
       ...THEME.typography.eventTitle,
