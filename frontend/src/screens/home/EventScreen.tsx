@@ -14,7 +14,6 @@ import { DEFAULT_EVENT_FILTERS, Event, EventFilterState } from "../../types";
 import InputField from "../../components/InputField";
 import { getEvents } from "../../services/events";
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
-import { THEME } from "../../utils/constants";
 import ItemSeparator from "../../components/ItemSeparator"
 import { useInfiniteQuery } from "@tanstack/react-query"
 import AppIcon from "../../components/AppIcon";
@@ -26,8 +25,8 @@ const PAGE_SIZE = 20;
 const mergeUniqueEventsById = (events: Event[]): Event[] => {
     const uniqueEvents = new Map<string, Event>();
     for (const event of events) {
-        if (!event?.id) continue;
-        uniqueEvents.set(event.id, event);
+        if (!event?.event_id) continue;
+        uniqueEvents.set(event.event_id, event);
     }
     return Array.from(uniqueEvents.values());
 };
@@ -182,7 +181,7 @@ const EventScreen = () => {
             <FlatList
                 data={allEvents}
                 renderItem={({ item }) => <EventCard item={item} />}
-                keyExtractor={(item: Event, index) => item.id || `${item.name}-${index}`}
+                keyExtractor={(item: Event, index) => item.event_id || `${item.name}-${index}`}
                 refreshControl={
                     <RefreshControl refreshing={isRefetching && !isFetchingNextPage} onRefresh={handleRefresh} />
                 }

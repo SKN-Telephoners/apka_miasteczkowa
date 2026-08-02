@@ -4,10 +4,16 @@ import {
   MarkerView,
   UserLocation,
 } from "@maplibre/maplibre-react-native";
-import { CommonActions, useNavigation, useRoute } from "@react-navigation/native";
+import {
+  CommonActions,
+  useNavigation,
+  useRoute,
+} from "@react-navigation/native";
 import Constants from "expo-constants";
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useMemo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { THEME } from "../../utils/constants";
+import { useTheme } from "../../contexts/ThemeContext";
 
 interface SelectedLocation {
   coordinates: [number, number];
@@ -26,6 +32,8 @@ export default function EventMap() {
   const route = useRoute<any>();
   const mapRef = useRef<any>(null);
   const cameraRef = useRef<any>(null);
+  const { colors }  = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
 
   const [cameraPosition, setCameraPosition] = useState(DEFAULT_CAMERA);
   const [selectedLocation, setSelectedLocation] =
@@ -55,7 +63,6 @@ export default function EventMap() {
 
       const [lng, lat] = coordinates;
       console.log(lng, lat);
-
     } catch (error) {
       console.error("Error selecting location:", error);
     }
@@ -77,7 +84,9 @@ export default function EventMap() {
     const sourceRouteKey = route.params?.sourceRouteKey as string | undefined;
     if (sourceRouteKey) {
       navigation.dispatch({
-        ...CommonActions.setParams({ selectedLocation: selectedLocationPayload }),
+        ...CommonActions.setParams({
+          selectedLocation: selectedLocationPayload,
+        }),
         source: sourceRouteKey,
       });
       navigation.goBack();
@@ -148,62 +157,63 @@ export default function EventMap() {
 }
 
 // needs unified styles
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  mapContainer: {
-    flex: 1,
-    position: "relative",
-  },
-  map: {
-    flex: 1,
-  },
-  actionButtons: {
-    position: "absolute",
-    bottom: 20,
-    left: 16,
-    right: 16,
-    flexDirection: "row",
-    gap: 12,
-    zIndex: 9,
-  },
-  button: {
-    flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cancelButton: {
-    backgroundColor: "#ffffff",
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-  },
-  cancelButtonText: {
-    color: "#333",
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  confirmButton: {
-    backgroundColor: "#CF6F02",
-  },
-  confirmButtonText: {
-    color: "white",
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  markerContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  markerText: {
-    fontSize: 50,
-  },
-  loadingContainer: {
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 40,
-  },
-});
+const getStyles = (colors: typeof THEME.colors.light) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    mapContainer: {
+      flex: 1,
+      position: "relative",
+    },
+    map: {
+      flex: 1,
+    },
+    actionButtons: {
+      position: "absolute",
+      bottom: 20,
+      left: 16,
+      right: 16,
+      flexDirection: "row",
+      gap: 12,
+      zIndex: 9,
+    },
+    button: {
+      flex: 1,
+      paddingVertical: 14,
+      paddingHorizontal: 20,
+      borderRadius: 8,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    cancelButton: {
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    cancelButtonText: {
+      color: colors.text,
+      fontWeight: "600",
+      fontSize: 14,
+    },
+    confirmButton: {
+      backgroundColor: colors.highlight,
+    },
+    confirmButtonText: {
+      color: colors.text,
+      fontWeight: "600",
+      fontSize: 14,
+    },
+    markerContainer: {
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    markerText: {
+      fontSize: 50,
+    },
+    loadingContainer: {
+      justifyContent: "center",
+      alignItems: "center",
+      paddingVertical: 40,
+    },
+  });

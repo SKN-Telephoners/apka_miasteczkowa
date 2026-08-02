@@ -2,8 +2,7 @@ import { createStackNavigator } from "@react-navigation/stack";
 import React from "react";
 import EventScreen from "../screens/home/EventScreen";
 import EventCommentsScreen from "../screens/event/EventCommentsScreen";
-import AddEvent from "../screens/event/AddEvent";
-import EditEvent from "../screens/event/EditEvent";
+import EventForm from "../screens/event/EventForm";
 import EventMap from "../screens/event/EventMap";
 import EventPreviewScreen from "../screens/event/EventPreviewScreen";
 import EventFilters from "../screens/event/EventFilters";
@@ -26,8 +25,8 @@ const EventStack = () => {
     >
       <Stack.Screen name="EventScreen" component={EventScreen} options={{ headerShown: false }} />
       <Stack.Screen name="EventComments" component={EventCommentsScreen} options={{ title: "Komentarze" }} />
-      <Stack.Screen name="AddEvent" component={AddEvent} options={{ title: "Dodaj wydarzenie" }} />
-      <Stack.Screen name="EditEvent" component={EditEvent} options={{title: "Edytuj wydarzenie"}} />
+      <Stack.Screen name="AddEvent" component={EventForm} options={{ title: "Dodaj wydarzenie" }} />
+      <Stack.Screen name="EditEvent" component={EventForm} options={{title: "Edytuj wydarzenie"}} />
       <Stack.Screen name="EventMap" component={EventMap} options={{ title: "Wybierz lokalizację" }} />
       <Stack.Screen name="EventInviteUsers" component={EventInviteUsersScreen} options={{ title: "Zaproś znajomych" }} />
       <Stack.Screen name="EventPreview" component={EventPreviewScreen} options={{ title: "Podgląd" }} />
