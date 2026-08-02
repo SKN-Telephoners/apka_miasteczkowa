@@ -18,7 +18,7 @@ Action: Checks if a user with the provided email exists and is not yet confirmed
 Data sent to the frontend: {"message": "If the account exists and is not verified, an email has been sent"}
 Output: 200 OK (or 400 on error)
 '''
-@email_bp.route("/verify_request",methods=["POST"])
+@email_bp.route("/verify_request", methods=["POST"])
 def verify_request():
     user_data = request.get_json(silent=True)    
     if not user_data or not "email" in user_data.keys():
@@ -39,14 +39,12 @@ def verify_request():
             add_token_to_db(auth_token)
             auth_url = url_for("email.verify", token=auth_token, _external=True)
 
-            msg = Message(
-                'Auth account',
-                recipients=[email],
-                body=f"Hello! Click the link to authorize your account: {auth_url}"
-            )
-            mail.send(msg)
+            email_body = f"Hello! Click the link to authorize your account: {auth_url}"
+            send_email_async.delay('Auth account', email, email_body)
+            current_app.logger.info(f"INFO: /verify_request, sent verify request mail for user: {user.user_id}")
         except Exception as e:
-            current_app.logger.error(f"ERROR: /verify_request, DB exception occured: {e}")
+            current_app.logger.error(f"ERROR: /verify_request, DB exception occured:")
+            current_app.logger.exception(e, stack_info=True)
 
     current_app.logger.info(f"INFO: /verify_request, sending email for user: {email}")
     return make_api_response(ResponseTypes.SUCCESS, message="If the account exists and is not verified, an email has been sent")
@@ -88,7 +86,8 @@ def verify(token):
         current_app.logger.info(f"INFO: /verify, user: {user_id} successfully verified their account")
         return make_api_response(ResponseTypes.SUCCESS, message="Verification succesful")
     except Exception as e:
-        current_app.logger.error(f"ERROR: /verify, mail auth token exception occured: {e}")
+        current_app.logger.error(f"ERROR: /verify, mail auth token exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.BAD_REQUEST, message="Invalid or expired link")
     
 '''
@@ -133,7 +132,8 @@ def reset_password_request():
             send_email_async.delay('Reset password', email, email_body)
             current_app.logger.info(f"INFO: /reset_password_request, sent password reset mail for user: {user.user_id}")
         except Exception as e:
-            current_app.logger.error(f"ERROR: /reset_password_request, DB exception occured: {e}")
+            current_app.logger.error(f"ERROR: /reset_password_request, failed to add (to DB) reset token for user {user.user_id}:")
+            current_app.logger.exception(e, stack_info=True)
 
     return make_api_response(ResponseTypes.SUCCESS, message="If user with that email is present in the database the mail with password reset will be sent")
 
@@ -162,7 +162,8 @@ def reset_password(token):
         user_id = decoded["sub"]
 
     except Exception as e:
-        current_app.logger.error(f"ERROR: /reset_password, exception occured: {e}")
+        current_app.logger.error(f"ERROR: /reset_password, exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.UNAUTHORIZED)
     
     user = db.session.get(User, user_id)
@@ -188,7 +189,8 @@ def reset_password(token):
         revoke_all_user_tokens(user.user_id, token_type="access")
         revoke_all_user_tokens(user.user_id, token_type="refresh")
     except Exception as e:
-        current_app.logger.error(f"ERROR: /reset_password, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /reset_password, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
 
     current_app.logger.info(f"INFO: /reset_password, password changed for user: {user_id}")
     return make_api_response(ResponseTypes.SUCCESS, message="Password changed successfully")
@@ -226,5 +228,6 @@ def confirm_change(token):
         current_app.logger.info(f"INFO: /confirm_change, user: {user_id} changed their email")
         return make_api_response(ResponseTypes.SUCCESS, message="Email changed succesfully")
     except Exception as e:
-        current_app.logger.error(f"ERROR: /confirm_change, DB exception occured {e}")
+        current_app.logger.error(f"ERROR: /confirm_change, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.BAD_REQUEST, message="Invalid or expired link")

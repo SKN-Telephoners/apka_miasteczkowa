@@ -40,6 +40,7 @@ export default {
         backgroundColor: "#ffffff",
       },
       package: "com.skntelephoners.aplikacjamiasteczkowa",
+      usesCleartextTraffic: false,
     },
     web: {
       favicon: "./assets/favicon.png",

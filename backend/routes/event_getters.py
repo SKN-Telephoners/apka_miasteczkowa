@@ -10,7 +10,6 @@ from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import joinedload, selectinload
-from cloudinary.utils import cloudinary_url
 from sqlalchemy import or_
 import json
 from .event_helpers import serialize_event_payload, get_friend_ids
@@ -72,7 +71,9 @@ def get_event(event_id):
         return make_api_response(ResponseTypes.SUCCESS, data=event_data)
 
     except Exception as e:
-        current_app.logger.error(f"ERROR: /get_event, exception occuregERVER_ERROR")
+        current_app.logger.error(f"ERROR: /get_event, exception occured:")
+        current_app.logger.exception(e, stack_info=True)
+        return make_api_response(ResponseTypes.SERVER_ERROR)
 
 '''
 /api/events/feed?page=1&limit=20&visibility=all&participation=all&created_window=all&sort_mode=default
@@ -248,7 +249,8 @@ def feed():
             }
         })
     except Exception as e:
-        current_app.logger.error(f"ERROR: /feed, exception occured: {e}")
+        current_app.logger.error(f"ERROR: /feed, exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
     
 '''
@@ -261,6 +263,7 @@ Output: 200 OK (or 400/500 on error)
 @jwt_required()
 def get_user_events_creator(user_id):
     u_uuid = validate_uuid(user_id)
+    r2_base_url = current_app.config.get("R2_PUBLIC_URL", "").rstrip('/')
 
     if not u_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid user ID")
@@ -280,7 +283,8 @@ def get_user_events_creator(user_id):
                 "pictures": [
                     {
                         "cloud_id": pic.cloud_id,
-                        "url": cloudinary_url(pic.cloud_id, secure=True)[0]
+                        "url": f"{r2_base_url}/{pic.cloud_id}",
+                        "status": pic.image_status
                     } 
                     for pic in event.pictures
                 ],
@@ -309,6 +313,8 @@ Output: 200 OK (or 400/500 on error)
 def get_user_events_participand(user_id):
     u_uuid = validate_uuid(user_id)
 
+    r2_base_url = current_app.config.get("R2_PUBLIC_URL", "").rstrip('/')
+
     if not u_uuid:
         return make_api_response(ResponseTypes.INVALID_DATA, message="Invalid user ID")
 
@@ -330,7 +336,8 @@ def get_user_events_participand(user_id):
                 "pictures": [
                     {
                         "cloud_id": pic.cloud_id,
-                        "url": cloudinary_url(pic.cloud_id, secure=True)[0]
+                        "url": f"{r2_base_url}/{pic.cloud_id}",
+                        "status": pic.image_status
                     } 
                     for pic in event.pictures
                 ],
@@ -412,5 +419,6 @@ def get_sent_invites(event_id):
         current_app.logger.info(f"INFO: /invites, user {u_uuid} successfully fetched invites for event {e_uuid}")
         return make_api_response(ResponseTypes.SUCCESS, data={"invited_ids": invited_ids})
     except SQLAlchemyError as e:
-        current_app.logger.error(f"ERROR: /invites, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /invites, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)

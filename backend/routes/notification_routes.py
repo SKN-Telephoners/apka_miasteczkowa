@@ -139,7 +139,8 @@ def get_notifications():
             }
         })
     except Exception as e:
-        current_app.logger.error(f"ERROR: /get_notifications, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /get_notifications, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
 
@@ -167,7 +168,8 @@ def read_notification(notification_id):
         current_app.logger.info(f"INFO: /read_notifications, user {user.user_id} successfully read notification {notification_id}")
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"ERROR: /read_notifiaction, DB exception occured: {e}")
+        current_app.logger.error(f"ERROR: /read_notifiaction, DB exception occured:")
+        current_app.logger.exception(e, stack_info=True)
         return make_api_response(ResponseTypes.SERVER_ERROR)
 
     return make_api_response(ResponseTypes.SUCCESS, message="Notification read successfully")

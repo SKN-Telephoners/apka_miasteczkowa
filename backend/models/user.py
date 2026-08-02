@@ -28,6 +28,8 @@ class User(db.Model):
     pending_email = db.Column(db.String(320), nullable=True)
 
     profile_picture = db.Column(db.String(255), nullable=True, default=None)
+    image_status = db.Column(db.String(20), default="pending") 
+    
     blocks_initiated = db.relationship(
         "BlockList",
         foreign_keys="BlockList.user_id",

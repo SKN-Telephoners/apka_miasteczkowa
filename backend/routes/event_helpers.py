@@ -1,7 +1,6 @@
 from flask import current_app
 from backend.constants import Constants
 from backend.helpers import sanitize_input
-from cloudinary.utils import cloudinary_url
 import json
 from zoneinfo import ZoneInfo
 from backend.models import Friendship
@@ -108,6 +107,8 @@ def serialize_event_payload(event, user_id, creator_lookup, participating_event_
     local_dt = event.date_and_time.astimezone(local_tz) if event.date_and_time else None
     creator = creator_lookup.get(str(event.creator_id))
 
+    r2_base_url = current_app.config.get("R2_PUBLIC_URL", "").rstrip('/')
+
     return {
         "id": str(event.event_id),
         "event_id": str(event.event_id),
@@ -120,13 +121,16 @@ def serialize_event_payload(event, user_id, creator_lookup, participating_event_
         "pictures": [
             {
                 "cloud_id": pic.cloud_id,
-                "url": cloudinary_url(pic.cloud_id, secure=True)[0],
+                "url": f"{r2_base_url}/{pic.cloud_id}",
+                "status": pic.image_status 
             }
             for pic in event.pictures
         ],
         "creator_username": creator.display_name if creator else None,
-        "creator_profile_picture_url": cloudinary_url(creator.profile_picture, secure=True)[0] if creator and creator.profile_picture else None,
-        "creator_academy": creator.academy if creator else None,
+        "creator_profile_picture": {
+            "url": f"{r2_base_url}/{creator.profile_picture}" if creator and creator.profile_picture else None,
+            "status": creator.image_status if creator else None
+        } if creator and creator.profile_picture else None,
         "creator_faculty": creator.faculty if creator else None,
         "creator_course": creator.course if creator else None,
         "creator_year": creator.year if creator else None,

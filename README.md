@@ -32,8 +32,34 @@ source apka_miasteczkowa/bin/activate
 ```bash
 pip install -r requirements.txt
 ```
+
+### .env file 
+You need .env file for the app to run. This is the examle of one:
+```bash
+# .env file
+DATABASE_URL = "postgresql://postgres:postgres@localhost/apka_miasteczkowa?sslmode=require"
+TEST_DATABASE_URL = "postgresql://postgres:postgres@localhost/apka_miasteczkowa_test?sslmode=require"
+JWT_SECRET_KEY = <your_jwt_key>
+MAIL_SERVER = <your_mail_server>
+MAIL_PORT = <your_port_for_mail>
+MAIL_USERNAME = <your_mail_name>
+MAIL_PASSWORD = <password_to_mail>
+MAX_CONTENT_LENGTH = 16777216 # 16 MB
+# you need R2 Cloudflare and AWS Rekognition for pictures to work
+CF_R2_ACCESS_KEY_ID_UPLOAD = ... 
+CF_R2_SECRET_ACCESS_KEY_UPLOAD = ...
+CF_R2_ACCESS_KEY_ID_READ = ... 
+CF_R2_SECRET_ACCESS_KEY_READ = ...
+CF_R2_ENDPOINT_URL = ...
+R2_PUBLIC_URL = ...
+AWS_ACCESS_KEY_ID = ...
+AWS_SECRET_ACCESS_KEY = ...
+AWS_REGION = ...
+```
+Your .env file needs to be in root directory.
+
 ### Running the Application
-To run everything locally, you should open four separate WSL terminal windows   
+To run everything locally, you should open four separate WSL terminal window  
 
 **Window 1: Backend**
 ```bash

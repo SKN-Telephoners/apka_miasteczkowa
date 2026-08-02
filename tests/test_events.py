@@ -16,8 +16,6 @@ TINY_JPG = base64.b64decode(
     "AAAAAAAAAAAAAP/aAAgBAQAGPwJ//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPyF//9k="
 )
 
-local_tz = ZoneInfo("Europe/Warsaw")
-
 def get_auth_header(token):
     return {"Authorization": f"Bearer {token}"}
 
@@ -337,7 +335,7 @@ def test_feed_pagination(client, logged_in_user, app):
 # =============================================================================
 # Tests for handling events' pictures lifecycle
 # =============================================================================
-def test_create_event_with_pictures(client, logged_in_user, app):
+def test_create_event_with_pictures(client, logged_in_user, app, mock_aws_and_r2):
     _, user_token = logged_in_user
     future_date = datetime.now() + timedelta(days=30)
     date_str = future_date.strftime("%d.%m.%Y")
@@ -349,7 +347,7 @@ def test_create_event_with_pictures(client, logged_in_user, app):
         "date": date_str,
         "time": time_str,
         "location": "here",
-        "is_private": False, # <--- Add this line!
+        "is_private": False, 
         "pictures": [
             {
                 "cloud_id": "aplikacja_miasteczkowa/fest1"
@@ -385,8 +383,48 @@ def test_create_event_with_pictures(client, logged_in_user, app):
         assert "aplikacja_miasteczkowa/fest1" in cloud_ids
         assert "aplikacja_miasteczkowa/fest2" in cloud_ids
 
-@patch('cloudinary.uploader.destroy')
-def test_edit_event_pictures(mock_destroy, client, logged_in_user, app):
+        assert linked_pictures[0].image_status == "approved"
+        assert linked_pictures[1].image_status == "approved"
+
+
+def test_create_event_with_rejected_picture(client, logged_in_user, app, mock_aws_and_r2):
+    _, user_token = logged_in_user
+    _, mock_rekognition = mock_aws_and_r2
+    
+    mock_rekognition.detect_moderation_labels.return_value = {
+        'ModerationLabels': [{'Name': 'Explicit Nudity', 'Confidence': 99.0}]
+    }
+
+    future_date = datetime.now() + timedelta(days=30)
+    
+    payload = {
+        "name": "Bad Event NOT PIWO",
+        "description": "Złe rzeczy",
+        "date": future_date.strftime("%d.%m.%Y"),
+        "time": "20:00",
+        "location": "here",
+        "is_private": False, 
+        "pictures": [
+            {
+                "cloud_id": "bad_image.jpg"
+            }
+        ]
+    }
+
+    headers = {"Authorization": f"Bearer {user_token}"}
+    response = client.post("/api/events/create", json=payload, headers=headers)
+
+    assert response.status_code == 201
+    event_id = response.get_json()["event_id"]
+
+    with app.app_context():
+        linked_picture = Pictures.query.filter_by(event_id=event_id).first()
+        assert linked_picture is not None
+        assert linked_picture.image_status == "rejected"
+
+
+@patch('backend.routes.event_routes.delete_from_r2_task.delay')
+def test_edit_event_pictures(mock_delete_task, client, logged_in_user, app, mock_aws_and_r2):
     _, user_token = logged_in_user
     future_date = datetime.now() + timedelta(days=30)
     
@@ -428,11 +466,11 @@ def test_edit_event_pictures(mock_destroy, client, logged_in_user, app):
         assert "pic_A" not in cloud_ids
         
         # check if cloudinary was instructed to delete pic_A
-        mock_destroy.assert_called_once_with("pic_A")
+        mock_delete_task.assert_called_once_with("pic_A", image_type="event")
 
 
-@patch('cloudinary.uploader.destroy')
-def test_delete_event_with_pictures(mock_destroy, client, logged_in_user, app):
+@patch('backend.routes.event_routes.delete_from_r2_task.delay')
+def test_delete_event_with_pictures(mock_delete_task, client, logged_in_user, app, mock_aws_and_r2):
     _, user_token = logged_in_user
     future_date = datetime.now() + timedelta(days=30)
     
@@ -457,10 +495,9 @@ def test_delete_event_with_pictures(mock_destroy, client, logged_in_user, app):
     delete_response = client.delete(f"/api/events/delete/{event_id}", headers=headers)
     assert delete_response.status_code == 200
 
-    assert mock_destroy.call_count == 2
-    
-    mock_destroy.assert_any_call("pic_to_delete_1")
-    mock_destroy.assert_any_call("pic_to_delete_2")
+    assert mock_delete_task.call_count == 2
+    mock_delete_task.assert_any_call("pic_to_delete_1", image_type="event")
+    mock_delete_task.assert_any_call("pic_to_delete_2", image_type="event")
 
     with app.app_context():
         event = Event.query.filter_by(event_id=event_id).first()
@@ -470,7 +507,7 @@ def test_delete_event_with_pictures(mock_destroy, client, logged_in_user, app):
         assert len(pictures) == 0
 
 
-def test_feed_returns_pictures(client, logged_in_user, app):
+def test_feed_returns_pictures(client, logged_in_user, app, mock_aws_and_r2):
     _, user_token = logged_in_user
     future_date = datetime.now() + timedelta(days=30)
     
@@ -502,8 +539,11 @@ def test_feed_returns_pictures(client, logged_in_user, app):
     assert len(feed_event["pictures"]) == 1
     assert feed_event["pictures"][0]["cloud_id"] == "feed_pic_1"
     assert "url" in feed_event["pictures"][0]
+    assert "status" in feed_event["pictures"][0]
+    assert feed_event["pictures"][0]["status"] == "approved"
 
-def test_edit_event_pictures_duplicates_in_payload(client, logged_in_user, app):
+
+def test_edit_event_pictures_duplicates_in_payload(client, logged_in_user, app, mock_aws_and_r2):
     user, token = logged_in_user
     
     with app.app_context():
@@ -525,7 +565,7 @@ def test_edit_event_pictures_duplicates_in_payload(client, logged_in_user, app):
         pics = Pictures.query.filter_by(event_id=event_id).all()
         assert len(pics) == 1
 
-def test_edit_event_pictures_limit_logic(client, logged_in_user, app):
+def test_edit_event_pictures_limit_logic(client, logged_in_user, app, mock_aws_and_r2):
     user, token = logged_in_user
     
     with app.app_context():
@@ -720,3 +760,53 @@ def test_get_event_private_shared_success(client, logged_in_user, registered_fri
         assert response.status_code == 200
         data = response.get_json()
         assert data["name"] == "No masz no"
+
+def test_create_event_with_approved_picture(client, logged_in_user, app):
+    with app.app_context():
+        user, token = logged_in_user
+        future_date = datetime.now(timezone.utc) + timedelta(days=2)
+        
+        payload = {
+            "name": "Super Event PIWO",
+            "description": "Opis",
+            "date": future_date.strftime("%d.%m.%Y"),
+            "time": future_date.strftime("%H:%M"),
+            "location": "[19.9,50.0]",
+            "is_private": False,
+            "pictures": [{"cloud_id": "fake_cloud_id_123.jpg"}]
+        }
+
+        response = client.post("/api/events/create", json=payload, headers=get_auth_header(token))
+        
+        assert response.status_code == 201
+        data = response.get_json()
+        assert "event_id" in data
+
+        created_event = Event.query.filter_by(event_name="Super Event PIWO").first()
+        assert created_event is not None
+        assert len(created_event.pictures) == 1
+        assert created_event.pictures[0].image_status == "approved"
+
+def test_edit_event_add_picture(client, logged_in_user, app):
+    with app.app_context():
+        user, token = logged_in_user
+        future_date = datetime.now(timezone.utc) + timedelta(days=2)
+
+        ev = Event(
+            event_name="Edytowalne", location="AGH", 
+            creator_id=user.user_id, date_and_time=future_date
+        )
+        db.session.add(ev)
+        db.session.commit()
+
+        edit_payload = {
+            "pictures": [{"cloud_id": "new_edited_pic.jpg"}]
+        }
+
+        response = client.put(f"/api/events/edit/{ev.event_id}", json=edit_payload, headers=get_auth_header(token))
+        assert response.status_code == 200
+
+        updated_event = db.session.get(Event, ev.event_id)
+        assert len(updated_event.pictures) == 1
+        assert updated_event.pictures[0].cloud_id == "new_edited_pic.jpg"
+        assert updated_event.pictures[0].image_status == "approved"

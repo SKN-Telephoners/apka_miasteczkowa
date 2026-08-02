@@ -1,21 +1,15 @@
 import os
 from datetime import timedelta
 from dotenv import load_dotenv
+from sqlalchemy.pool import NullPool
 
 load_dotenv()
 
 class Config:
-    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL")
+    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL") # DATABASE_URL musi wskazywać (w .env) na port PgBouncera (domyślnie 6432) a nie na port postgresa (5432)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
-        "pool_pre_ping": True,  
-        "pool_size": 10,        
-        "max_overflow": 20,     
-        "pool_recycle": 3600,
-        "pool_timeout": 10,
-        "connect_args": {
-            "options": "-c statement_timeout=5000"
-        } 
+        "poolclass": NullPool,  
     }  
         
     BCRYPT_LOG_ROUNDS = 12
@@ -42,6 +36,23 @@ class Config:
         result_backend=CELERY_RESULT_BACKEND,
         task_ignore_result=True,
     )
+    # Cloudflare R2 (S3 Compatible)
+    CF_R2_ACCESS_KEY_ID_UPLOAD = os.getenv("CF_R2_ACCESS_KEY_ID_UPLOAD")
+    CF_R2_SECRET_ACCESS_KEY_UPLOAD = os.getenv("CF_R2_SECRET_ACCESS_KEY_UPLOAD")
+    CF_R2_ACCESS_KEY_ID_READ = os.getenv("CF_R2_ACCESS_KEY_ID_READ")
+    CF_R2_SECRET_ACCESS_KEY_READ = os.getenv("CF_R2_SECRET_ACCESS_KEY_READ")
+    CF_R2_ENDPOINT_URL = os.getenv("CF_R2_ENDPOINT_URL") 
+
+    BUCKET_EVENTS = "app-event-media"
+    BUCKET_PROFILES = "app-profile-pictures"
+    
+    # Public URL for serving pictures (it is public for EVERYONE)
+    R2_PUBLIC_URL = os.getenv("R2_PUBLIC_URL", "https://pub-918caa77e1cd4d1194db7006a54411c8.r2.dev")
+
+    # AWS (only for Rekognition)
+    AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+    AWS_REGION = os.getenv("AWS_S3_REGION", "eu-central-1")
     
     
 class TestConfig(Config):

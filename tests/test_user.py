@@ -572,63 +572,47 @@ def test_update_profile_add_picture(client, logged_in_user, app):
     assert "url" in pic_data 
 
 
-@patch('cloudinary.uploader.destroy')
-def test_update_profile_replace_picture(mock_destroy, client, logged_in_user, app):
+@patch('backend.routes.user_routes.delete_from_r2_task.delay')
+def test_update_profile_replace_picture(mock_delete_task, client, logged_in_user, app):
     user, token = logged_in_user
     headers = {"Authorization": f"Bearer {token}"}
 
     client.put("/api/users/update_profile", json={"profile_picture": {"cloud_id": "old_pic"}}, headers=headers)
-    
+
     replace_payload = {
         "profile_picture": {"cloud_id": "new_pic"}
     }
     response = client.put("/api/users/update_profile", json=replace_payload, headers=headers)
     assert response.status_code == 200
     
-    mock_destroy.assert_called_once_with("old_pic")
-    
-    with app.app_context():
-        user = User.query.filter_by(user_id=user.user_id).first()
-        assert user.profile_picture == "new_pic"
+    mock_delete_task.assert_called_once_with("old_pic", image_type="profile")
 
 
-@patch('cloudinary.uploader.destroy')
-def test_update_profile_delete_picture(mock_destroy, client, logged_in_user, app):
+@patch('backend.routes.user_routes.delete_from_r2_task.delay')
+def test_update_profile_delete_picture(mock_delete_task, client, logged_in_user, app):
     user, token = logged_in_user
     headers = {"Authorization": f"Bearer {token}"}
 
     client.put("/api/users/update_profile", json={"profile_picture": {"cloud_id": "to_delete_pic"}}, headers=headers)
 
-    delete_payload = {
-        "profile_picture": None
-    }
+    delete_payload = {"profile_picture": None}
     response = client.put("/api/users/update_profile", json=delete_payload, headers=headers)
     assert response.status_code == 200
 
-    mock_destroy.assert_called_once_with("to_delete_pic")
-    
-    with app.app_context():
-        user = User.query.filter_by(user_id=user.user_id).first()
-        assert user.profile_picture == None
+    mock_delete_task.assert_called_once_with("to_delete_pic", image_type="profile")
 
-
-@patch('cloudinary.uploader.destroy')
-def test_delete_account_removes_picture(mock_destroy, client, logged_in_user, app):
+@patch('backend.routes.user_routes.delete_from_r2_task.delay')
+def test_delete_account_removes_picture(mock_delete_task, client, logged_in_user, app):
     user, token = logged_in_user
     headers = {"Authorization": f"Bearer {token}"}
-    
+
     client.put("/api/users/update_profile", json={"profile_picture": {"cloud_id": "account_del_pic"}}, headers=headers)
-    
-    delete_payload = {"password": "Secret123!"} 
-    
+
+    delete_payload = {"password": "Secret123!"}
     response = client.delete("/api/users/settings/delete_account", json=delete_payload, headers=headers)
+    
     assert response.status_code == 200
-    
-    mock_destroy.assert_called_once_with("account_del_pic")
-    
-    with app.app_context():
-        user = User.query.filter_by(user_id=user.user_id).first()
-        assert user.profile_picture == None
+    mock_delete_task.assert_called_once_with("account_del_pic", image_type="profile")
 
 
 def test_get_user_info_friend_count(client, logged_in_user, registered_friend, app):
@@ -748,3 +732,40 @@ def test_get_users_list_invalid_pagination(client, logged_in_user):
 
     assert response.status_code == 200
     assert "Operation successful" in response.get_json()["message"]
+
+def test_update_profile_picture_approved(client, logged_in_user, app, mock_aws_and_r2):
+    with app.app_context():
+        user, token = logged_in_user
+        _, mock_rekognition = mock_aws_and_r2
+
+        payload = {
+            "profile_picture": {"cloud_id": "new_awesome_profile.jpg"}
+        }
+        
+        response = client.put("/api/users/update_profile", json=payload, headers=get_auth_header(token))
+        assert response.status_code == 200
+        
+        updated_user = db.session.get(User, user.user_id)
+        assert updated_user.profile_picture == "new_awesome_profile.jpg"
+        assert updated_user.image_status == "approved"
+
+def test_update_profile_picture_rejected(client, logged_in_user, app, mock_aws_and_r2):
+    """Testuje zmianę zdjęcia profilowego na zawierające niedozwolone treści."""
+    with app.app_context():
+        user, token = logged_in_user
+        _, mock_rekognition = mock_aws_and_r2
+
+        mock_rekognition.detect_moderation_labels.return_value = {
+            'ModerationLabels': [{'Name': 'Explicit Nudity', 'Confidence': 99.0}]
+        }
+        
+        payload = {
+            "profile_picture": {"cloud_id": "bad_profile_picture.jpg"}
+        }
+        
+        response = client.put("/api/users/update_profile", json=payload, headers=get_auth_header(token))
+        assert response.status_code == 200 
+        
+        updated_user = db.session.get(User, user.user_id)
+        assert updated_user.profile_picture == "bad_profile_picture.jpg"
+        assert updated_user.image_status == "rejected"
